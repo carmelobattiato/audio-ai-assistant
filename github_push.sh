@@ -74,14 +74,23 @@ echo "⏳ Sto aggiungendo le modifiche all'indice..."
 git add .
 git commit -m "$COMMIT_MSG" 2>/dev/null || echo "ℹ️ Nessuna modifica da committare. Procedo con il controllo dei push pendenti..."
 
-# 5. Determina il branch corrente
-BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+# 5. Allinea il branch locale al branch di default del remote
+REMOTE_DEFAULT=$(env GIT_TERMINAL_PROMPT=0 git remote show origin 2>/dev/null \
+    | grep 'HEAD branch' | sed 's/.*: //' || true)
+
+LOCAL_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+
+if [ -n "$REMOTE_DEFAULT" ] && [ "$LOCAL_BRANCH" != "$REMOTE_DEFAULT" ]; then
+    echo "🔀 Branch locale '$LOCAL_BRANCH' → rinominato in '$REMOTE_DEFAULT' (default remoto)..."
+    git branch -m "$LOCAL_BRANCH" "$REMOTE_DEFAULT"
+    LOCAL_BRANCH="$REMOTE_DEFAULT"
+fi
+
+BRANCH="${REMOTE_DEFAULT:-$LOCAL_BRANCH}"
 
 # 6. Sincronizzazione
-echo "🚀 Sincronizzazione con GitHub in corso (branch: $BRANCH)..."
+echo "🚀 Push su branch '$BRANCH'..."
 env GIT_TERMINAL_PROMPT=0 git pull origin "$BRANCH" --rebase 2>/dev/null || true
-
-echo "Inviando le modifiche al remoto..."
 
 # Primo tentativo senza prompt interattivo
 env GIT_TERMINAL_PROMPT=0 git push origin "$BRANCH" && {
