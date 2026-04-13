@@ -1,115 +1,181 @@
 #!/bin/bash
 
 # Script generico per caricare modifiche su GitHub.
-# Funziona in qualsiasi progetto: rileva automaticamente il remote origin
-# oppure chiede di configurarlo al primo utilizzo.
+# Salva URL e token in ~/.github_push_config (mai committato).
 
 set -euo pipefail
 
-echo "📦 Verifica e allineamento repository Git..."
+CONFIG_FILE="$HOME/.github_push_config"
 
-# Funzione: chiede il PAT e riscrive l'URL con il token incorporato.
-# I messaggi vanno su stderr, solo l'URL autenticato va su stdout
-# (così la command substitution $(...) cattura solo l'URL).
-request_token() {
-    local url="$1"
+echo "📦 Verifica repository Git..."
+
+# ── Config persistente ─────────────────────────────────────────────────────────
+load_config() {
+    SAVED_REPO_URL=""
+    SAVED_TOKEN=""
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    fi
+}
+
+save_config() {
+    cat > "$CONFIG_FILE" <<EOF
+SAVED_REPO_URL="$1"
+SAVED_TOKEN="$2"
+EOF
+    chmod 600 "$CONFIG_FILE"
+    echo "💾 URL e token salvati in $CONFIG_FILE"
+}
+
+# ── Helpers URL ────────────────────────────────────────────────────────────────
+strip_token() {
+    # Rimuove il token dall'URL: https://TOKEN@github.com/... → https://github.com/...
+    echo "$1" | sed -E 's|https://[^@]+@(github\.com)|\https://\1|'
+}
+
+build_auth_url() {
+    local clean_url="$1"
+    local token="$2"
+    local repo_path
+    repo_path=$(echo "$clean_url" | sed -E 's|https://([^@]+@)?github\.com/||')
+    echo "https://${token}@github.com/${repo_path}"
+}
+
+# ── Richiesta interattiva token ────────────────────────────────────────────────
+ask_token() {
+    local clean_url="$1"
     echo "---------------------------------------------------------" >&2
     echo "🔑 GitHub richiede un Personal Access Token (PAT)." >&2
     echo "   Generalo su: https://github.com/settings/tokens (Permesso: 'repo')" >&2
-    read -s -p "   Incolla il tuo Token PAT: " GITHUB_TOKEN </dev/tty
+    read -s -p "   Incolla il tuo Token PAT: " NEW_TOKEN </dev/tty
     echo "" >&2
-    if [ -z "$GITHUB_TOKEN" ]; then
+    if [ -z "$NEW_TOKEN" ]; then
         echo "❌ Nessun token inserito. Operazione annullata." >&2
         exit 1
     fi
-    local repo_path
-    repo_path=$(echo "$url" | sed -E 's|https://([^@]+@)?github\.com/||')
-    echo "https://${GITHUB_TOKEN}@github.com/${repo_path}"
+    SAVED_TOKEN="$NEW_TOKEN"
+    save_config "$clean_url" "$NEW_TOKEN"
+    build_auth_url "$clean_url" "$NEW_TOKEN"
 }
 
-# 1. Inizializzazione se non esiste la repo locale
+load_config
+
+# ── 1. Init repo locale se non esiste ─────────────────────────────────────────
 if [ ! -d ".git" ]; then
-    echo "⚠️ Repository non inizializzato localmente. Procedo con 'git init'..."
+    echo "⚠️  Repository non inizializzato. Procedo con 'git init'..."
     git init
 
-    read -p "🔗 Inserisci l'URL del repository GitHub (es. https://github.com/user/repo.git): " REPO_URL
-    if [ -z "$REPO_URL" ]; then
-        echo "❌ URL non inserito. Operazione annullata."
-        exit 1
+    CLEAN_URL="$SAVED_REPO_URL"
+    if [ -z "$CLEAN_URL" ]; then
+        read -p "🔗 Inserisci l'URL del repository GitHub (es. https://github.com/user/repo.git): " CLEAN_URL
+        [ -z "$CLEAN_URL" ] && { echo "❌ URL non inserito."; exit 1; }
+    else
+        echo "🔗 URL caricato dalla configurazione: $CLEAN_URL"
     fi
 
-    # Chiedi subito il token così tutti i comandi di rete usano l'URL autenticato
-    REPO_URL=$(request_token "$REPO_URL")
+    if [ -n "$SAVED_TOKEN" ]; then
+        echo "🔑 Token caricato dalla configurazione salvata."
+        AUTH_URL=$(build_auth_url "$CLEAN_URL" "$SAVED_TOKEN")
+        save_config "$CLEAN_URL" "$SAVED_TOKEN"
+    else
+        AUTH_URL=$(ask_token "$CLEAN_URL")
+    fi
 
-    git remote add origin "$REPO_URL"
+    git remote add origin "$AUTH_URL"
     git fetch origin
-    git checkout -b main
-    git reset --mixed origin/main 2>/dev/null || true
+    REMOTE_DEFAULT=$(git remote show origin 2>/dev/null | grep 'HEAD branch' | sed 's/.*: //' || echo "main")
+    git checkout -b "${REMOTE_DEFAULT:-main}"
+    git reset --mixed "origin/${REMOTE_DEFAULT:-main}" 2>/dev/null || true
 fi
 
-# 2. Recupero URL dal remote esistente
+# ── 2. Recupero/validazione remote ────────────────────────────────────────────
 REPO_URL=$(git remote get-url origin 2>/dev/null || true)
 
 if [ -z "$REPO_URL" ]; then
-    read -p "🔗 Nessun remote 'origin' trovato. Inserisci l'URL del repository GitHub: " REPO_URL
-    if [ -z "$REPO_URL" ]; then
-        echo "❌ URL non inserito. Operazione annullata."
-        exit 1
+    CLEAN_URL="$SAVED_REPO_URL"
+    if [ -z "$CLEAN_URL" ]; then
+        read -p "🔗 Nessun remote 'origin'. Inserisci l'URL del repository GitHub: " CLEAN_URL
+        [ -z "$CLEAN_URL" ] && { echo "❌ URL non inserito."; exit 1; }
+    else
+        echo "🔗 URL caricato dalla configurazione: $CLEAN_URL"
     fi
-    REPO_URL=$(request_token "$REPO_URL")
-    git remote add origin "$REPO_URL"
+
+    if [ -n "$SAVED_TOKEN" ]; then
+        echo "🔑 Token caricato dalla configurazione salvata."
+        AUTH_URL=$(build_auth_url "$CLEAN_URL" "$SAVED_TOKEN")
+    else
+        AUTH_URL=$(ask_token "$CLEAN_URL")
+    fi
+
+    git remote add origin "$AUTH_URL"
+    REPO_URL="$AUTH_URL"
 fi
 
-# Estrai il nome utente dall'URL (supporta HTTPS con o senza token)
-GITHUB_USER=$(echo "$REPO_URL" | sed -E 's|https://([^@]+@)?github\.com/([^/]+)/.*|\2|')
-
-# 3. Richiesta messaggio di commit
-read -p "📝 Inserisci il messaggio del commit (premi INVIO per 'Aggiornamento'): " COMMIT_MSG
-if [ -z "$COMMIT_MSG" ]; then
-    COMMIT_MSG="Aggiornamento"
+# Assicura che il token sia nell'URL del remote
+CLEAN_URL=$(strip_token "$REPO_URL")
+if [[ "$REPO_URL" != *"@"* ]]; then
+    # URL senza token: prova a usare quello salvato
+    if [ -n "$SAVED_TOKEN" ]; then
+        echo "🔑 Token caricato dalla configurazione salvata."
+        REPO_URL=$(build_auth_url "$CLEAN_URL" "$SAVED_TOKEN")
+    else
+        REPO_URL=$(ask_token "$CLEAN_URL")
+    fi
+    git remote set-url origin "$REPO_URL"
 fi
 
-# 4. Git add e commit
-echo "⏳ Sto aggiungendo le modifiche all'indice..."
-git add .
-git commit -m "$COMMIT_MSG" 2>/dev/null || echo "ℹ️ Nessuna modifica da committare. Procedo con il controllo dei push pendenti..."
-
-# 5. Allinea il branch locale al branch di default del remote
-REMOTE_DEFAULT=$(env GIT_TERMINAL_PROMPT=0 git remote show origin 2>/dev/null \
-    | grep 'HEAD branch' | sed 's/.*: //' || true)
-
+# ── 3. Allineamento branch ─────────────────────────────────────────────────────
 LOCAL_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+REMOTE_DEFAULT=$(env GIT_TERMINAL_PROMPT=0 git remote show origin 2>/dev/null \
+    | grep 'HEAD branch' | sed 's/.*: //' || echo "main")
 
-if [ -n "$REMOTE_DEFAULT" ] && [ "$LOCAL_BRANCH" != "$REMOTE_DEFAULT" ]; then
-    echo "🔀 Branch locale '$LOCAL_BRANCH' → rinominato in '$REMOTE_DEFAULT' (default remoto)..."
+if [ "$LOCAL_BRANCH" != "$REMOTE_DEFAULT" ]; then
+    echo "🔀 Branch '$LOCAL_BRANCH' → '$REMOTE_DEFAULT'..."
     git branch -m "$LOCAL_BRANCH" "$REMOTE_DEFAULT"
     LOCAL_BRANCH="$REMOTE_DEFAULT"
 fi
 
-BRANCH="${REMOTE_DEFAULT:-$LOCAL_BRANCH}"
+BRANCH="$LOCAL_BRANCH"
 
-# 6. Sincronizzazione
-echo "🚀 Push su branch '$BRANCH'..."
-env GIT_TERMINAL_PROMPT=0 git pull origin "$BRANCH" --rebase 2>/dev/null || true
+# ── 4. Commit ──────────────────────────────────────────────────────────────────
+read -p "📝 Messaggio commit (INVIO = 'Aggiornamento'): " COMMIT_MSG
+COMMIT_MSG="${COMMIT_MSG:-Aggiornamento}"
 
-# Primo tentativo senza prompt interattivo
-env GIT_TERMINAL_PROMPT=0 git push origin "$BRANCH" && {
+echo "⏳ Aggiungo le modifiche..."
+git add .
+git commit -m "$COMMIT_MSG" 2>/dev/null || echo "ℹ️  Nessuna modifica da committare. Controllo push pendenti..."
+
+# ── 5. Pull + rebase ───────────────────────────────────────────────────────────
+echo "🔄 Allineamento con il remote (pull --rebase)..."
+if ! env GIT_TERMINAL_PROMPT=0 git pull origin "$BRANCH" --rebase 2>&1; then
+    echo ""
+    echo "⚠️  Conflitti rilevati durante il rebase. Risolvili manualmente:"
+    echo "    1. Controlla i file in conflitto:  git status"
+    echo "    2. Risolvi i conflitti nei file"
+    echo "    3. Segna come risolti:             git add <file>"
+    echo "    4. Continua il rebase:             git rebase --continue"
+    echo "    5. Poi riesegui:                   ./github_push.sh"
+    exit 1
+fi
+
+# ── 6. Push ────────────────────────────────────────────────────────────────────
+echo "🚀 Push su '$BRANCH'..."
+if env GIT_TERMINAL_PROMPT=0 git push origin "$BRANCH"; then
     echo "---------------------------------------------------------"
     echo "✅ Push completato con successo! Tutto allineato su GitHub."
     exit 0
-}
+fi
 
-# 7. Fallback: richiesta token PAT
-echo "⚠️ Autenticazione richiesta o token scaduto/mancante."
-AUTH_REPO_URL=$(request_token "$REPO_URL")
+# Push fallito → probabile token scaduto
+echo ""
+echo "⚠️  Push fallito. Il token potrebbe essere scaduto o non valido."
+NEW_AUTH_URL=$(ask_token "$CLEAN_URL")
+git remote set-url origin "$NEW_AUTH_URL"
 
-echo "🔄 Aggiorno l'URL del remote con il nuovo token..."
-git remote set-url origin "$AUTH_REPO_URL"
-
-echo "🚀 Riprovo il push..."
-git push origin "$BRANCH" && {
-    echo "✅ Push completato con successo! Token salvato nel remote origin."
-} || {
-    echo "❌ Errore durante il push. Verifica che il Token sia valido e abbia i permessi 'repo'."
+echo "🚀 Riprovo il push con il nuovo token..."
+if env GIT_TERMINAL_PROMPT=0 git push origin "$BRANCH"; then
+    echo "✅ Push completato con successo! Nuovo token salvato."
+else
+    echo "❌ Errore push. Verifica che il token sia valido e abbia il permesso 'repo'."
     exit 1
-}
+fi
