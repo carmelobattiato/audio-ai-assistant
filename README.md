@@ -1,7 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="Audio AI Assistant Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 # Audio AI Assistant — v.1.70
 
 Applicazione web locale per la **registrazione audio**, **trascrizione automatica** tramite Google Gemini e **analisi con LLM**. Pensata per registrare riunioni, interviste e meeting Teams/Zoom, anche in presenza di cuffie.
