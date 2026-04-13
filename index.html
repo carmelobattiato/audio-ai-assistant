@@ -1,0 +1,884 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio AI Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Custom scrollbar for webkit browsers */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #2d3748; /* dark-gray-800 */
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4a5568; /* dark-gray-600 */
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #718096; /* dark-gray-500 */
+      }
+
+      /* Basic styling for native audio element */
+      audio {
+        filter: invert(1) sepia(0.6) saturate(7) hue-rotate(120deg) brightness(0.9);
+        border-radius: 0.375rem; /* rounded-md */
+      }
+      audio::-webkit-media-controls-panel {
+        background-color: #374151; /* bg-gray-700 */
+      }
+      
+      /* Styles for the read-only LLM result display div */
+      .llm-result-display-prose {
+        color: #e5e7eb; /* gray-200 text */
+        background-color: #374151; /* gray-700 background */
+        border: 1px solid #4a5568; /* gray-600 border */
+        border-radius: 0.375rem; /* rounded-md */
+        padding: 0.75rem 1rem; /* py-3 px-4 */
+        min-height: 150px; /* Corresponds to rows={8} approx */
+        overflow-y: auto;
+        line-height: 1.6;
+      }
+      .llm-result-display-prose h1, .llm-result-display-prose h2, .llm-result-display-prose h3, .llm-result-display-prose h4, .llm-result-display-prose h5, .llm-result-display-prose h6 {
+        color: #93c5fd; /* blue-300 */
+        margin-top: 1.2em;
+        margin-bottom: 0.6em;
+      }
+      .llm-result-display-prose p {
+        margin-bottom: 1em;
+      }
+      .llm-result-display-prose ul, .llm-result-display-prose ol {
+        margin-left: 1.5em;
+        margin-bottom: 1em;
+        list-style-position: outside;
+      }
+      .llm-result-display-prose ul {
+        list-style-type: disc;
+      }
+      .llm-result-display-prose ol {
+        list-style-type: decimal;
+      }
+      .llm-result-display-prose ul ul {
+        list-style-type: circle;
+        margin-top: 0.25em;
+        margin-bottom: 0.25em;
+      }
+      .llm-result-display-prose ul ul ul {
+        list-style-type: square;
+      }
+      .llm-result-display-prose strong {
+        font-weight: bold;
+      }
+      .llm-result-display-prose em {
+        font-style: italic;
+      }
+      .llm-result-display-prose u {
+        text-decoration: underline;
+      }
+      .llm-result-display-prose a {
+        color: #60a5fa; /* blue-400 */
+        text-decoration: underline;
+      }
+      .llm-result-display-prose blockquote {
+        border-left: 4px solid #4a5568; /* gray-600 */
+        padding-left: 1em;
+        margin-left: 0;
+        font-style: italic;
+        color: #9ca3af; /* gray-400 */
+      }
+      .llm-result-display-prose pre {
+        background-color: #1f2937; /* gray-800 */
+        color: #d1d5db; /* gray-300 */
+        padding: 1em;
+        border-radius: 0.25rem; /* rounded-sm */
+        overflow-x: auto;
+      }
+      .llm-result-display-prose code {
+        font-family: monospace;
+        background-color: #4a5568; /* gray-600 */
+        padding: 0.2em 0.4em;
+        border-radius: 0.25rem;
+      }
+      
+      /* Table Styles for Reports */
+      .llm-result-display-prose table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1em;
+        margin-bottom: 1.5em;
+        font-size: 0.875rem;
+        background-color: rgba(31, 41, 55, 0.5); /* bg-gray-800/50 */
+      }
+      .llm-result-display-prose th, .llm-result-display-prose td {
+        border: 1px solid #4b5563; /* gray-600 */
+        padding: 0.75rem;
+        text-align: left;
+      }
+      .llm-result-display-prose th {
+        background-color: #4a5568; /* gray-600 */
+        color: #93c5fd; /* blue-300 */
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .llm-result-display-prose tr:nth-child(even) {
+        background-color: rgba(55, 65, 81, 0.3); /* bg-gray-700/30 */
+      }
+
+      /* Styles for Simple Rich Text Editor (used in RichTextEditorModal) */
+      .simple-editor-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background-color: #4a5568; /* gray-600 */
+        border-top-left-radius: 0.375rem;
+        border-top-right-radius: 0.375rem;
+        border: 1px solid #6b7280; /* gray-500 */
+        border-bottom: none;
+      }
+      .simple-editor-toolbar button {
+        background-color: #374151; /* gray-700 */
+        color: #d1d5db; /* gray-300 */
+        border: 1px solid #4b5563; /* gray-600 */
+        padding: 0.375rem; /* Adjusted for icons */
+        border-radius: 0.25rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        display: inline-flex; /* For icon alignment */
+        align-items: center;   /* For icon alignment */
+        justify-content: center; /* For icon alignment */
+        min-width: 32px; /* Ensure a minimum tap target / visual size for icons */
+        min-height: 32px;
+      }
+      .simple-editor-toolbar button:hover {
+        background-color: #4b5563; /* gray-600 */
+        color: #e5e7eb; /* gray-200 */
+      }
+      .simple-editor-toolbar button.active { /* Style for active toolbar buttons */
+        background-color: #2563eb; /* blue-600 */
+        color: #ffffff; /* white */
+        border-color: #1d4ed8; /* blue-700 */
+      }
+      .simple-editor-content { /* Applied to main editor modal */
+        min-height: 150px;
+        padding: 0.75rem;
+        background-color: #374151; /* gray-700 */
+        color: #e5e7eb; /* gray-200 */
+        border: 1px solid #6b7280; /* gray-500 */
+        border-bottom-left-radius: 0.375rem;
+        border-bottom-right-radius: 0.375rem;
+        outline: none; /* Remove focus outline from the div itself */
+        line-height: 1.6;
+        overflow-y: auto;
+      }
+      .simple-editor-content:focus-within {
+         border-color: #3b82f6; /* blue-500 */
+         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+      }
+      .simple-editor-content ul, .simple-editor-content ol {
+        margin-left: 1.5em;
+        list-style-position: inside;
+      }
+      .simple-editor-content ol { list-style-type: decimal; }
+      
+      /* ----- BUBBLE NOTES STYLES ----- */
+      .bubble-notes-container {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+      .new-bubble-input-area {
+        background-color: #2d3748; /* gray-800 */
+        border: 1px solid #4a5568; /* gray-600 */
+        border-radius: 0.75rem; /* more rounded */
+        padding: 0.5rem;
+      }
+       .new-bubble-input-area .simple-editor-toolbar { /* Toolbar for new bubble input */
+         background-color: transparent;
+         border: none;
+         padding-bottom: 0.5rem;
+         border-bottom: 1px solid #4a5568;
+       }
+       .new-bubble-input-area .simple-editor-toolbar button {
+         background-color: #4a5568;
+       }
+       .new-bubble-input-area .simple-editor-toolbar button:hover {
+         background-color: #6b7280;
+       }
+      
+      .live-note-editor-wrapper {
+        position: relative;
+      }
+
+      .simple-editor-content[data-placeholder]:empty:not(:focus)::before {
+        content: attr(data-placeholder);
+        color: #6b7280; /* gray-500 */
+        pointer-events: none;
+        position: absolute;
+        top: 0.75rem; /* Match vertical padding */
+        left: 0.75rem; /* Match horizontal padding */
+      }
+
+      .bubble-input-content-area {
+        min-height: 60px;
+        max-height: 200px;
+        padding: 0.75rem;
+        background-color: transparent;
+        color: #e5e7eb;
+        outline: none;
+        overflow-y: auto;
+      }
+      .bubble-input-content-area:focus { box-shadow: none; }
+      .bubble-input-content-area img {
+        max-width: 150px; /* smaller previews in input */
+        height: auto;
+        border-radius: 0.25rem;
+        margin: 0.25rem;
+        border: 1px solid #4a5568; /* gray-600 */
+        display: inline-block; /* allows text to flow */
+      }
+      
+      .bubble-notes-display {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem; /* Increased gap for circular bubbles */
+        padding-top: 0.5rem;
+        align-items: flex-start;
+      }
+
+      .note-bubble-wrapper {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        cursor: pointer;
+      }
+
+      .note-bubble-container {
+        position: relative;
+        width: 80px;
+        height: 80px;
+      }
+
+      @property --angle {
+        syntax: '<angle>';
+        initial-value: 0deg;
+        inherits: false;
+      }
+
+      @keyframes spin {
+        to { --angle: 360deg; }
+      }
+
+      .note-bubble-container::before {
+        content: '';
+        position: absolute;
+        left: -5px; top: -5px;
+        width: calc(100% + 10px);
+        height: calc(100% + 10px);
+        border-radius: 50%;
+        background: conic-gradient(
+            from var(--angle),
+            transparent 20%,
+            var(--spinner-spark-color-1),
+            var(--spinner-spark-color-2),
+            transparent 80%
+        );
+        opacity: 0;
+        transition: opacity 0.5s;
+        animation: spin 3s linear infinite paused;
+        z-index: 0;
+        --angle: 0deg;
+      }
+
+      .note-bubble-container.newly-created::before {
+        opacity: 1;
+        animation-play-state: running;
+        animation-iteration-count: 2; /* spin twice then fade */
+      }
+      
+      .note-bubble {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background-color: #374151; /* gray-700 */
+        border: 2px solid #4a5568; /* gray-600 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease-in-out;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        opacity: 0;
+        transform: scale(0.9);
+        animation: bubble-fade-in 0.4s ease-out forwards;
+        position: relative; /* To be on top of the pseudo-element */
+        z-index: 1;
+        overflow: hidden;
+        text-align: center;
+      }
+      
+      .note-bubble svg {
+        width: 36px;
+        height: 36px;
+        color: #93c5fd; /* blue-300 */
+        transition: color 0.2s ease-in-out;
+      }
+
+      .note-bubble:hover {
+        transform: scale(1.05);
+        border-color: #60a5fa; /* blue-400 */
+        box-shadow: 0 0 15px rgba(96, 165, 250, 0.5);
+      }
+      
+      .note-bubble.is-active {
+        border-color: #38bdf8; /* light-blue-400 */
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.7);
+      }
+      
+      .note-bubble:hover svg, .note-bubble.is-active svg {
+        color: #ffffff;
+      }
+
+      @keyframes bubble-fade-in {
+        to { opacity: 1; transform: scale(1); }
+      }
+      @keyframes fullscreen-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      .note-bubble-timer {
+        font-family: monospace;
+        font-size: 0.8rem;
+        color: #9ca3af; /* gray-400 */
+        user-select: none;
+      }
+
+      /* Multi-select styles for note bubbles */
+      .note-bubble-wrapper.is-in-select-mode .note-bubble {
+        cursor: pointer;
+      }
+      .note-bubble-wrapper.is-in-select-mode:hover .note-bubble {
+        transform: scale(1.0); /* disable hover scale in select mode */
+      }
+      .note-bubble-container::after { /* Selection ring */
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border: 3px solid #2563eb; /* blue-600 */
+        border-radius: 50%;
+        z-index: 2;
+        opacity: 0;
+        transform: scale(0.9);
+        transition: all 0.2s ease-out;
+      }
+      .note-bubble-wrapper.is-selected .note-bubble-container::after {
+        opacity: 1;
+        transform: scale(1);
+      }
+      .note-selection-overlay {
+        position: absolute;
+        inset: 0;
+        background-color: rgba(37, 99, 235, 0.5); /* bg-blue-600 with opacity */
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 3;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+        transform: scale(0.9);
+      }
+       .note-bubble-wrapper.is-selected .note-selection-overlay {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      /* Preview popup for note bubbles */
+      .note-preview-popup {
+        position: absolute;
+        bottom: 115%; /* Position above the bubble */
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #1f2937; /* gray-800 */
+        border: 1px solid #4a5568; /* gray-600 */
+        border-radius: 0.5rem; /* rounded-lg */
+        padding: 0.5rem 0.75rem;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        z-index: 10;
+        width: max-content;
+        max-width: 250px;
+        pointer-events: none; /* So it doesn't interfere with mouse events on the bubble */
+        opacity: 0;
+        animation: preview-fade-in 0.2s ease-out forwards;
+      }
+
+      .note-preview-popup img {
+        max-width: 150px;
+        max-height: 150px;
+        border-radius: 0.375rem; /* rounded-md */
+        border: 1px solid #4a5568; /* gray-600 */
+        display: block;
+        margin: 0 auto;
+      }
+
+      .note-preview-popup .preview-text {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.75rem;
+        color: #d1d5db; /* gray-300 */
+      }
+      
+      @keyframes preview-fade-in {
+        to { opacity: 1; }
+      }
+
+      /* Styles for the Bubble Note Viewer Modal Content */
+      .bubble-viewer-content .simple-editor-content {
+        min-height: 250px;
+        max-height: 50vh;
+      }
+      .bubble-viewer-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 0.375rem; /* rounded-md */
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid #4a5568;
+      }
+      
+      /* Summary Preview inside Bubble Viewer Modal */
+      .summary-preview-container {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        background-color: #2d3748; /* gray-800 slightly lighter */
+        border: 1px dashed #60a5fa; /* blue-400 */
+        border-radius: 0.5rem;
+        animation: summary-fade-in 0.3s ease-out;
+      }
+      @keyframes summary-fade-in {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .summary-preview-container h4 {
+        font-size: 0.875rem; /* text-sm */
+        font-weight: 600; /* semibold */
+        color: #93c5fd; /* blue-300 */
+        margin-bottom: 0.5rem;
+      }
+      .summary-preview-content {
+        padding: 0.5rem;
+        background-color: #374151; /* gray-700 */
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+      .summary-preview-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+
+      /* ----- END BUBBLE NOTES STYLES ----- */
+
+      /* Styles for Custom Quick Actions Management in LlmProcessor */
+      .custom-quick-actions-manager {
+        background-color: #2d3748; /* Slightly darker than panel bg for contrast: gray-800 (assuming panel is gray-700) */
+      }
+      /* Optgroup-like styling for Select if not natively supported by component */
+      select option[disabled] {
+        font-weight: bold;
+        color: #9ca3af; /* gray-400 */
+        background-color: #374151; /* gray-700, same as other options */
+      }
+
+      /* ======================================================================== */
+      /*                       CUSTOM LOADING GLOW EFFECT                         */
+      /* ======================================================================== */
+      .btn-loading-glow {
+        position: relative;
+        /* Ensure the button itself creates a stacking context */
+        z-index: 0;
+      }
+      .btn-loading-glow::before {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        /* A bit larger than the button to create the border effect */
+        inset: -3px; 
+        /* The button's border-radius (0.5rem for rounded-lg) + the inset value */
+        border-radius: calc(0.5rem + 3px); 
+        background: conic-gradient(
+            from var(--angle),
+            transparent 20%,
+            var(--spinner-spark-color-1),
+            var(--spinner-spark-color-2),
+            transparent 80%
+        );
+        animation: spin 2.5s linear infinite;
+        --angle: 0deg; /* Initialize animation property */
+      }
+
+      /* ======================================================================== */
+      /*                              THEME STYLES                                */
+      /* ======================================================================== */
+
+      /* 
+        We are overriding Tailwind utility classes based on a theme class on the body.
+        This approach centralizes theme logic without needing to change hundreds of
+        class names in the JSX code.
+      */
+      
+      /* ------------------- LIGHT MODE ------------------- */
+
+      body.theme-light { background-color: #f9fafb; color: #111827; }
+      body.theme-light .bg-gray-900 { background-color: #f9fafb; } /* App background */
+      body.theme-light .text-gray-100 { color: #111827; } /* Primary text */
+      
+      /* Panels, Modals, Headers */
+      body.theme-light .bg-gray-800 { background-color: #ffffff; }
+      body.theme-light .border-b.border-gray-700 { border-bottom-color: #e5e7eb; }
+      body.theme-light .border-t.border-gray-700 { border-top-color: #e5e7eb; }
+
+      /* Text Colors */
+      body.theme-light .text-gray-200 { color: #1f2937; }
+      body.theme-light .text-gray-300 { color: #374151; }
+      body.theme-light .text-gray-400 { color: #6b7280; }
+      body.theme-light .text-gray-500 { color: #9ca3af; }
+      
+      /* Accent Colors (Sky, Blue, Emerald) */
+      body.theme-light .text-sky-400 { color: #0369a1; } /* Titles */
+      body.theme-light .text-sky-300 { color: #0ea5e9; } /* Info text */
+      body.theme-light .text-emerald-400 { color: #059669; } /* Login title */
+      body.theme-light .text-emerald-300 { color: #10b981; } /* Settings titles */
+
+      /* Inputs, TextAreas, Selects */
+      body.theme-light .bg-gray-700 { background-color: #f3f4f6; } /* Input backgrounds */
+      body.theme-light .border-gray-600 { border-color: #d1d5db; } /* Input borders */
+      body.theme-light .focus\:ring-blue-500:focus { --tw-ring-color: #3b82f6; }
+      body.theme-light .focus\:border-blue-500:focus { border-color: #3b82f6; }
+      body.theme-light .disabled\:bg-gray-600:disabled { background-color: #e5e7eb; }
+      body.theme-light .disabled\:text-gray-400:disabled { color: #9ca3af; }
+
+      /* Buttons */
+      body.theme-light .bg-blue-600 { background-color: #2563eb; }
+      body.theme-light .hover\:bg-blue-700:hover { background-color: #1d4ed8; }
+      body.theme-light .bg-gray-600 { background-color: #e5e7eb; color: #374151; }
+      body.theme-light .hover\:bg-gray-700:hover { background-color: #d1d5db; }
+      body.theme-light .bg-red-500 { background-color: #dc2626; }
+      body.theme-light .hover\:bg-red-600:hover { background-color: #b91c1c; }
+      body.theme-light .bg-transparent { background-color: transparent; }
+      body.theme-light .hover\:bg-gray-700:hover { background-color: #f3f4f6; }
+      body.theme-light .disabled\:bg-gray-500:disabled { background-color: #d1d5db; color: #9ca3af; }
+
+      /* Rich Text / LLM Display */
+      body.theme-light .llm-result-display-prose { background-color: #f3f4f6; color: #1f2937; border-color: #e5e7eb; }
+      body.theme-light .llm-result-display-prose h1, body.theme-light .llm-result-display-prose h2, body.theme-light .llm-result-display-prose h3 { color: #0369a1; }
+      body.theme-light .llm-result-display-prose a { color: #2563eb; }
+      body.theme-light .llm-result-display-prose blockquote { border-left-color: #d1d5db; color: #6b7280; }
+      body.theme-light .llm-result-display-prose pre { background-color: #e5e7eb; color: #111827; }
+      body.theme-light .llm-result-display-prose code { background-color: #d1d5db; color: #111827; }
+      
+      /* Rich Text Editor */
+      body.theme-light .simple-editor-toolbar { background-color: #e5e7eb; border-color: #d1d5db; }
+      body.theme-light .simple-editor-toolbar button { background-color: #f3f4f6; color: #374151; border-color: #d1d5db; }
+      body.theme-light .simple-editor-toolbar button:hover { background-color: #d1d5db; color: #1f2937; }
+      body.theme-light .simple-editor-content { background-color: #ffffff; color: #111827; border-color: #d1d5db; }
+     
+      /* Bubble Notes Light Theme */
+      body.theme-light .new-bubble-input-area { background-color: #e5e7eb; border-color: #d1d5db; }
+      body.theme-light .new-bubble-input-area .simple-editor-toolbar { border-bottom-color: #d1d5db; }
+      body.theme-light .new-bubble-input-area .simple-editor-toolbar button { background-color: #f3f4f6; }
+      body.theme-light .bubble-input-content-area { color: #1f2937; }
+      body.theme-light .note-bubble { background-color: #ffffff; border-color: #e5e7eb; }
+      body.theme-light .note-bubble svg { color: #0369a1; }
+      body.theme-light .note-bubble:hover { border-color: #0ea5e9; box-shadow: 0 0 15px rgba(14, 165, 233, 0.4); }
+      body.theme-light .note-bubble.is-active { border-color: #0284c7; box-shadow: 0 0 20px rgba(2, 132, 199, 0.6); }
+      body.theme-light .note-bubble:hover svg, body.theme-light .note-bubble.is-active svg { color: #0369a1; }
+      body.theme-light .note-bubble-timer { color: #6b7280; }
+      body.theme-light .note-preview-popup { background-color: #ffffff; border-color: #e5e7eb; }
+      body.theme-light .note-preview-popup img { border-color: #d1d5db; }
+      body.theme-light .note-preview-popup .preview-text { color: #374151; }
+      body.theme-light .summary-preview-container { background-color: #f3f4f6; border-color: #2563eb; }
+      body.theme-light .summary-preview-container h4 { color: #1d4ed8; }
+      body.theme-light .summary-preview-content { background-color: #e5e7eb; }
+
+      
+      /* Scrollbar & Audio Player */
+      body.theme-light ::-webkit-scrollbar-track { background: #e5e7eb; }
+      body.theme-light ::-webkit-scrollbar-thumb { background: #d1d5db; }
+      body.theme-light ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+      body.theme-light audio { filter: none; }
+      
+      /* Loading Spinner - Uses CSS variables now */
+      :root {
+        --spinner-node-color: #93c5fd; /* blue-300 */
+        --spinner-edge-color: #6b7280; /* gray-500 */
+        --spinner-spark-color-1: #60a5fa; /* blue-400 */
+        --spinner-spark-color-2: #38bdf8; /* light-blue-400 */
+      }
+      body.theme-light {
+        --spinner-node-color: #3b82f6; /* blue-500 */
+        --spinner-edge-color: #d1d5db; /* gray-300 */
+        --spinner-spark-color-1: #2563eb; /* blue-600 */
+        --spinner-spark-color-2: #0ea5e9; /* sky-500 */
+      }
+      body.theme-dark-grey {
+        --spinner-node-color: #93c5fd; /* blue-300 */
+        --spinner-edge-color: #64748b; /* slate-500 */
+        --spinner-spark-color-1: #60a5fa; /* blue-400 */
+        --spinner-spark-color-2: #7dd3fc; /* sky-300 */
+      }
+
+
+      /* ------------------- DARK GREY MODE ------------------- */
+      
+      body.theme-dark-grey { background-color: #2d3748; color: #f7fafc; }
+      body.theme-dark-grey .bg-gray-900 { background-color: #2d3748; } /* App background */
+      body.theme-dark-grey .text-gray-100 { color: #f7fafc; } /* Primary text */
+      
+      /* Panels, Modals, Headers */
+      body.theme-dark-grey .bg-gray-800 { background-color: #1e293b; }
+      body.theme-dark-grey .border-b.border-gray-700 { border-bottom-color: #334155; }
+      body.theme-dark-grey .border-t.border-gray-700 { border-top-color: #334155; }
+
+      /* Text Colors */
+      body.theme-dark-grey .text-gray-200 { color: #e2e8f0; }
+      body.theme-dark-grey .text-gray-300 { color: #cbd5e1; }
+      body.theme-dark-grey .text-gray-400 { color: #94a3b8; }
+      body.theme-dark-grey .text-gray-500 { color: #64748b; }
+      
+      /* Accent Colors */
+      body.theme-dark-grey .text-sky-400 { color: #7dd3fc; } /* sky-300 */
+      body.theme-dark-grey .text-sky-300 { color: #bae6fd; } /* sky-200 */
+      body.theme-dark-grey .text-emerald-400 { color: #6ee7b7; } /* emerald-300 */
+      body.theme-dark-grey .text-emerald-300 { color: #a7f3d0; } /* emerald-200 */
+
+      /* Inputs, TextAreas, Selects */
+      body.theme-dark-grey .bg-gray-700 { background-color: #334155; }
+      body.theme-dark-grey .border-gray-600 { border-color: #475569; }
+      body.theme-dark-grey .focus\:ring-blue-500:focus { --tw-ring-color: #60a5fa; }
+      body.theme-dark-grey .focus\:border-blue-500:focus { border-color: #60a5fa; }
+      body.theme-dark-grey .disabled\:bg-gray-600:disabled { background-color: #475569; }
+      body.theme-dark-grey .disabled\:text-gray-400:disabled { color: #94a3b8; }
+
+      /* Buttons */
+      body.theme-dark-grey .bg-blue-600 { background-color: #60a5fa; color: #1e293b; }
+      body.theme-dark-grey .hover\:bg-blue-700:hover { background-color: #93c5fd; }
+      body.theme-dark-grey .bg-gray-600 { background-color: #475569; color: #f1f5f9; }
+      body.theme-dark-grey .hover\:bg-gray-700:hover { background-color: #64748b; }
+      body.theme-dark-grey .bg-red-500 { background-color: #f87171; color: #450a0a; }
+      body.theme-dark-grey .hover\:bg-red-600:hover { background-color: #ef4444; }
+      body.theme-dark-grey .disabled\:bg-gray-500:disabled { background-color: #475569; color: #94a3b8; }
+
+      /* Rich Text / LLM Display */
+      body.theme-dark-grey .llm-result-display-prose { background-color: #334155; color: #cbd5e1; border-color: #475569; }
+      body.theme-dark-grey .llm-result-display-prose h1, body.theme-dark-grey .llm-result-display-prose h2, body.theme-dark-grey .llm-result-display-prose h3 { color: #7dd3fc; }
+      body.theme-dark-grey .llm-result-display-prose a { color: #93c5fd; }
+      body.theme-dark-grey .llm-result-display-prose blockquote { border-left-color: #64748b; color: #94a3b8; }
+      body.theme-dark-grey .llm-result-display-prose pre { background-color: #1e293b; color: #e2e8f0; }
+      body.theme-dark-grey .llm-result-display-prose code { background-color: #475569; }
+
+      /* Rich Text Editor */
+      body.theme-dark-grey .simple-editor-toolbar { background-color: #475569; border-color: #64748b; }
+      body.theme-dark-grey .simple-editor-toolbar button { background-color: #334155; color: #e2e8f0; border-color: #475569; }
+      body.theme-dark-grey .simple-editor-toolbar button:hover { background-color: #64748b; color: #ffffff; }
+      body.theme-dark-grey .simple-editor-content { background-color: #1e293b; color: #e2e8f0; border-color: #475569; }
+      
+      /* Bubble Notes Dark Grey Theme */
+      body.theme-dark-grey .new-bubble-input-area { background-color: #1e293b; border-color: #334155; }
+      body.theme-dark-grey .new-bubble-input-area .simple-editor-toolbar { border-bottom-color: #334155; }
+      body.theme-dark-grey .new-bubble-input-area .simple-editor-toolbar button { background-color: #334155; }
+      body.theme-dark-grey .bubble-input-content-area { color: #e2e8f0; }
+      body.theme-dark-grey .note-bubble { background-color: #334155; border-color: #475569; }
+      body.theme-dark-grey .note-bubble svg { color: #7dd3fc; }
+      body.theme-dark-grey .note-bubble:hover { border-color: #93c5fd; box-shadow: 0 0 15px rgba(147, 197, 253, 0.4); }
+      body.theme-dark-grey .note-bubble.is-active { border-color: #38bdf8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.6); }
+      body.theme-dark-grey .note-bubble-timer { color: #94a3b8; }
+      body.theme-dark-grey .note-preview-popup { background-color: #334155; border-color: #475569; }
+      body.theme-dark-grey .note-preview-popup img { border-color: #64748b; }
+      body.theme-dark-grey .note-preview-popup .preview-text { color: #cbd5e1; }
+      body.theme-dark-grey .summary-preview-container { background-color: #334155; border-color: #93c5fd; }
+      body.theme-dark-grey .summary-preview-container h4 { color: #bae6fd; }
+      body.theme-dark-grey .summary-preview-content { background-color: #475569; }
+
+
+      /* Scrollbar */
+      body.theme-dark-grey ::-webkit-scrollbar-track { background: #1e293b; }
+      body.theme-dark-grey ::-webkit-scrollbar-thumb { background: #475569; }
+      body.theme-dark-grey ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+      /* --- NEW STYLES --- */
+      
+      .note-bubble-image-preview {
+          width: 100%;
+          height: 100%;
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+      }
+
+      .note-bubble-text-preview {
+          font-size: 10px;
+          line-height: 1.2;
+          color: #cbd5e1; /* gray-300 */
+          padding: 8px;
+          -webkit-box-orient: vertical;
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          word-break: break-word;
+      }
+      
+      body.theme-light .note-bubble-text-preview { color: #374151; }
+      body.theme-dark-grey .note-bubble-text-preview { color: #cbd5e1; }
+
+      .fullscreen-image-overlay {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(0, 0, 0, 0.9);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 60; /* Higher than modals */
+          cursor: zoom-out;
+          animation: fullscreen-fade-in 0.2s ease-out;
+      }
+      .fullscreen-image-content {
+          max-width: 95vw;
+          max-height: 95vh;
+          object-fit: contain;
+          cursor: default;
+      }
+
+      /* Chat Styles */
+      .chat-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 100%;
+        max-width: 400px;
+        height: 100%;
+        background-color: #1f2937;
+        z-index: 100;
+        box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+      }
+      .chat-drawer.open {
+        transform: translateX(0);
+      }
+      .chat-messages {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .chat-bubble {
+        max-width: 85%;
+        padding: 0.75rem 1rem;
+        border-radius: 1rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        position: relative;
+      }
+      .chat-bubble.user {
+        align-self: flex-end;
+        background-color: #2563eb;
+        color: white;
+        border-bottom-right-radius: 0.25rem;
+      }
+      .chat-bubble.assistant {
+        align-self: flex-start;
+        background-color: #374151;
+        color: #e5e7eb;
+        border-bottom-left-radius: 0.25rem;
+        border: 1px solid #4b5563;
+      }
+      .chat-input-area {
+        padding: 1rem;
+        background-color: #111827;
+        border-top: 1px solid #374151;
+      }
+
+      /* ======================================================================== */
+      /*                         ENHANCED TOOLTIP SYSTEM                          */
+      /* ======================================================================== */
+      [title] {
+        position: relative;
+      }
+      
+      /* Base styles to replace native tooltips with something more apparent */
+      /* We can't easily style native 'title' attribute purely with CSS in all browsers, 
+         so we ensure the UI components use a specific class when they need fancy tooltips. */
+      .has-custom-tooltip {
+          position: relative;
+          cursor: help;
+      }
+      .has-custom-tooltip:hover::after {
+          content: attr(data-tooltip);
+          position: absolute;
+          bottom: 125%;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 8px 12px;
+          background-color: #1f2937;
+          color: #f3f4f6;
+          font-size: 11px;
+          line-height: 1.4;
+          font-weight: 500;
+          border-radius: 6px;
+          border: 1px solid #4b5563;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+          white-space: normal;
+          width: 220px;
+          z-index: 100;
+          pointer-events: none;
+          animation: tooltip-fade 0.2s ease-out forwards;
+      }
+      @keyframes tooltip-fade {
+          from { opacity: 0; transform: translateX(-50%) translateY(5px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.0.1",
+    "jszip": "https://esm.sh/jszip@3.10.1",
+    "idb": "https://esm.sh/idb@8.0.0",
+    "mammoth": "https://esm.sh/mammoth@1.8.0",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@3.11.174"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-900 text-gray-100 antialiased">
+    <div id="root"></div>
+    <script type="application/json" id="app-config-data">
+      <!-- Paste your config.json content here to mount it -->
+    </script>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

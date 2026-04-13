@@ -1,0 +1,257 @@
+
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { RecordingState, UseAudioRecorderOptions, UseAudioRecorderResult, EmotionEvent } from '../types';
+import { useRecorderTimer } from './recorder/useRecorderTimer';
+import { useMediaStreams } from './recorder/useMediaStreams';
+import { useAutoPauseLogic, AutoPauseState } from './recorder/useAutoPauseLogic';
+import { useLiveTranscriptionLogic } from './recorder/useLiveTranscriptionLogic';
+import { useEmotionAnalysisLogic } from './recorder/useEmotionAnalysisLogic';
+
+export type { AutoPauseState };
+
+const PREFERRED_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+
+function selectSupportedMimeType(): string {
+  for (const mimeType of PREFERRED_MIME_TYPES) {
+    if (MediaRecorder.isTypeSupported(mimeType)) return mimeType;
+  }
+  return PREFERRED_MIME_TYPES[0];
+}
+
+export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioRecorderResult => {
+  const { settings, llmSettings, onChunkComplete, onRecordingStop, enableChunkedRecording, chunkIntervalSeconds, enableRealtimeTranscription, onLlmUsage } = options;
+
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
+  const [recordingState, setRecordingState] = useState<RecordingState>(RecordingState.IDLE);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingSessionIdRef = useRef<string | null>(null);
+  const isStoppingRef = useRef(false);
+  const isPausedRef = useRef(isPaused);
+  const selectedMimeTypeRef = useRef<string>('');
+  const chunkIndexRef = useRef(1);
+  const chunkIntervalTimerRef = useRef<number | null>(null);
+
+  useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+
+  const { elapsedTime, setElapsedTime, startTimer, stopTimer, resetTimer } = useRecorderTimer();
+  const streams = useMediaStreams(settings);
+  
+  const handlePauseAction = useCallback(() => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.pause();
+      stopTimer();
+      setIsPaused(true);
+    }
+  }, [stopTimer]);
+
+  const handleResumeAction = useCallback(() => {
+    if (mediaRecorderRef.current?.state === "paused") {
+      mediaRecorderRef.current.resume();
+      startTimer();
+      setIsPaused(false);
+    }
+  }, [startTimer]);
+
+  const autoPause = useAutoPauseLogic(
+    settings, recordingState, isPaused, 
+    streams.micAnalyserNodeRef.current, 
+    streams.appAudioAnalyserNodeRef.current,
+    streams.micAudioTrackRef.current,
+    handlePauseAction, handleResumeAction
+  );
+
+  const liveTrans = useLiveTranscriptionLogic((text) => {});
+  const emotions = useEmotionAnalysisLogic(llmSettings, onLlmUsage);
+
+  const cleanupAll = useCallback(() => {
+    stopTimer();
+    if (chunkIntervalTimerRef.current) clearInterval(chunkIntervalTimerRef.current);
+    streams.cleanupStreams();
+    liveTrans.cleanupLiveSession();
+    emotions.stopEmotionAnalysis();
+  }, [stopTimer, streams, liveTrans, emotions]);
+
+  const createNewRecorder = useCallback((stream: MediaStream) => {
+    const recorder = new MediaRecorder(stream, { 
+      mimeType: selectedMimeTypeRef.current, 
+      audioBitsPerSecond: settings.bitrate 
+    });
+    
+    recorder.ondataavailable = (e) => { 
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data); 
+    };
+    
+    recorder.onstop = () => {
+      const finalBlob = new Blob(recordedChunksRef.current, { type: selectedMimeTypeRef.current });
+      recordedChunksRef.current = [];
+      
+      const currentOptions = optionsRef.current;
+
+      if (finalBlob.size > 0) {
+        setAudioBlob(finalBlob);
+        if (currentOptions.enableChunkedRecording && currentOptions.onChunkComplete) {
+          currentOptions.onChunkComplete(finalBlob, chunkIndexRef.current);
+          chunkIndexRef.current++;
+        }
+      }
+
+      if (isStoppingRef.current) {
+        cleanupAll();
+        setRecordingState(RecordingState.STOPPED);
+        setIsPaused(false);
+        if (recordingSessionIdRef.current && currentOptions.onRecordingStop) {
+          currentOptions.onRecordingStop(
+            recordingSessionIdRef.current, 
+            !!currentOptions.enableChunkedRecording, 
+            liveTrans.realtimeTranscriptAccumulatorRef.current, 
+            emotions.emotionHistoryRef.current
+          );
+        }
+      } else if (currentOptions.enableChunkedRecording) {
+        createNewRecorder(stream);
+      }
+    };
+    recorder.start();
+    mediaRecorderRef.current = recorder;
+  }, [settings.bitrate, cleanupAll, liveTrans, emotions]);
+
+  const startRecording = useCallback(async (includeAppAudio: boolean) => {
+    cleanupAll();
+    setError(null);
+    isStoppingRef.current = false;
+    try {
+      const { context, destination } = streams.setupAudioContext(enableRealtimeTranscription ? 16000 : undefined);
+      const { micStream, micSource } = await streams.getMicStream(context, destination, includeAppAudio);
+      
+      if (settings.enableEmotionAnalysis) {
+        const emoDest = context.createMediaStreamDestination();
+        micSource.connect(emoDest);
+        emotions.emotionRecorderRef.current = new MediaRecorder(emoDest.stream, { mimeType: selectSupportedMimeType() });
+        emotions.emotionRecorderRef.current.ondataavailable = async (e) => {
+          if (e.data.size > 0) await emotions.handleEmotionSnippet(e.data, elapsedTime, emotions.emotionRecorderRef.current!.mimeType);
+        };
+        emotions.emotionRecorderRef.current.start();
+        emotions.emotionIntervalRef.current = window.setInterval(() => {
+          if (emotions.emotionRecorderRef.current?.state === 'recording' && !isPausedRef.current) emotions.emotionRecorderRef.current.stop();
+        }, 3000);
+      }
+
+      if (enableRealtimeTranscription) await liveTrans.connectLiveSession(context, micStream, isPausedRef);
+      
+      if (includeAppAudio) {
+        const appStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        streams.allStreamsRef.current.push(appStream);
+        streams.setDisplayStream(appStream);
+        if (appStream.getAudioTracks().length > 0) {
+          const appSrc = context.createMediaStreamSource(new MediaStream(appStream.getAudioTracks()));
+          streams.appAudioAnalyserNodeRef.current = context.createAnalyser();
+          appSrc.connect(streams.appAudioAnalyserNodeRef.current);
+          appSrc.connect(destination);
+          streams.setIsAppAudioActive(true);
+        }
+        
+        appStream.getTracks().forEach(track => {
+            track.onended = () => {
+                streams.setIsAppAudioActive(false);
+                streams.updateMicEchoCancellation(false);
+            };
+        });
+      }
+
+      selectedMimeTypeRef.current = selectSupportedMimeType();
+      recordingSessionIdRef.current = `${Date.now()}`;
+      chunkIndexRef.current = 1;
+      createNewRecorder(destination.stream);
+
+      if (enableChunkedRecording) {
+        chunkIntervalTimerRef.current = window.setInterval(() => {
+          if (mediaRecorderRef.current?.state === 'recording' && !isPausedRef.current) mediaRecorderRef.current.stop();
+        }, (chunkIntervalSeconds || 60) * 1000);
+      }
+
+      setRecordingState(RecordingState.RECORDING);
+      setElapsedTime(0);
+      startTimer();
+    } catch (err) {
+      setError(`Start failed: ${err}`);
+      cleanupAll();
+    }
+  }, [streams, emotions, liveTrans, settings, enableRealtimeTranscription, enableChunkedRecording, chunkIntervalSeconds, startTimer, createNewRecorder, cleanupAll, setElapsedTime]);
+
+  const stopRecording = useCallback(() => {
+    isStoppingRef.current = true;
+    if (mediaRecorderRef.current && (mediaRecorderRef.current.state === "recording" || mediaRecorderRef.current.state === "paused")) {
+      mediaRecorderRef.current.stop();
+    } else {
+      cleanupAll();
+      setRecordingState(RecordingState.STOPPED);
+      setIsPaused(false);
+    }
+  }, [cleanupAll]);
+
+  const toggleMic = useCallback(() => {
+    if (streams.micAudioTrackRef.current) {
+      const state = !streams.micAudioTrackRef.current.enabled;
+      streams.micAudioTrackRef.current.enabled = state;
+      setIsMicEnabled(state);
+    }
+  }, [streams]);
+
+  const addAppAudio = useCallback(async () => {
+    if (streams.isAppAudioActive) return;
+    try {
+      const appStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      streams.allStreamsRef.current.push(appStream);
+      streams.setDisplayStream(appStream);
+      
+      if (appStream.getAudioTracks().length > 0) {
+        const context = streams.audioContextRef.current;
+        const destination = streams.destinationNodeRef.current;
+        if (context && destination) {
+          const appSrc = context.createMediaStreamSource(new MediaStream(appStream.getAudioTracks()));
+          streams.appAudioAnalyserNodeRef.current = context.createAnalyser();
+          appSrc.connect(streams.appAudioAnalyserNodeRef.current);
+          appSrc.connect(destination);
+          streams.setIsAppAudioActive(true);
+          streams.updateMicEchoCancellation(true);
+          
+          appStream.getTracks().forEach(track => {
+            track.onended = () => {
+                streams.setIsAppAudioActive(false);
+                streams.updateMicEchoCancellation(false);
+            };
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to add app audio:", err);
+    }
+  }, [streams]);
+
+  return {
+    recordingState, startRecording, stopRecording,
+    pauseRecording: handlePauseAction, resumeRecording: handleResumeAction,
+    audioBlob, micAnalyserNodeRef: streams.micAnalyserNodeRef, 
+    appAudioAnalyserNodeRef: streams.appAudioAnalyserNodeRef,
+    resetRecording: () => { cleanupAll(); resetTimer(); setRecordingState(RecordingState.IDLE); },
+    error, elapsedTime, isPaused, displayStream: streams.displayStream,
+    getAudioSnapshot: async () => ({ mixedBlob: audioBlob, micBlob: null, appBlob: null, elapsedTime }),
+    getRecordingSessionId: () => recordingSessionIdRef.current,
+    isAutoPaused: autoPause.isAutoPaused, autoPauseState: autoPause.autoPauseState,
+    autoPauseCountdown: autoPause.autoPauseCountdown,
+    realtimeTranscription: liveTrans.realtimeTranscription,
+    currentEmotion: emotions.currentEmotion, emotionHistory: emotions.emotionHistoryRef.current,
+    addAppAudio,
+    isAppAudioActive: streams.isAppAudioActive, isMicEnabled, toggleMic
+  };
+};
