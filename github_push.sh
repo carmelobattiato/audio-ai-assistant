@@ -8,16 +8,18 @@ set -euo pipefail
 
 echo "📦 Verifica e allineamento repository Git..."
 
-# Funzione: chiede il PAT e riscrive l'URL con il token incorporato
+# Funzione: chiede il PAT e riscrive l'URL con il token incorporato.
+# I messaggi vanno su stderr, solo l'URL autenticato va su stdout
+# (così la command substitution $(...) cattura solo l'URL).
 request_token() {
     local url="$1"
-    echo "---------------------------------------------------------"
-    echo "🔑 GitHub richiede un Personal Access Token (PAT)."
-    echo "   Generalo su: https://github.com/settings/tokens (Permesso: 'repo')"
-    read -s -p "   Incolla il tuo Token PAT: " GITHUB_TOKEN
-    echo ""
+    echo "---------------------------------------------------------" >&2
+    echo "🔑 GitHub richiede un Personal Access Token (PAT)." >&2
+    echo "   Generalo su: https://github.com/settings/tokens (Permesso: 'repo')" >&2
+    read -s -p "   Incolla il tuo Token PAT: " GITHUB_TOKEN </dev/tty
+    echo "" >&2
     if [ -z "$GITHUB_TOKEN" ]; then
-        echo "❌ Nessun token inserito. Operazione annullata."
+        echo "❌ Nessun token inserito. Operazione annullata." >&2
         exit 1
     fi
     local repo_path
@@ -77,7 +79,7 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
 
 # 6. Sincronizzazione
 echo "🚀 Sincronizzazione con GitHub in corso (branch: $BRANCH)..."
-git pull origin "$BRANCH" --rebase 2>/dev/null || true
+env GIT_TERMINAL_PROMPT=0 git pull origin "$BRANCH" --rebase 2>/dev/null || true
 
 echo "Inviando le modifiche al remoto..."
 
