@@ -34,7 +34,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   <header className="w-full max-w-5xl mb-6 sm:mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
     <div>
       <h1 className="text-3xl sm:text-4xl font-bold text-sky-400 tracking-tight">{APP_TITLE}</h1>
-      <p className="text-xs italic text-sky-300">Developed by Carmelo Battiato</p>
+      <p className="text-xs italic text-sky-300">Developed by Carmelo Battiato v.1.70</p>
       <div className="h-6 mt-1">
         {appUserMessage && <p className="text-sm text-emerald-400" role="status">{appUserMessage}</p>}
       </div>
