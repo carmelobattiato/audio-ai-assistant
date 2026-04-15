@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-const BRIDGE_URL = 'http://127.0.0.1:5001';
+const OUTLOOK_API = '/api/outlook';
 
 interface Attendee {
   name: string;
@@ -92,15 +92,15 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
     setErrorMsg(null);
     setBridgeAvailable(null);
     try {
-      const statusRes = await fetch(`${BRIDGE_URL}/api/status`, {
+      const statusRes = await fetch(`${OUTLOOK_API}/status`, {
         signal: AbortSignal.timeout(3000),
       });
-      if (!statusRes.ok) throw new Error('Bridge non risponde');
+      if (!statusRes.ok) throw new Error('Server non risponde');
       const statusData = await statusRes.json();
-      if (statusData.status !== 'ok') throw new Error(statusData.message || 'Bridge non disponibile');
+      if (statusData.status !== 'ok') throw new Error(statusData.message || 'Outlook non disponibile su questa piattaforma');
       setBridgeAvailable(true);
 
-      const res = await fetch(`${BRIDGE_URL}/api/outlook/appointments/today`);
+      const res = await fetch(`${OUTLOOK_API}/appointments/today`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAppointments(data.appointments ?? []);
@@ -165,21 +165,6 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
           </button>
         </div>
 
-        {/* ── Disclaimer ─────────────────────────────────────────────────── */}
-        <div className="mx-4 mt-3 px-3 py-2 bg-amber-900/30 border border-amber-700/50 rounded-lg flex items-start gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-xs text-amber-300 leading-snug">
-            Funzione disponibile solo su <strong>Windows</strong> con Microsoft Outlook installato.
-            Richiede l'avvio del server{' '}
-            <code className="bg-gray-700 px-1 rounded text-amber-200">outlook_bridge.py</code>{' '}
-            tramite{' '}
-            <code className="bg-gray-700 px-1 rounded text-amber-200">.\setup_and_run.ps1 start</code>.
-          </p>
-        </div>
-
         {/* ── Body ───────────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
 
@@ -187,7 +172,7 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
           {loading && (
             <div className="flex flex-col items-center justify-center py-14 text-gray-400 gap-3">
               <div className="w-7 h-7 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm">Connessione a Outlook in corso…</p>
+              <p className="text-sm">Lettura calendario Outlook in corso…</p>
             </div>
           )}
 
@@ -202,9 +187,8 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
                 </p>
               )}
               <p className="text-gray-400 text-sm max-w-sm mx-auto leading-relaxed">
-                Assicurati di aver eseguito{' '}
-                <code className="bg-gray-700 px-1 rounded text-xs">.\setup_and_run.ps1 start</code>{' '}
-                e che Microsoft Outlook sia aperto.
+                Assicurati di essere su <strong>Windows</strong> con Microsoft Outlook aperto
+                e che il dev server Vite sia in esecuzione.
               </p>
               <button
                 onClick={fetchAppointments}

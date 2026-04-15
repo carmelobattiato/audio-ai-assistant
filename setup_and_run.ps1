@@ -18,11 +18,9 @@ param (
     [string]$Port = "8090"
 )
 
-$PidFile       = Join-Path $PSScriptRoot ".app_service.json"
-$LogFile       = Join-Path $PSScriptRoot "app_service.log"
-$ErrLogFile    = Join-Path $PSScriptRoot "app_service_error.log"
-$BridgeScript  = Join-Path $PSScriptRoot "outlook_bridge.py"
-$BridgeLogFile = Join-Path $PSScriptRoot "outlook_bridge.log"
+$PidFile    = Join-Path $PSScriptRoot ".app_service.json"
+$LogFile    = Join-Path $PSScriptRoot "app_service.log"
+$ErrLogFile = Join-Path $PSScriptRoot "app_service_error.log"
 
 # =============================================================================
 # Help
@@ -119,9 +117,7 @@ function Wait-AppReady {
 # =============================================================================
 
 function Show-ServiceLogs {
-    param(
-        [int]$Lines = 25
-    )
+    param([int]$Lines = 25)
     $shown = $false
 
     if (Test-Path $LogFile) {
@@ -181,44 +177,6 @@ function Start-PersistentProcess {
 }
 
 # =============================================================================
-# Utility - rilevamento Python reale (esclude il placeholder Microsoft Store)
-# =============================================================================
-
-function Get-RealPython {
-    # Candidates in order of preference
-    $candidates = @("py", "python3", "python")
-    foreach ($cmd in $candidates) {
-        $found = Get-Command $cmd -ErrorAction SilentlyContinue
-        if (-not $found) { continue }
-        try {
-            # Run --version and check the output is actually "Python X.Y.Z"
-            $ver = & $cmd --version 2>&1
-            if ($ver -match "Python \d+\.\d+") {
-                return $cmd
-            }
-        }
-        catch { }
-    }
-    return $null
-}
-
-function Install-BridgeDependencies {
-    param([string]$PythonCmd)
-    Write-Host "   Installazione dipendenze bridge (flask, flask-cors, pywin32)..." `
-        -ForegroundColor Cyan
-    try {
-        & $PythonCmd -m pip install flask flask-cors pywin32 --quiet --exists-action i 2>&1 |
-            Out-Null
-        Write-Host "   Dipendenze bridge OK." -ForegroundColor Green
-        return $true
-    }
-    catch {
-        Write-Host "   Impossibile installare le dipendenze: $_" -ForegroundColor Red
-        return $false
-    }
-}
-
-# =============================================================================
 # Shortcut desktop
 # =============================================================================
 
@@ -263,20 +221,27 @@ function Start-AppService {
 
     $npmCmd = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { "npm.cmd" } else { "npm" }
 
-    # [1/4] Dipendenze
+    # [1/4] Dipendenze npm
+    Write-Host ""
     $NodeModulesPath = Join-Path $PSScriptRoot "node_modules"
     if (-not (Test-Path $NodeModulesPath)) {
-        Write-Host ""
         Write-Host "[1/4] Installazione dipendenze npm..." -ForegroundColor Cyan
         Start-Process $npmCmd -ArgumentList "install" -Wait -NoNewWindow `
             -WorkingDirectory $PSScriptRoot
-        Write-Host ""
-        Write-Host "[2/4] Installazione collegamenti..." -ForegroundColor Cyan
+        Write-Host "      Dipendenze installate." -ForegroundColor Green
+    }
+    else {
+        Write-Host "[1/4] Dipendenze presenti, salto." -ForegroundColor Green
+    }
+
+    # [2/4] Collegamento desktop (controllo indipendente da node_modules)
+    $DesktopPath = [Environment]::GetFolderPath("Desktop")
+    $LnkDest     = Join-Path $DesktopPath "Audio_AI_Assistance.lnk"
+    if (-not (Test-Path $LnkDest)) {
+        Write-Host "[2/4] Installazione collegamento desktop..." -ForegroundColor Cyan
         Install-Shortcuts
     }
     else {
-        Write-Host ""
-        Write-Host "[1/4] Dipendenze presenti, salto." -ForegroundColor Green
         Write-Host "[2/4] Collegamento gia' installato, salto." -ForegroundColor Green
     }
 
@@ -296,43 +261,9 @@ function Start-AppService {
     $appUrl  = "http://127.0.0.1:$Port"
     $isReady = Wait-AppReady -Url $appUrl -MaxSeconds 40
 
-    # Outlook Bridge (opzionale)
-    $pythonPid = 0
-    $pythonCmd = Get-RealPython
-
-    if ($pythonCmd -and (Test-Path $BridgeScript)) {
-        Write-Host "   Python trovato: $pythonCmd" -ForegroundColor DarkGray
-        $depsOk = Install-BridgeDependencies -PythonCmd $pythonCmd
-        if ($depsOk) {
-            Write-Host "   Avvio Outlook Bridge (http://127.0.0.1:5001)..." -ForegroundColor Cyan
-            if (Test-Path $BridgeLogFile) {
-                Remove-Item $BridgeLogFile -Force -ErrorAction SilentlyContinue
-            }
-            $bridgeArgs = "`"$BridgeScript`""
-            $bridgeProc = Start-PersistentProcess -Executable $pythonCmd `
-                              -Arguments $bridgeArgs `
-                              -WorkDir $PSScriptRoot -LogPath $BridgeLogFile
-            $pythonPid  = $bridgeProc.Id
-            Write-Host "   Outlook Bridge avviato (wrapper PID $pythonPid)." -ForegroundColor Green
-        }
-    }
-    else {
-        if (-not $pythonCmd) {
-            Write-Host "   Outlook Bridge non avviato: Python non trovato." `
-                -ForegroundColor DarkGray
-            Write-Host "   Installa Python da https://python.org (NON dal Microsoft Store)." `
-                -ForegroundColor DarkGray
-        }
-        else {
-            Write-Host "   Outlook Bridge non avviato: script '$BridgeScript' mancante." `
-                -ForegroundColor DarkGray
-        }
-    }
-
     # Salva stato
     @{
         Pid       = $npmProc.Id
-        PythonPid = $pythonPid
         Port      = $Port
         StartTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     } | ConvertTo-Json | Set-Content $PidFile
@@ -361,13 +292,6 @@ function Stop-AppService {
         Write-Host "Arresto servizio (porta $($info.Port))..." -ForegroundColor Cyan
         Kill-ProcessTree -ParentId $info.Pid
         Kill-ProcessByPort -PortNum $info.Port
-
-        if ($info.PythonPid -and $info.PythonPid -ne 0) {
-            Write-Host "Arresto Outlook Bridge (PID $($info.PythonPid))..." -ForegroundColor Cyan
-            Kill-ProcessTree -ParentId $info.PythonPid
-            Kill-ProcessByPort -PortNum 5001
-        }
-
         Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
         $stopped = $true
     }
@@ -422,20 +346,6 @@ function Check-AppStatus {
                     ConvertFrom-Json -ErrorAction SilentlyContinue
             if ($info) {
                 Write-Host "Avviato: $($info.StartTime)"
-
-                if ($info.PythonPid -and $info.PythonPid -ne 0) {
-                    $bProc    = Get-Process -Id $info.PythonPid -ErrorAction SilentlyContinue
-                    $bPortUp  = Test-PortListening -PortNum 5001
-                    if ($bProc -or $bPortUp) {
-                        Write-Host "Bridge:  Outlook Bridge IN ESECUZIONE" -ForegroundColor Green
-                    }
-                    else {
-                        Write-Host "Bridge:  Outlook Bridge NON ATTIVO" -ForegroundColor DarkGray
-                    }
-                }
-                else {
-                    Write-Host "Bridge:  Outlook Bridge non avviato" -ForegroundColor DarkGray
-                }
             }
         }
     }
