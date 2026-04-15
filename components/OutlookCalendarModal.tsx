@@ -7,7 +7,7 @@ interface Attendee {
   email: string;
 }
 
-interface OutlookAppointment {
+export interface OutlookAppointment {
   id: string;
   subject: string;
   start: string;
@@ -17,6 +17,8 @@ interface OutlookAppointment {
   attendees: Attendee[];
   organizer: string;
   onlineMeetingUrl?: string;
+  /** Outlook response status: 'accepted' | 'tentative' | 'declined' | 'organizer' | 'notResponded' | 'none' */
+  responseStatus?: string;
 }
 
 type MeetingStatus = 'live' | 'next' | 'future' | 'past';
@@ -26,6 +28,14 @@ interface OutlookCalendarModalProps {
   onClose: () => void;
   onImport: (title: string, noteHtml: string) => void;
   onOpenTeamsAndRecord?: (title: string, noteHtml: string, teamsUrl: string) => void;
+  /** When provided: skip internal fetch; use this data instead */
+  externalAppointments?: OutlookAppointment[];
+  externalBridgeAvailable?: boolean | null;
+  externalError?: string | null;
+  /** True while the parent is doing a background refresh */
+  isBackgroundRefreshing?: boolean;
+  /** Called when the modal wants the parent to refresh its data */
+  onRequestRefresh?: () => void;
 }
 
 const CalendarIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -118,19 +128,35 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
   onClose,
   onImport,
   onOpenTeamsAndRecord,
+  externalAppointments,
+  externalBridgeAvailable,
+  externalError,
+  isBackgroundRefreshing = false,
+  onRequestRefresh,
 }) => {
-  const [appointments, setAppointments] = useState<OutlookAppointment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [bridgeAvailable, setBridgeAvailable] = useState<boolean | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const isExternallyManaged = externalAppointments !== undefined;
+
+  // Internal state — used when no external data is wired up (classic UI / App.tsx)
+  const [intAppointments, setIntAppointments] = useState<OutlookAppointment[]>([]);
+  const [intLoading, setIntLoading] = useState(false);
+  const [intBridgeAvailable, setIntBridgeAvailable] = useState<boolean | null>(null);
+  const [intErrorMsg, setIntErrorMsg] = useState<string | null>(null);
+
   const [selected, setSelected] = useState<OutlookAppointment | null>(null);
+
+  // Resolve active data from external props or internal state
+  const appointments   = isExternallyManaged ? (externalAppointments ?? []) : intAppointments;
+  const loading        = isExternallyManaged ? false                         : intLoading;
+  const bridgeAvailable = isExternallyManaged ? (externalBridgeAvailable ?? null) : intBridgeAvailable;
+  const errorMsg       = isExternallyManaged ? (externalError ?? null)       : intErrorMsg;
 
   const firstHighlightedRef = useRef<HTMLDivElement | null>(null);
 
+  // Internal fetch (used by classic UI only)
   const fetchAppointments = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    setBridgeAvailable(null);
+    setIntLoading(true);
+    setIntErrorMsg(null);
+    setIntBridgeAvailable(null);
     try {
       const statusRes = await fetch(`${OUTLOOK_API}/status`, {
         signal: AbortSignal.timeout(3000),
@@ -138,27 +164,31 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
       if (!statusRes.ok) throw new Error('Server non risponde');
       const statusData = await statusRes.json();
       if (statusData.status !== 'ok') throw new Error(statusData.message || 'Outlook non disponibile su questa piattaforma');
-      setBridgeAvailable(true);
+      setIntBridgeAvailable(true);
 
       const res = await fetch(`${OUTLOOK_API}/appointments/today`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setAppointments(data.appointments ?? []);
+      setIntAppointments(data.appointments ?? []);
     } catch (e: any) {
-      setBridgeAvailable(false);
-      setErrorMsg(e.message ?? 'Errore di connessione');
+      setIntBridgeAvailable(false);
+      setIntErrorMsg((e as Error).message ?? 'Errore di connessione');
     } finally {
-      setLoading(false);
+      setIntLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      setSelected(null);
-      setAppointments([]);
+    if (!isOpen) return;
+    setSelected(null);
+    if (isExternallyManaged) {
+      // Data is already loaded — trigger a quiet background refresh in the parent
+      onRequestRefresh?.();
+    } else {
+      // Classic mode: fetch internally
       fetchAppointments();
     }
-  }, [isOpen, fetchAppointments]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll to the first live/next meeting once data arrives
   useEffect(() => {
@@ -225,6 +255,14 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
               </h3>
               <p className="text-xs text-gray-400 capitalize">{todayLabel}</p>
             </div>
+            {/* Background-refresh spinner */}
+            {isBackgroundRefreshing && (
+              <div
+                className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin ml-1 flex-shrink-0"
+                style={{ borderColor: 'rgba(139,92,246,0.5)', borderTopColor: 'transparent' }}
+                title="Refreshing…"
+              />
+            )}
           </div>
           <button
             onClick={onClose}
@@ -263,7 +301,7 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
                 and the Vite dev server running.
               </p>
               <button
-                onClick={fetchAppointments}
+                onClick={isExternallyManaged ? onRequestRefresh : fetchAppointments}
                 className="mt-1 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm rounded-lg transition-colors"
               >
                 Retry

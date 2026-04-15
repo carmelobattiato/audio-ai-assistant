@@ -34,10 +34,10 @@ export const NoteEditorToolbar: React.FC<NoteEditorToolbarProps> = (props) => (
     <div className="flex items-center gap-2">
       <button onClick={props.onFileUploadClick} disabled={!props.isEditorEditable} className="p-1.5 text-gray-300 hover:text-white disabled:text-gray-500" title="Upload Image/Text/Doc"><UploadIcon className="w-5 h-5" /></button>
       <button onClick={props.onDownloadPendingClick} disabled={!props.isEditorEditable} className="p-1.5 text-gray-300 hover:text-white disabled:text-gray-500" title="Download Current Content"><DownloadIcon className="w-5 h-5" /></button>
-      <button onClick={() => props.onTakeScreenshot(false)} disabled={!props.isEditorEditable || !props.isRecordingSessionActive} className="p-1.5 text-gray-300 hover:text-white disabled:text-gray-500" title="Take Screenshot"><CameraIcon className="w-5 h-5" /></button>
+      <button onClick={() => props.onTakeScreenshot(false)} disabled={!props.isEditorEditable} className="p-1.5 text-gray-300 hover:text-white disabled:text-gray-500" title="Take Screenshot"><CameraIcon className="w-5 h-5" /></button>
       <div className="h-6 border-l border-gray-600"></div>
-      <button onClick={props.toggleAutoScreenshot} disabled={!props.isEditorEditable || !props.isRecordingSessionActive} className={`px-2 py-1 text-xs rounded ${props.isAutoScreenshotOn ? 'bg-cyan-600 text-white' : 'bg-gray-600 text-gray-300'}`}>Auto-Shot: {props.isAutoScreenshotOn ? 'On' : 'Off'}</button>
-      {props.isAutoScreenshotOn && props.isScreenSharing && (
+      <button onClick={props.toggleAutoScreenshot} disabled={!props.isEditorEditable} className={`px-2 py-1 text-xs rounded ${props.isAutoScreenshotOn ? 'bg-cyan-600 text-white' : 'bg-gray-600 text-gray-300'}`}>Auto-Shot: {props.isAutoScreenshotOn ? 'On' : 'Off'}</button>
+      {props.isAutoScreenshotOn && (
         <div className="flex items-center gap-1.5 text-xs text-cyan-300">
           <span>{props.countdown}s</span>
           <div className="flex items-center bg-gray-700 rounded-full px-1">

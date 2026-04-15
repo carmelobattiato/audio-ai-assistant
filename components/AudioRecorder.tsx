@@ -63,7 +63,9 @@ export const AudioRecorder = React.forwardRef<AudioRecorderRef, ExtendedAudioRec
     resetRecording,
     getRecordingSessionId,
     triggerSystemAudioGuide: () => setGuideKey(k => k + 1),
-  }), [getAudioSnapshot, resetRecording, getRecordingSessionId]);
+    handleTakeScreenshot: screenshots.handleTakeScreenshot,
+    getIsScreenSharing: () => !!(displayStream || screenshots.screenshotStream),
+  }), [getAudioSnapshot, resetRecording, getRecordingSessionId, screenshots.handleTakeScreenshot, displayStream, screenshots.screenshotStream]);
 
   // Combined title for internal usage and preview
   const fullTitle = useMemo(() => {

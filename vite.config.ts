@@ -49,6 +49,17 @@ try {
             }
             $organizer = ''
             try { $organizer = $a.Organizer } catch {}
+            $rs = 'none'
+            try {
+                switch ([int]$a.ResponseStatus) {
+                    0 { $rs = 'none' }
+                    1 { $rs = 'organizer' }
+                    2 { $rs = 'tentative' }
+                    3 { $rs = 'accepted' }
+                    4 { $rs = 'declined' }
+                    5 { $rs = 'notResponded' }
+                }
+            } catch {}
             $appts.Add([pscustomobject]@{
                 id               = [string]$idx
                 subject          = if ($a.Subject) { $a.Subject } else { '(Nessun titolo)' }
@@ -59,6 +70,7 @@ try {
                 attendees        = $att
                 organizer        = $organizer
                 onlineMeetingUrl = $meetingUrl
+                responseStatus   = $rs
             })
             $idx++
         } catch {}
@@ -145,7 +157,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     server: {
-      port: 3000,
+      port: 8090,
       host: '0.0.0.0',
     },
     plugins: [react(), outlookPlugin()],

@@ -280,14 +280,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
         >
             {isTranscribing ? "Stop Transcription" : transcribeButtonText}
         </Button>
-        <Checkbox
-            label="Attempt Speaker Diarization (Experimental)"
-            id="transcriptionViewAttemptSpeakerDiarization"
-            checked={settings.attemptSpeakerDiarization}
-            onChange={handleDiarizationToggle}
-            disabled={isTranscribing || disabled || !canTranscribe}
-            className="w-full xs:w-auto"
-        />
+
         <Button
             onClick={handleTextFileUploadClick}
             variant="primary"

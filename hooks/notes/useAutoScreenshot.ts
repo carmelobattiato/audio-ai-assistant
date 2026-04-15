@@ -18,7 +18,7 @@ export const useAutoScreenshot = (
   }, [initialInterval, isAutoScreenshotOn]);
 
   useEffect(() => {
-    if (!isAutoScreenshotOn || !isRecordingCurrentlyActive || !isScreenSharing) {
+    if (!isAutoScreenshotOn) {
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
         countdownIntervalRef.current = null;
@@ -35,7 +35,7 @@ export const useAutoScreenshot = (
       });
     }, 1000);
     return () => { if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current); };
-  }, [isAutoScreenshotOn, isRecordingCurrentlyActive, isScreenSharing, onTakeScreenshot, currentInterval]);
+  }, [isAutoScreenshotOn, onTakeScreenshot, currentInterval]);
 
   const toggleAutoScreenshot = () => {
     const next = !isAutoScreenshotOn;

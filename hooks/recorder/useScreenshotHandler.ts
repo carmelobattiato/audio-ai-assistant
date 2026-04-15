@@ -2,6 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { BubbleNote } from '../../types';
 import { formatTime } from '../../utils/textUtils';
+import { loggingService } from '../../services/loggingService';
 
 export const useScreenshotHandler = (
   displayStream: MediaStream | null,
@@ -15,18 +16,27 @@ export const useScreenshotHandler = (
   const [screenshotStream, setScreenshotStream] = useState<MediaStream | null>(null);
 
   const handleTakeScreenshot = useCallback(async (isAutomatic: boolean = false) => {
+    loggingService.debug('SCREENSHOT_HANDLER', 'handleTakeScreenshot called', { isAutomatic, hasDisplayStream: !!displayStream, hasScreenshotStream: !!screenshotStream });
     let streamToUse = displayStream || screenshotStream;
     if (!streamToUse) {
+      loggingService.info('SCREENSHOT_GETDISPLAY', 'No stream active — requesting getDisplayMedia');
       try {
-        const newStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-        newStream.getVideoTracks()[0].onended = () => setScreenshotStream(null);
+        const newStream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'monitor' }, audio: false });
+        newStream.getVideoTracks()[0].onended = () => { loggingService.info('SCREENSHOT_STREAM_ENDED', 'Screen share stream ended'); setScreenshotStream(null); };
         setScreenshotStream(newStream);
         streamToUse = newStream;
-      } catch (err) { return; }
+        loggingService.info('SCREENSHOT_STREAM_ACQUIRED', 'Screen share stream acquired');
+      } catch (err) {
+        loggingService.warn('SCREENSHOT_GETDISPLAY_DENIED', 'User denied screen share or error', { error: String(err) });
+        return;
+      }
     }
 
     const videoTrack = streamToUse?.getVideoTracks()[0];
-    if (!videoTrack) return;
+    if (!videoTrack) {
+      loggingService.warn('SCREENSHOT_NO_TRACK', 'No video track in stream');
+      return;
+    }
 
     try {
       const imageCapture = new (window as any).ImageCapture(videoTrack);
@@ -35,7 +45,7 @@ export const useScreenshotHandler = (
       canvas.width = imageBitmap.width;
       canvas.height = imageBitmap.height;
       canvas.getContext('2d')?.drawImage(imageBitmap, 0, 0);
-      
+
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       const ts = formatTime(elapsedTimeRef.current || 0);
       const imgHtml = `<img src="${dataUrl}" alt="Screenshot at ${ts}" />`;
@@ -49,10 +59,14 @@ export const useScreenshotHandler = (
           isEditing: false, isProcessing: false
         };
         onBubbleNotesChange([...bubbleNotes, newNote]);
+        loggingService.info('SCREENSHOT_SAVED_AUTO', 'Auto-screenshot saved as new note', { ts });
       } else {
         onPendingNoteHtmlChange(`${pendingNoteHtml}<p><em>Screenshot at ${ts}</em></p>${imgHtml}<p><br></p>`);
+        loggingService.info('SCREENSHOT_SAVED_MANUAL', 'Manual screenshot appended to pending note', { ts });
       }
-    } catch (e) {}
+    } catch (e) {
+      loggingService.error('SCREENSHOT_CAPTURE_ERROR', 'Failed to capture frame', { error: String(e) });
+    }
   }, [displayStream, screenshotStream, bubbleNotes, onBubbleNotesChange, pendingNoteHtml, onPendingNoteHtmlChange, elapsedTimeRef]);
 
   return { screenshotStream, setScreenshotStream, handleTakeScreenshot };

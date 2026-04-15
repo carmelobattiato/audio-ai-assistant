@@ -36,10 +36,20 @@ export const BubbleNotes: React.FC<BubbleNotesProps> = (props) => {
     props.pendingNoteHtml, props.onPendingNoteHtmlChange
   );
   
+  const handleTakeScreenshotLogged = React.useCallback((isAuto: boolean) => {
+    loggingService.info('SCREENSHOT_TAKE', `${isAuto ? 'Auto' : 'Manual'} screenshot requested`, { isAuto, isScreenSharing: props.isScreenSharing });
+    props.onTakeScreenshot(isAuto);
+  }, [props.onTakeScreenshot, props.isScreenSharing]);
+
   const autoShot = useAutoScreenshot(
     props.isRecordingCurrentlyActive, props.isScreenSharing,
-    props.transcriptionSettings.autoScreenshotIntervalSeconds ?? 60, props.onTakeScreenshot
+    props.transcriptionSettings.autoScreenshotIntervalSeconds ?? 60, handleTakeScreenshotLogged
   );
+
+  const toggleAutoScreenshotLogged = React.useCallback(() => {
+    loggingService.info('SCREENSHOT_AUTOSHOT_TOGGLE', `Auto-shot toggled`, { currentlyOn: autoShot.isAutoScreenshotOn, isScreenSharing: props.isScreenSharing });
+    autoShot.toggleAutoScreenshot();
+  }, [autoShot, props.isScreenSharing]);
 
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
@@ -81,11 +91,13 @@ export const BubbleNotes: React.FC<BubbleNotesProps> = (props) => {
       )}
 
       <div className="live-note-editor-wrapper">
-        <NoteEditorToolbar 
-          {...autoShot} isEditorEditable={props.isEditorEditable} isRecordingSessionActive={props.isRecordingSessionActive}
+        <NoteEditorToolbar
+          {...autoShot}
+          toggleAutoScreenshot={toggleAutoScreenshotLogged}
+          isEditorEditable={props.isEditorEditable} isRecordingSessionActive={props.isRecordingSessionActive}
           activeFormats={editor.activeFormats} applyFormat={editor.applyFormat} onFileUploadClick={() => fileInputRef.current?.click()}
           onDownloadPendingClick={editor.handleDownloadPendingContent}
-          onTakeScreenshot={props.onTakeScreenshot} isScreenSharing={props.isScreenSharing}
+          onTakeScreenshot={handleTakeScreenshotLogged} isScreenSharing={props.isScreenSharing}
         />
         <div
           ref={editor.inputRef} contentEditable={props.isEditorEditable} suppressContentEditableWarning={true}

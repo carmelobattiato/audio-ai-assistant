@@ -47,7 +47,8 @@ interface RecorderActionsProps {
 const SystemAudioGuideModal: React.FC<{
   onConfirm: () => void;
   onCancel: () => void;
-}> = ({ onConfirm, onCancel }) => (
+  onStartWithoutHeadphones: () => void;
+}> = ({ onConfirm, onCancel, onStartWithoutHeadphones }) => (
   <div
     className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50"
     onClick={onCancel}
@@ -154,22 +155,36 @@ const SystemAudioGuideModal: React.FC<{
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-3 border-t border-gray-700 flex justify-end gap-3">
+      <div className="px-5 py-3 border-t border-gray-700 flex items-center justify-between gap-3">
+        {/* Left: quick start without system audio */}
         <button
-          onClick={onCancel}
-          className="px-4 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onConfirm}
-          className="flex items-center gap-2 px-5 py-1.5 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors"
+          onClick={onStartWithoutHeadphones}
+          className="flex items-center gap-2 px-4 py-1.5 text-sm text-gray-300 hover:text-white border border-gray-600 hover:border-gray-400 hover:bg-gray-700/60 rounded-lg transition-colors"
+          title="Start recording with microphone only — no system audio"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.847v6.306a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
           </svg>
-          Open screen share
+          Rec without headphones
         </button>
+        {/* Right: cancel / confirm */}
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="px-4 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex items-center gap-2 px-5 py-1.5 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.847v6.306a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+            </svg>
+            Open screen share
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -194,6 +209,11 @@ export const RecorderActions: React.FC<RecorderActionsProps> = (props) => {
     props.onStart(true);
   };
 
+  const handleStartWithoutHeadphones = () => {
+    setShowAudioGuide(false);
+    props.onStart(false);
+  };
+
   const handleCancelGuide = () => {
     setShowAudioGuide(false);
   };
@@ -212,6 +232,7 @@ export const RecorderActions: React.FC<RecorderActionsProps> = (props) => {
         <SystemAudioGuideModal
           onConfirm={handleConfirmSystemAudio}
           onCancel={handleCancelGuide}
+          onStartWithoutHeadphones={handleStartWithoutHeadphones}
         />
       )}
 

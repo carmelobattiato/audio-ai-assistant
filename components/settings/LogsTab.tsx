@@ -6,10 +6,19 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 
+const LOG_LEVEL_KEY = 'neo_log_min_level';
+
 export const LogsTab: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>(loggingService.getLogs());
   const [filter, setFilter] = useState('');
-  const [minLevel, setMinLevel] = useState<LogLevel>(LogLevel.INFO);
+  const [minLevel, setMinLevel] = useState<LogLevel>(
+    () => (localStorage.getItem(LOG_LEVEL_KEY) as LogLevel | null) ?? LogLevel.INFO
+  );
+
+  const handleMinLevelChange = (level: LogLevel) => {
+    setMinLevel(level);
+    localStorage.setItem(LOG_LEVEL_KEY, level);
+  };
 
   useEffect(() => {
     return loggingService.subscribe((newLogs) => {
@@ -72,7 +81,7 @@ export const LogsTab: React.FC = () => {
             label="Min Level:"
             id="logMinLevel"
             value={minLevel}
-            onChange={(e) => setMinLevel(e.target.value as LogLevel)}
+            onChange={(e) => handleMinLevelChange(e.target.value as LogLevel)}
             options={[
               { value: LogLevel.TRACE, label: 'TRACE' },
               { value: LogLevel.DEBUG, label: 'DEBUG' },

@@ -44,7 +44,7 @@ export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl
 };
 
 export const GEMINI_MODEL_TEXT = 'gemini-3-flash-preview';
-export const MAX_SESSIONS = 5; // Updated Retention Policy
+export const MAX_SESSIONS = 15;
 export const MAX_SESSION_SIZE_MB = 50;
 export const DEBOUNCE_DELAY = 300;
 export const MAX_FILE_SIZE_MB = 100;

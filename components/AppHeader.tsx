@@ -64,6 +64,25 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <Button onClick={onOpenSettings} variant="ghost" size="md" leftIcon={<SettingsIcon className="w-5 h-5"/>} disabled={isBusy}>
         Settings
       </Button>
+      <a
+        href="/"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          padding: '8px 16px', borderRadius: '8px', fontSize: '14px',
+          fontWeight: 600, textDecoration: 'none',
+          background: 'rgba(124,58,237,0.15)',
+          border: '1px solid rgba(139,92,246,0.4)',
+          color: '#A78BFA',
+          transition: 'background 0.2s, color 0.2s',
+        }}
+        onMouseEnter={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.background = 'rgba(124,58,237,0.4)'; el.style.color = '#fff'; }}
+        onMouseLeave={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.background = 'rgba(124,58,237,0.15)'; el.style.color = '#A78BFA'; }}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+        New UI
+      </a>
     </div>
   </header>
 );

@@ -5,6 +5,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Audio AI Assistant</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon-64.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /* Custom scrollbar for webkit browsers */
@@ -857,6 +861,316 @@
           to { opacity: 1; transform: translateX(-50%) translateY(0); }
       }
 
+      /* ================================================================== */
+      /*          NEO DESIGN SYSTEM — Violet / Accenture palette            */
+      /*          Used exclusively inside .neo-ctx wrappers and             */
+      /*          the /newpage route layout components                       */
+      /* ================================================================== */
+
+      :root {
+        /* ── Dark (default) — medium violet-grey, not pitch-black ── */
+        --neo-bg:            #141230;
+        --neo-surface:       #1E1B48;
+        --neo-card:          rgba(255,255,255,0.06);
+        --neo-border:        rgba(139,92,246,0.30);
+        --neo-primary:       #7C3AED;
+        --neo-primary-l:     #A78BFA;
+        --neo-accent:        #C026D3;
+        --neo-text:          #EDE9FE;
+        --neo-muted:         #9D8EBF;
+        --neo-success:       #10B981;
+        --neo-danger:        #EF4444;
+        --neo-glow:          0 0 24px rgba(124,58,237,0.35);
+        /* Semantic surface tokens */
+        --neo-overlay-bg:    rgba(20,18,48,0.90);
+        --neo-overlay-dim:   rgba(20,18,48,0.65);
+        --neo-surface-solid: rgba(24,21,64,0.98);
+        --neo-visualizer-bg: rgba(0,0,0,0.28);
+      }
+
+      /* ── Light mode — high contrast violet on near-white ── */
+      body.theme-light {
+        --neo-bg:            #EDEBFF;
+        --neo-surface:       #DDD9F5;
+        --neo-card:          rgba(255,255,255,0.75);
+        --neo-border:        rgba(109,40,217,0.28);
+        --neo-primary:       #7C3AED;
+        --neo-primary-l:     #4C1D95;
+        --neo-accent:        #86198F;
+        --neo-text:          #0F0A2E;
+        --neo-muted:         #6D28D9;
+        --neo-success:       #059669;
+        --neo-danger:        #DC2626;
+        --neo-glow:          0 0 24px rgba(124,58,237,0.14);
+        --neo-overlay-bg:    rgba(205,200,248,0.95);
+        --neo-overlay-dim:   rgba(205,200,248,0.80);
+        --neo-surface-solid: rgba(255,255,255,0.98);
+        --neo-visualizer-bg: rgba(109,40,217,0.09);
+      }
+
+      /* ── Dark-grey mode — deeper dark violet ── */
+      body.theme-dark-grey {
+        --neo-bg:            #1a1730;
+        --neo-surface:       #241f52;
+        --neo-card:          rgba(255,255,255,0.06);
+        --neo-border:        rgba(139,92,246,0.28);
+        --neo-primary-l:     #A78BFA;
+        --neo-muted:         #9575CD;
+        --neo-overlay-bg:    rgba(22,17,60,0.90);
+        --neo-overlay-dim:   rgba(22,17,60,0.65);
+        --neo-surface-solid: rgba(22,17,60,0.98);
+        --neo-visualizer-bg: rgba(0,0,0,0.35);
+      }
+
+      /* ── Palette override: all gray → violet inside .neo-ctx ── */
+      .neo-ctx { color: var(--neo-text); }
+
+      /* bg-gray-900 → --neo-surface (adapts automatically across themes) */
+      .neo-ctx .bg-gray-900,
+      .neo-ctx .bg-gray-900\/50 { background-color: var(--neo-surface) !important; }
+
+      /* bg-gray-800 → --neo-card (glassmorphism panel) */
+      .neo-ctx .bg-gray-800,
+      .neo-ctx .bg-gray-800\/50 {
+        background-color: var(--neo-card) !important;
+        border-color: var(--neo-border) !important;
+        backdrop-filter: blur(10px);
+      }
+
+      .neo-ctx .bg-gray-700,
+      .neo-ctx .bg-gray-700\/50 { background-color: rgba(139,92,246,0.10) !important; }
+      .neo-ctx .bg-gray-600    { background-color: rgba(139,92,246,0.16) !important; }
+      .neo-ctx .bg-gray-500    { background-color: rgba(139,92,246,0.24) !important; }
+
+      .neo-ctx .text-sky-400   { color: var(--neo-primary-l) !important; }
+      .neo-ctx .text-sky-300   { color: #C4B5FD !important; }
+      .neo-ctx .text-gray-100  { color: var(--neo-text) !important; }
+      .neo-ctx .text-gray-200  { color: var(--neo-text) !important; }
+      .neo-ctx .text-gray-300  { color: var(--neo-primary-l) !important; }
+      .neo-ctx .text-gray-400  { color: var(--neo-muted) !important; }
+      .neo-ctx .text-gray-500  { color: var(--neo-muted) !important; }
+
+      .neo-ctx .border-gray-700,
+      .neo-ctx .border-gray-700\/50 { border-color: var(--neo-border) !important; }
+      .neo-ctx .border-gray-600 { border-color: rgba(139,92,246,0.32) !important; }
+      .neo-ctx .border-gray-500 { border-color: rgba(139,92,246,0.45) !important; }
+
+      /* Buttons: sky → violet */
+      .neo-ctx .bg-sky-600       { background-color: var(--neo-primary) !important; }
+      .neo-ctx .bg-sky-500       { background-color: #8B5CF6 !important; }
+      .neo-ctx .bg-sky-600\/30   { background-color: rgba(124,58,237,0.25) !important; }
+      .neo-ctx .border-sky-500\/40 { border-color: rgba(139,92,246,0.35) !important; }
+      .neo-ctx .text-sky-400.font-semibold { color: #A78BFA !important; }
+
+      /* Inputs / selects / textareas */
+      .neo-ctx input {
+        background-color: rgba(255,255,255,0.05) !important;
+        border-color: rgba(139,92,246,0.28) !important;
+        color: var(--neo-text) !important;
+      }
+      .neo-ctx input:focus {
+        border-color: var(--neo-primary) !important;
+        box-shadow: 0 0 0 2px rgba(124,58,237,0.25) !important;
+      }
+      .neo-ctx input::placeholder { color: var(--neo-muted) !important; }
+
+      /*
+        Select: compound selector raises specificity above .neo-ctx .bg-gray-700 (0,2,0)
+        so the solid violet background wins even with both having !important.
+        color-scheme: dark  tells Chromium to render the native OS dropdown popup with dark chrome.
+      */
+      .neo-ctx select,
+      .neo-ctx select.bg-gray-700,
+      .neo-ctx select.bg-gray-800,
+      .neo-ctx select.bg-gray-600 {
+        background-color: var(--neo-surface) !important;
+        border-color: var(--neo-border) !important;
+        color: var(--neo-text) !important;
+        color-scheme: dark;
+      }
+      .neo-ctx select:focus,
+      .neo-ctx select.bg-gray-700:focus {
+        border-color: var(--neo-primary) !important;
+        box-shadow: 0 0 0 2px rgba(124,58,237,0.25) !important;
+      }
+      /* Option elements: solid bg for browsers that respect it (Firefox, partial Chrome) */
+      .neo-ctx select option {
+        background-color: var(--neo-surface-solid) !important;
+        color: var(--neo-text) !important;
+      }
+      /* Light theme: switch back to light OS dropdown chrome */
+      body.theme-light .neo-ctx select,
+      body.theme-light .neo-ctx select.bg-gray-700 {
+        color-scheme: light;
+        background-color: var(--neo-surface) !important;
+        color: var(--neo-text) !important;
+      }
+      body.theme-light .neo-ctx select option {
+        background-color: var(--neo-surface-solid) !important;
+        color: var(--neo-text) !important;
+      }
+
+      /* LLM prose display */
+      .neo-ctx .llm-result-display-prose {
+        background-color: rgba(255,255,255,0.04) !important;
+        border-color: var(--neo-border) !important;
+        color: var(--neo-text) !important;
+      }
+      .neo-ctx .llm-result-display-prose h1,
+      .neo-ctx .llm-result-display-prose h2,
+      .neo-ctx .llm-result-display-prose h3,
+      .neo-ctx .llm-result-display-prose h4 { color: var(--neo-primary-l) !important; }
+
+      /* Bubble notes in neo context */
+      .neo-ctx .note-bubble {
+        background-color: rgba(124,58,237,0.15) !important;
+        border-color: rgba(139,92,246,0.4) !important;
+      }
+      .neo-ctx .note-bubble svg { color: var(--neo-primary-l) !important; }
+      .neo-ctx .note-bubble:hover {
+        border-color: var(--neo-primary-l) !important;
+        box-shadow: 0 0 16px rgba(124,58,237,0.45) !important;
+      }
+      .neo-ctx .note-bubble.is-active {
+        border-color: var(--neo-accent) !important;
+        box-shadow: 0 0 22px rgba(192,38,211,0.5) !important;
+      }
+      .neo-ctx .note-preview-popup {
+        background-color: rgba(15,11,46,0.97) !important;
+        border-color: var(--neo-border) !important;
+      }
+
+      /* Editor toolbar */
+      .neo-ctx .simple-editor-toolbar {
+        background-color: rgba(139,92,246,0.12) !important;
+        border-color: var(--neo-border) !important;
+      }
+      .neo-ctx .simple-editor-toolbar button {
+        background-color: rgba(255,255,255,0.06) !important;
+        border-color: var(--neo-border) !important;
+        color: var(--neo-text) !important;
+      }
+      .neo-ctx .simple-editor-toolbar button:hover {
+        background-color: rgba(124,58,237,0.3) !important;
+        color: #fff !important;
+      }
+      .neo-ctx .simple-editor-content {
+        background-color: rgba(255,255,255,0.04) !important;
+        border-color: var(--neo-border) !important;
+        color: var(--neo-text) !important;
+      }
+      .neo-ctx .new-bubble-input-area {
+        background-color: rgba(255,255,255,0.04) !important;
+        border-color: var(--neo-border) !important;
+      }
+
+      /* ── Blue → violet: buttons/backgrounds inside neo-ctx ── */
+      .neo-ctx .bg-blue-600,
+      .neo-ctx .bg-blue-500 {
+        background: linear-gradient(135deg, #7C3AED, #C026D3) !important;
+        box-shadow: 0 2px 10px rgba(124,58,237,0.3) !important;
+      }
+      .neo-ctx .hover\:bg-blue-700:hover { background: linear-gradient(135deg,#6D28D9,#A21CAF) !important; }
+      .neo-ctx .bg-blue-900,
+      .neo-ctx .bg-blue-900\/50 { background-color: rgba(91,0,200,0.18) !important; }
+      .neo-ctx .border-blue-700 { border-color: rgba(124,58,237,0.4) !important; }
+      .neo-ctx .border-blue-400 { border-color: rgba(167,139,250,0.5) !important; }
+      .neo-ctx .text-blue-400,
+      .neo-ctx .text-blue-300 { color: var(--neo-primary-l) !important; }
+      .neo-ctx .text-blue-200 { color: #DDD6FE !important; }
+      .neo-ctx .focus\:ring-blue-500:focus { --tw-ring-color: rgba(124,58,237,0.5) !important; }
+      .neo-ctx .focus\:border-blue-500:focus { border-color: var(--neo-primary) !important; }
+
+      /* ── Textarea → violet styling inside neo-ctx ── */
+      .neo-ctx textarea {
+        background-color: rgba(255,255,255,0.05) !important;
+        border-color: rgba(139,92,246,0.28) !important;
+        color: var(--neo-text) !important;
+        border-radius: 12px !important;
+      }
+      .neo-ctx textarea:focus {
+        border-color: var(--neo-primary) !important;
+        box-shadow: 0 0 0 2px rgba(124,58,237,0.25) !important;
+        outline: none !important;
+      }
+
+      /* ── Summary preview & quick actions inside neo-ctx ── */
+      .neo-ctx .summary-preview-container {
+        background-color: rgba(124,58,237,0.1) !important;
+        border-color: rgba(167,139,250,0.4) !important;
+      }
+      .neo-ctx .summary-preview-container h4 { color: var(--neo-primary-l) !important; }
+      .neo-ctx .summary-preview-content { background-color: rgba(139,92,246,0.1) !important; }
+      .neo-ctx .custom-quick-actions-manager {
+        background-color: rgba(124,58,237,0.07) !important;
+        border-radius: 12px;
+      }
+
+      /* ── Light-mode: fix custom CSS classes that still have hardcoded dark values ── */
+      /* (bg-gray-* now auto-adapts via CSS variables; only custom classes need overrides) */
+      body.theme-light .neo-ctx textarea { background-color: rgba(255,255,255,0.88) !important; color: var(--neo-text) !important; }
+      body.theme-light .neo-ctx .note-bubble { background-color: rgba(255,255,255,0.88) !important; }
+      body.theme-light .neo-ctx .note-preview-popup { background-color: rgba(255,255,255,0.98) !important; }
+      body.theme-light .neo-ctx .simple-editor-content { background-color: rgba(255,255,255,0.88) !important; color: var(--neo-text) !important; }
+      body.theme-light .neo-ctx .new-bubble-input-area { background-color: rgba(221,217,245,0.7) !important; }
+      body.theme-light .neo-ctx .llm-result-display-prose { background-color: rgba(255,255,255,0.88) !important; color: var(--neo-text) !important; }
+      body.theme-light .neo-ctx .bubble-input-content-area { color: var(--neo-text) !important; }
+      body.theme-light .neo-ctx .note-bubble-text-preview { color: var(--neo-text) !important; }
+      body.theme-light .neo-ctx .summary-preview-container { background-color: rgba(221,217,245,0.8) !important; }
+      body.theme-light .neo-ctx .summary-preview-content { background-color: rgba(255,255,255,0.75) !important; color: var(--neo-text) !important; }
+      body.theme-light .neo-ctx .simple-editor-toolbar { background-color: rgba(109,40,217,0.10) !important; }
+      body.theme-light .neo-ctx .simple-editor-toolbar button { color: var(--neo-text) !important; background-color: rgba(255,255,255,0.7) !important; }
+      /* LLM prose headings/links on light bg */
+      body.theme-light .neo-ctx .llm-result-display-prose h1,
+      body.theme-light .neo-ctx .llm-result-display-prose h2,
+      body.theme-light .neo-ctx .llm-result-display-prose h3 { color: var(--neo-primary) !important; }
+      body.theme-light .neo-ctx .llm-result-display-prose { color: var(--neo-text) !important; }
+
+      /* Scrollbars inside neo-ctx */
+      .neo-ctx ::-webkit-scrollbar-track { background: rgba(15,11,46,0.5); }
+      .neo-ctx ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.35); border-radius: 4px; }
+      .neo-ctx ::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.55); }
+
+      /* ── Modal dialogs: solid violet surface (discriminated by shadow-xl / shadow-2xl) ── */
+      /* Cards inside panels use .bg-gray-800 WITHOUT these shadow classes → stay transparent */
+      .neo-ctx .bg-gray-800.shadow-xl,
+      .neo-ctx .bg-gray-800.shadow-2xl {
+        background-color: var(--neo-surface-solid) !important;
+        border: 1px solid var(--neo-border) !important;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.70), 0 0 0 1px rgba(139,92,246,0.2) !important;
+        backdrop-filter: blur(24px) !important;
+      }
+      /* Modal header/footer horizontal rule */
+      .neo-ctx .border-b.border-gray-700 { border-bottom-color: var(--neo-border) !important; }
+      .neo-ctx .border-t.border-gray-700 { border-top-color:    var(--neo-border) !important; }
+      /* Active tab border (e.g. Settings) */
+      .neo-ctx .border-sky-400 { border-color: var(--neo-primary-l) !important; }
+      /* Ghost button hover inside modals */
+      .neo-ctx .hover\:bg-gray-700:hover { background-color: rgba(124,58,237,0.18) !important; }
+      .neo-ctx .hover\:text-white:hover   { color: #fff !important; }
+      /* ─ Calendar modal per-status meeting cards ─ */
+      .neo-ctx [class*="bg-gray-900\/40"] { background-color: rgba(20,18,48,0.55) !important; }
+      .neo-ctx [class*="hover\:bg-gray-700\/50"]:hover { background-color: rgba(124,58,237,0.14) !important; }
+      /* ─ Session status badges keep their semantic colours ─ */
+
+      /* ── Light mode fixes for modal dialogs ── */
+      body.theme-light .neo-ctx .bg-gray-800.shadow-xl,
+      body.theme-light .neo-ctx .bg-gray-800.shadow-2xl {
+        background-color: var(--neo-surface-solid) !important;
+      }
+
+      /* ── Neo animations ── */
+      @keyframes neo-pulse-glow {
+        0%, 100% { box-shadow: 0 0 8px rgba(124,58,237,0.4); }
+        50%       { box-shadow: 0 0 22px rgba(124,58,237,0.75), 0 0 40px rgba(124,58,237,0.3); }
+      }
+      .neo-recording-glow { animation: neo-pulse-glow 2s ease-in-out infinite; }
+
+      @keyframes neo-tooltip-in {
+        from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+        to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+
     </style>
   <script type="importmap">
 {
@@ -876,6 +1190,7 @@
 </head>
   <body class="bg-gray-900 text-gray-100 antialiased">
     <div id="root"></div>
+
     <script type="application/json" id="app-config-data">
       <!-- Paste your config.json content here to mount it -->
     </script>

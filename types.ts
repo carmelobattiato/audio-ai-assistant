@@ -41,6 +41,8 @@ export interface AudioRecorderRef {
   resetRecording: () => void;
   getRecordingSessionId: () => string | null;
   triggerSystemAudioGuide: () => void;
+  handleTakeScreenshot: (isAutomatic: boolean) => void;
+  getIsScreenSharing: () => boolean;
 }
 
 export interface AudioRecorderProps {

@@ -5,7 +5,7 @@ import { StatisticsModal } from './StatisticsModal';
 import { LoadSessionModal } from './LoadSessionModal';
 import { BubbleNoteViewerModal } from './BubbleNoteViewerModal';
 import { ConfirmModal } from './common/ConfirmModal';
-import { OutlookCalendarModal } from './OutlookCalendarModal';
+import { OutlookCalendarModal, OutlookAppointment } from './OutlookCalendarModal';
 import { AppSettings, BubbleNote, SavedSession } from '../types';
 
 interface AppModalsProps {
@@ -37,10 +37,16 @@ interface AppModalsProps {
   // DO add comment above each fix.
   // Fix: Changed return type from void to Promise<void> to match implementation in App.tsx and expectation in StatisticsModal.
   handleAssessCoherence: () => Promise<void>;
-  isOutlookModalOpen: boolean;
-  setIsOutlookModalOpen: (v: boolean) => void;
-  handleOutlookImport: (title: string, noteHtml: string) => void;
-  handleOutlookOpenTeams: (title: string, noteHtml: string, teamsUrl: string) => void;
+  // Optional: Outlook calendar modal (classic App.tsx only — NewHome uses NeoCalendarDayView instead)
+  isOutlookModalOpen?: boolean;
+  setIsOutlookModalOpen?: (v: boolean) => void;
+  handleOutlookImport?: (title: string, noteHtml: string) => void;
+  handleOutlookOpenTeams?: (title: string, noteHtml: string, teamsUrl: string) => void;
+  calendarAppointments?: OutlookAppointment[];
+  calendarBridgeAvailable?: boolean | null;
+  calendarError?: string | null;
+  calendarRefreshing?: boolean;
+  onCalendarRefresh?: () => void;
 }
 
 export const AppModals: React.FC<AppModalsProps> = (props) => (
@@ -92,11 +98,18 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       llmSettings={props.appSettings.llm}
     />
 
-    <OutlookCalendarModal
-      isOpen={props.isOutlookModalOpen}
-      onClose={() => props.setIsOutlookModalOpen(false)}
-      onImport={props.handleOutlookImport}
-      onOpenTeamsAndRecord={props.handleOutlookOpenTeams}
-    />
+    {props.isOutlookModalOpen !== undefined && props.setIsOutlookModalOpen && props.handleOutlookImport && (
+      <OutlookCalendarModal
+        isOpen={props.isOutlookModalOpen}
+        onClose={() => props.setIsOutlookModalOpen!(false)}
+        onImport={props.handleOutlookImport}
+        onOpenTeamsAndRecord={props.handleOutlookOpenTeams}
+        externalAppointments={props.calendarAppointments}
+        externalBridgeAvailable={props.calendarBridgeAvailable}
+        externalError={props.calendarError}
+        isBackgroundRefreshing={props.calendarRefreshing}
+        onRequestRefresh={props.onCalendarRefresh}
+      />
+    )}
   </>
 );
