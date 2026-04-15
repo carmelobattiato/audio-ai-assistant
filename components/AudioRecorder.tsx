@@ -57,7 +57,13 @@ export const AudioRecorder = React.forwardRef<AudioRecorderRef, ExtendedAudioRec
   const [currentFileName, setCurrentFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useImperativeHandle(ref, () => ({ getAudioSnapshot, resetRecording, getRecordingSessionId }), [getAudioSnapshot, resetRecording, getRecordingSessionId]);
+  const [guideKey, setGuideKey] = useState(0);
+  useImperativeHandle(ref, () => ({
+    getAudioSnapshot,
+    resetRecording,
+    getRecordingSessionId,
+    triggerSystemAudioGuide: () => setGuideKey(k => k + 1),
+  }), [getAudioSnapshot, resetRecording, getRecordingSessionId]);
 
   // Combined title for internal usage and preview
   const fullTitle = useMemo(() => {
@@ -194,6 +200,7 @@ export const AudioRecorder = React.forwardRef<AudioRecorderRef, ExtendedAudioRec
         autoPipelineEnabled={props.autoPipelineEnabled}
         onToggleAutoPipeline={props.onToggleAutoPipeline}
         chunksCount={props.chunksCount}
+        forceShowSystemAudioGuide={guideKey}
       />
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="audio/*" className="hidden" multiple />
       {error && <p className="text-sm text-red-400">Error: {error}</p>}

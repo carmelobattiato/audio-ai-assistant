@@ -40,6 +40,7 @@ interface AppModalsProps {
   isOutlookModalOpen: boolean;
   setIsOutlookModalOpen: (v: boolean) => void;
   handleOutlookImport: (title: string, noteHtml: string) => void;
+  handleOutlookOpenTeams: (title: string, noteHtml: string, teamsUrl: string) => void;
 }
 
 export const AppModals: React.FC<AppModalsProps> = (props) => (
@@ -95,6 +96,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       isOpen={props.isOutlookModalOpen}
       onClose={() => props.setIsOutlookModalOpen(false)}
       onImport={props.handleOutlookImport}
+      onOpenTeamsAndRecord={props.handleOutlookOpenTeams}
     />
   </>
 );

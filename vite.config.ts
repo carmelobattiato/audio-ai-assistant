@@ -35,17 +35,30 @@ try {
                     $att += [pscustomobject]@{ name = $r.Name; email = $email }
                 }
             } catch {}
-            $body = ''
-            try { if ($a.Body) { $body = $a.Body.Substring(0,[Math]::Min(1200,$a.Body.Length)).Trim() } } catch {}
+            $fullBody = ''
+            try { if ($a.Body) { $fullBody = $a.Body } } catch {}
+            $body = if ($fullBody.Length -gt 1200) { $fullBody.Substring(0,1200).Trim() } else { $fullBody.Trim() }
+            $meetingUrl = ''
+            try { if ($a.OnlineMeetingURL) { $meetingUrl = $a.OnlineMeetingURL } } catch {}
+            if (-not $meetingUrl) {
+                try {
+                    if ($fullBody -match '(https://teams\.microsoft\.com/l/[^\s<>]+)') {
+                        $meetingUrl = $Matches[1].TrimEnd('.')
+                    }
+                } catch {}
+            }
+            $organizer = ''
+            try { $organizer = $a.Organizer } catch {}
             $appts.Add([pscustomobject]@{
-                id        = [string]$idx
-                subject   = if ($a.Subject) { $a.Subject } else { '(Nessun titolo)' }
-                start     = [string]$a.Start
-                end       = [string]$a.End
-                location  = if ($a.Location) { $a.Location } else { '' }
-                body      = $body
-                attendees = $att
-                organizer = try { $a.Organizer } catch { '' }
+                id               = [string]$idx
+                subject          = if ($a.Subject) { $a.Subject } else { '(Nessun titolo)' }
+                start            = [string]$a.Start
+                end              = [string]$a.End
+                location         = if ($a.Location) { $a.Location } else { '' }
+                body             = $body
+                attendees        = $att
+                organizer        = $organizer
+                onlineMeetingUrl = $meetingUrl
             })
             $idx++
         } catch {}

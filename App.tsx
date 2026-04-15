@@ -129,6 +129,14 @@ export const App: React.FC = () => {
     setTimeout(() => setAppUserMessage(null), 4000);
   }, []);
 
+  const handleOutlookOpenTeams = useCallback((title: string, noteHtml: string, teamsUrl: string) => {
+    handleOutlookImport(title, noteHtml);
+    window.open(teamsUrl, '_blank');
+    setIsOutlookModalOpen(false);
+    // Let the modal close before triggering the guide
+    setTimeout(() => audioRecorderRef.current?.triggerSystemAudioGuide(), 150);
+  }, [handleOutlookImport]);
+
   const fetchSessions = useCallback(async () => {
     const sessions = await db.getAllSessions();
     setSavedSessions(sessions);
@@ -578,6 +586,7 @@ export const App: React.FC = () => {
         handleGenerateSummaryForBubble={handleGenerateSummaryForBubble} handleAssessCoherence={handleAssessCoherence}
         isOutlookModalOpen={isOutlookModalOpen} setIsOutlookModalOpen={setIsOutlookModalOpen}
         handleOutlookImport={handleOutlookImport}
+        handleOutlookOpenTeams={handleOutlookOpenTeams}
       />
     </div>
   );

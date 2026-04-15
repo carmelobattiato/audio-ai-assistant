@@ -40,6 +40,7 @@ export interface AudioRecorderRef {
   }>;
   resetRecording: () => void;
   getRecordingSessionId: () => string | null;
+  triggerSystemAudioGuide: () => void;
 }
 
 export interface AudioRecorderProps {

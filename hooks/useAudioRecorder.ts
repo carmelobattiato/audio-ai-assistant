@@ -149,7 +149,11 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
       if (enableRealtimeTranscription) await liveTrans.connectLiveSession(context, micStream, isPausedRef);
       
       if (includeAppAudio) {
-        const appStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        const appStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { displaySurface: 'monitor' },
+          audio: true,
+          systemAudio: 'include',
+        } as DisplayMediaStreamOptions);
         streams.allStreamsRef.current.push(appStream);
         streams.setDisplayStream(appStream);
         if (appStream.getAudioTracks().length > 0) {
@@ -210,10 +214,14 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
   const addAppAudio = useCallback(async () => {
     if (streams.isAppAudioActive) return;
     try {
-      const appStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const appStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: 'monitor' },
+        audio: true,
+        systemAudio: 'include',
+      } as DisplayMediaStreamOptions);
       streams.allStreamsRef.current.push(appStream);
       streams.setDisplayStream(appStream);
-      
+
       if (appStream.getAudioTracks().length > 0) {
         const context = streams.audioContextRef.current;
         const destination = streams.destinationNodeRef.current;
