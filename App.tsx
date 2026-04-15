@@ -66,6 +66,7 @@ export const App: React.FC = () => {
   const [recordingChunks, setRecordingChunks] = useState<Blob[]>([]);
   const [coherenceAssessment, setCoherenceAssessment] = useState<string | null>(null);
   const [coherenceStatus, setCoherenceStatus] = useState<CoherenceAssessmentStatus>(CoherenceAssessmentStatus.IDLE);
+  const [isOutlookModalOpen, setIsOutlookModalOpen] = useState(false);
 
   const isInitialLoadingRef = useRef(false);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -111,6 +112,21 @@ export const App: React.FC = () => {
 
   const addLlmUsageStat = useCallback((stat: Omit<LlmUsageStats, 'timestamp'>) => {
     setLlmUsageHistory(prev => [...prev, { ...stat, timestamp: Date.now() }]);
+  }, []);
+
+  const handleOutlookImport = useCallback((title: string, noteHtml: string) => {
+    setRecordingTitle(title);
+    const newNote: BubbleNote = {
+      id: `n_outlook_${Date.now()}`,
+      contentHtml: noteHtml,
+      timestamp: Date.now(),
+      recordingElapsedTime: 0,
+      isEditing: false,
+      isProcessing: false,
+    };
+    setBubbleNotes(prev => [newNote, ...prev]);
+    setAppUserMessage(`📅 Riunione "${title}" importata da Outlook`);
+    setTimeout(() => setAppUserMessage(null), 4000);
   }, []);
 
   const fetchSessions = useCallback(async () => {
@@ -402,7 +418,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col items-center p-4 sm:p-6 md:p-8">
-      <AppHeader 
+      <AppHeader
         appUserMessage={appUserMessage} isBusy={isBusy}
         onManageSessions={() => { fetchSessions(); setShowLoadSessionModal(true); }}
         onSaveAll={() => {
@@ -410,6 +426,7 @@ export const App: React.FC = () => {
                 sessLogic.handleExportSessionJson(activeSessionIdRef.current);
             }
         }} onOpenStats={() => setIsStatisticsModalOpen(true)} onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenOutlookCalendar={() => setIsOutlookModalOpen(true)}
         canSaveZip={!!activeSessionIdRef.current} statsDisabled={!audioBlob && !activeSourceText && bubbleNotes.length === 0}
       />
       <AppMainContent 
@@ -559,6 +576,8 @@ export const App: React.FC = () => {
         viewingBubbleNote={bubbleNotes.find(n => n.id === viewingBubbleNoteId) || null} handleCloseBubbleNoteViewer={() => setViewingBubbleNoteId(null)}
         handleUpdateBubbleNote={(un: any) => setBubbleNotes(p => p.map(n => n.id === un.id ? un : n))} handleDeleteBubbleNote={(id: any) => setBubbleNotes(p => p.filter(n => n.id !== id))}
         handleGenerateSummaryForBubble={handleGenerateSummaryForBubble} handleAssessCoherence={handleAssessCoherence}
+        isOutlookModalOpen={isOutlookModalOpen} setIsOutlookModalOpen={setIsOutlookModalOpen}
+        handleOutlookImport={handleOutlookImport}
       />
     </div>
   );

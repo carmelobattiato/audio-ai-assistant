@@ -5,6 +5,7 @@ import { StatisticsModal } from './StatisticsModal';
 import { LoadSessionModal } from './LoadSessionModal';
 import { BubbleNoteViewerModal } from './BubbleNoteViewerModal';
 import { ConfirmModal } from './common/ConfirmModal';
+import { OutlookCalendarModal } from './OutlookCalendarModal';
 import { AppSettings, BubbleNote, SavedSession } from '../types';
 
 interface AppModalsProps {
@@ -36,6 +37,9 @@ interface AppModalsProps {
   // DO add comment above each fix.
   // Fix: Changed return type from void to Promise<void> to match implementation in App.tsx and expectation in StatisticsModal.
   handleAssessCoherence: () => Promise<void>;
+  isOutlookModalOpen: boolean;
+  setIsOutlookModalOpen: (v: boolean) => void;
+  handleOutlookImport: (title: string, noteHtml: string) => void;
 }
 
 export const AppModals: React.FC<AppModalsProps> = (props) => (
@@ -85,6 +89,12 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       onDelete={props.handleDeleteBubbleNote}
       onGenerateSummary={props.handleGenerateSummaryForBubble}
       llmSettings={props.appSettings.llm}
+    />
+
+    <OutlookCalendarModal
+      isOpen={props.isOutlookModalOpen}
+      onClose={() => props.setIsOutlookModalOpen(false)}
+      onImport={props.handleOutlookImport}
     />
   </>
 );

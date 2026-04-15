@@ -1,14 +1,21 @@
 
 import React from 'react';
 import { Button } from './common/Button';
-import { 
-  SettingsIcon, 
-  StatsIcon, 
-  DownloadIcon, 
-  UploadIcon, 
-  FolderIcon, 
-  APP_TITLE 
+import {
+  SettingsIcon,
+  StatsIcon,
+  DownloadIcon,
+  UploadIcon,
+  FolderIcon,
+  APP_TITLE
 } from '../constants';
+
+const CalendarSyncIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+);
 
 interface AppHeaderProps {
   appUserMessage: string | null;
@@ -17,6 +24,7 @@ interface AppHeaderProps {
   onSaveAll: () => void;
   onOpenStats: () => void;
   onOpenSettings: () => void;
+  onOpenOutlookCalendar: () => void;
   canSaveZip: boolean;
   statsDisabled: boolean;
 }
@@ -28,18 +36,22 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onSaveAll,
   onOpenStats,
   onOpenSettings,
+  onOpenOutlookCalendar,
   canSaveZip,
   statsDisabled
 }) => (
   <header className="w-full max-w-5xl mb-6 sm:mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
     <div>
       <h1 className="text-3xl sm:text-4xl font-bold text-sky-400 tracking-tight">{APP_TITLE}</h1>
-      <p className="text-xs italic text-sky-300">Developed by Carmelo Battiato v.1.70</p>
+      <p className="text-xs italic text-sky-300">Developed by Carmelo Battiato v.1.71</p>
       <div className="h-6 mt-1">
         {appUserMessage && <p className="text-sm text-emerald-400" role="status">{appUserMessage}</p>}
       </div>
     </div>
     <div className="flex flex-wrap gap-2 sm:gap-3">
+      <Button onClick={onOpenOutlookCalendar} variant="ghost" size="md" disabled={isBusy} leftIcon={<CalendarSyncIcon className="w-5 h-5"/>}>
+        Sync Calendar
+      </Button>
       <Button onClick={onManageSessions} variant="ghost" size="md" disabled={isBusy} leftIcon={<FolderIcon className="w-5 h-5"/>}>
         Sessions
       </Button>
