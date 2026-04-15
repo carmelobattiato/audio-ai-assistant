@@ -11,20 +11,38 @@ const TIPS: Tip[] = [
   {
     icon: '🔊',
     title: 'System Audio Capture',
-    body: 'Share your screen with audio to capture Teams, Zoom or Meet calls. Click "Rec + Headphones" and choose a window or tab — the app mixes mic and system audio automatically.',
+    body: 'Share your screen with audio to capture Teams, Zoom or Meet calls. Click "Rec + Headphones", select "Entire Screen" and enable "Also share system audio" — the app mixes mic and system audio automatically.',
     tag: 'Pro tip',
+  },
+  {
+    icon: '🎙️',
+    title: 'Rec without headphones',
+    body: 'If you use headphones but just want to record your mic quickly, click "Rec + Headphones" then hit "Rec without headphones" in the bottom-left of the dialog. Skips the screen-share step entirely.',
+    tag: 'Shortcut',
   },
   {
     icon: '🗒️',
     title: 'Bubble Notes',
-    body: 'Jot timestamped notes while recording with the Notes tab. Each bubble is stamped with the recording time and searchable. Great for tagging action items mid-meeting.',
+    body: 'Jot timestamped notes while recording with the Notes tab. Each bubble is stamped with the recording time. Great for tagging action items mid-meeting without interrupting the flow.',
     tag: 'Workflow',
   },
   {
     icon: '📅',
-    title: 'Outlook Calendar Sync',
-    body: 'On Windows, click the calendar icon in the toolbar to import today\'s meetings from Outlook. Title and attendees auto-fill the session name — no typing needed.',
+    title: 'Outlook Calendar — Day View',
+    body: 'Click "Calendar" in the toolbar to open the Outlook day view. Meetings appear as colored blocks on a 24-hour timeline. Parallel meetings are shown side-by-side. Switch to List view for a compact overview.',
     tag: 'Windows only',
+  },
+  {
+    icon: '✅',
+    title: 'Meeting Response Status',
+    body: 'The Calendar shows your acceptance status for each meeting: ✓ Accepted (green), ~ Tentative (amber), ★ Organizer (violet). Declined meetings appear grayed out.',
+    tag: 'Calendar',
+  },
+  {
+    icon: '💜',
+    title: 'Open Teams Without Chrome',
+    body: 'Tap "Teams + Rec" on any meeting in the Calendar to open the Teams desktop app directly via the msteams:// protocol — no browser tab opens, no context switch.',
+    tag: 'Teams',
   },
   {
     icon: '💾',
@@ -35,20 +53,62 @@ const TIPS: Tip[] = [
   {
     icon: '📦',
     title: 'Export Your Session',
-    body: 'Use "Save All" to download a ZIP with audio, SRT subtitles, a styled HTML report, and CSV data. Perfect for sharing meeting minutes or archiving recordings.',
+    body: 'Use "Export" to download a ZIP with audio, a styled HTML report, and CSV data. Perfect for sharing meeting minutes or archiving recordings.',
     tag: 'Export',
   },
   {
     icon: '⚡',
     title: 'Smart Pipeline',
-    body: 'Enable the Smart Pipeline checkbox before recording. When you stop, transcription and AI analysis run back-to-back automatically — your summary is ready by the time you grab a coffee.',
+    body: 'Enable the Smart Pipeline toggle before recording. When you stop, transcription and AI analysis run back-to-back automatically — your summary is ready by the time you grab a coffee.',
     tag: 'Automation',
   },
   {
     icon: '✨',
     title: 'Custom AI Analysis',
-    body: 'In the AI Analysis tab, write your own prompt or pick a quick-action preset. Results are saved per session and can include action items, key decisions, sentiment, or any custom format you need.',
+    body: 'In the AI Analysis tab, write your own prompt or pick a preset. Results can include action items, key decisions, sentiment, or any format you need — all saved per session.',
     tag: 'AI',
+  },
+  {
+    icon: '📸',
+    title: 'Auto Screenshot',
+    body: 'Enable Auto-Shot in the Notes toolbar to capture your screen automatically at a set interval. Use the +/- arrows to adjust the countdown. Screenshots are embedded directly in the note at the exact recording timestamp.',
+    tag: 'Notes',
+  },
+  {
+    icon: '🔢',
+    title: 'Chunked Recording',
+    body: 'Long sessions are split into chunks (default: 15 min) and saved incrementally to IndexedDB. Even if the browser crashes mid-meeting, you lose at most one chunk — the rest is already safe.',
+    tag: 'Reliability',
+  },
+  {
+    icon: '🔇',
+    title: 'Auto-Pause on Silence',
+    body: 'Enable Auto-Pause in Settings to automatically suspend recording after a configurable period of silence. Keeps your transcript clean and avoids transcribing empty air.',
+    tag: 'Settings',
+  },
+  {
+    icon: '📊',
+    title: 'Session Statistics',
+    body: 'Click "Stats" in the topbar to see token usage, word count, estimated cost, audio duration, bitrate and a coherence score for the AI analysis. Useful for tracking long sessions.',
+    tag: 'Analytics',
+  },
+  {
+    icon: '🌐',
+    title: 'Web Search in AI Analysis',
+    body: 'When using Google Gemini models, enable "Web Search" in the AI Analysis tab. The model grounds its analysis with live search results and includes citations — great for fact-checking or enriching a transcript.',
+    tag: 'AI',
+  },
+  {
+    icon: '📋',
+    title: 'Copy as Rich HTML',
+    body: 'After an AI analysis, click the copy button to get the result as rich HTML — paste it directly into Outlook or Gmail and formatting, bullet lists and tables are preserved automatically.',
+    tag: 'Export',
+  },
+  {
+    icon: '🖊️',
+    title: 'Edit Transcription Inline',
+    body: 'The transcription panel is fully editable. Click any word to correct it before running AI analysis — fixes are saved to the session and included in every export.',
+    tag: 'Workflow',
   },
 ];
 
