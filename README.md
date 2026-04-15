@@ -1,4 +1,4 @@
-# Audio AI Assistant — v.1.70
+# Audio AI Assistant — v1.73
 
 Applicazione web locale per la **registrazione audio**, **trascrizione automatica** tramite Google Gemini e **analisi con LLM**. Pensata per registrare riunioni, interviste e meeting Teams/Zoom, anche in presenza di cuffie.
 
@@ -47,10 +47,21 @@ Per usare una porta diversa: `.\setup_and_run.ps1 start -Port 3000`
 
 ```bash
 npm install
-npm run dev       # dev server su http://localhost:5173
+npm run dev       # dev server su http://localhost:8090
 npm run build     # build di produzione
 npm run lint      # type-checking TypeScript
 ```
+
+---
+
+## Interfacce disponibili
+
+L'applicazione offre due UI coesistenti, navigabili tramite i link nella topbar:
+
+| URL | Interfaccia |
+|-----|-------------|
+| `/` | **Neo UI** — interfaccia moderna con palette viola Accenture, layout a due pannelli, glassmorphism |
+| `/oldui` | **Classic UI** — interfaccia originale monocromatica |
 
 ---
 
@@ -58,19 +69,20 @@ npm run lint      # type-checking TypeScript
 
 ### Senza cuffie
 
-Il microfono cattura sia la voce locale che l'audio degli altoparlanti (le voci degli altri partecipanti al meeting). La registrazione funziona automaticamente senza configurazioni aggiuntive.
+Il microfono cattura sia la voce locale che l'audio degli altoparlanti. La registrazione funziona automaticamente senza configurazioni aggiuntive.
 
 ### Con cuffie — perché attivare "System Audio"
 
-Quando si usano le cuffie, il microfono non sente l'audio proveniente dagli altoparlanti. Di conseguenza, senza System Audio attivo, la registrazione cattura **solo la propria voce** e perde completamente le voci degli altri partecipanti (ad es. in Teams, Zoom, Meet).
+Quando si usano le cuffie, il microfono non sente l'audio proveniente dagli altoparlanti. Senza System Audio attivo, la registrazione cattura **solo la propria voce** e perde le voci degli altri partecipanti.
 
-Per registrare correttamente anche l'audio remoto:
+Cliccando il pulsante **"Rec with headphones"** appare una guida che illustra come:
 
-1. Fare clic sul pulsante **"Incl. System Audio"** prima di avviare la registrazione
-2. Windows mostrerà una finestra di dialogo per la condivisione schermo: selezionare la finestra o l'intero schermo e confermare
-3. L'app catturerà l'audio di sistema (tutto ciò che viene riprodotto sul PC) insieme al microfono
+1. Aprire il dialogo di condivisione schermo del browser
+2. Selezionare la scheda **"Entire Screen"** (non "Chrome Tab")
+3. Attivare il toggle **"Also share system audio"**
+4. Cliccare **Share** per avviare la registrazione
 
-> **Nota:** quando System Audio è attivo, l'eco cancellation viene gestita automaticamente per evitare interferenze tra microfono e audio di sistema.
+In alternativa, il pulsante **"Rec without headphones"** avvia immediatamente la registrazione con solo il microfono, senza aprire il dialogo di screen share.
 
 ---
 
@@ -82,9 +94,10 @@ Per registrare correttamente anche l'audio remoto:
 - Visualizzatore waveform in tempo reale
 - **Registrazione a segmenti** (chunk): salvataggio automatico ogni N minuti (default 15) per evitare perdite di dati in sessioni lunghe
 - **Auto-pausa sul silenzio**: pausa automatica dopo N secondi di silenzio, con soglia configurabile
-- **Analisi emozioni in tempo reale**: rileva l'emozione dominante nell'audio (gioia, tristezza, rabbia, sorpresa, ecc.) con visualizzazione cromatica
+- **Analisi emozioni in tempo reale**: rileva l'emozione dominante nell'audio con visualizzazione cromatica
 - **Trascrizione in tempo reale** durante la registrazione (modalità live)
 - Import di file audio già registrati per la trascrizione
+- **Screenshot integrati**: manuale o automatico a intervalli configurabili (countdown con frecce +/-)
 
 **Impostazioni qualità audio:**
 - Bitrate: 64 / 96 / 128 (default) / 192 / 256 kbps
@@ -99,7 +112,6 @@ Alimentata da Google Gemini (Speech-to-Text multimodale).
 
 - **Lingua:** Italiano (default) o Inglese
 - **Qualità:** 5 livelli (da "Veloce/Base" a "Migliore/Lento")
-- **Speaker diarization** (sperimentale): identifica i diversi interlocutori con numero approssimativo di partecipanti configurabile
 - **Formato output:** TXT, SRT, CSV, HTML
 - Coda di trascrizione con gestione di più file in sequenza
 - **Smart Pipeline**: al termine della registrazione avvia automaticamente trascrizione → analisi LLM
@@ -145,9 +157,37 @@ Sistema di annotazioni contestuali sincronizzate con la registrazione.
 
 ---
 
+### Calendario Outlook (Neo UI)
+
+Integrazione con Microsoft Outlook tramite bridge PowerShell (solo Windows con Outlook installato).
+
+Il pulsante **Calendar** nella topbar apre una finestra con due viste selezionabili:
+
+**Vista Calendar (Day View)**
+- Layout Outlook-style con fasce orarie da 00:00 a 24:00
+- Rettangoli colorati proporzionali alla durata di ogni riunione
+- Riunioni parallele affiancate (fino a 10 colonne dinamiche, senza sovrapposizioni)
+- Indicatore rosso della posizione temporale corrente, con auto-scroll centrato sull'ora attuale
+- Linee orarie (solide) e linee dei 30 minuti (tratteggiate)
+- Colori per stato: verde (in corso), ambra (prossima), viola (futura), grigio (passata)
+
+**Vista List**
+- Elenco compatto di tutte le riunioni del giorno
+- Cliccando su una card si espandono i partecipanti
+
+**Funzionalità comuni a entrambe le viste:**
+- Badge stato risposta: ✓ Accepted, ~ Tentative, ★ Organizer, ✗ Declined (letti da Outlook via COM)
+- Selezione riunione → quick bar in basso con:
+  - **Show Info**: modal dettagliato con partecipanti (avatar iniziali), luogo, organizzatore, link Teams, testo body
+  - **Teams + Rec**: apre Microsoft Teams desktop direttamente via protocollo `msteams://` (senza aprire una finestra Chrome), carica le info della riunione nelle note e avvia la guida System Audio
+  - **Load Info**: importa titolo e partecipanti nelle note della sessione
+- Aggiornamento manuale con pulsante Refresh
+
+---
+
 ### Gestione sessioni
 
-- Salvataggio di fino a **5 sessioni** in IndexedDB (storage locale del browser, nessun server)
+- Salvataggio di fino a **15 sessioni** in IndexedDB (storage locale del browser, nessun server)
 - Ogni sessione contiene: audio, chunk, trascrizione, risultati LLM, note, statistiche
 - Operazioni: salva, carica, unisci sessioni, sovrascrivi
 - Ripristino automatico delle sessioni interrotte in modo anomalo
@@ -172,11 +212,11 @@ Sistema di annotazioni contestuali sincronizzate con la registrazione.
 - Conteggio token (input/output) per ogni chiamata API
 - Statistiche testo: caratteri, parole, token stimati, dimensione
 - Dettagli audio: formato, durata, bitrate, canali
-- Log delle operazioni con ID di correlazione (tab "Log & Monitoraggio" nelle impostazioni)
+- Log delle operazioni con livello configurabile (tab "Log & Monitoraggio" nelle impostazioni)
 
 ---
 
-### Temi UI
+### Temi UI (Classic UI)
 
 - Scuro (default)
 - Chiaro
@@ -187,3 +227,5 @@ Sistema di annotazioni contestuali sincronizzate con la registrazione.
 ## Architettura
 
 Applicazione **client-side only** (React 19 + TypeScript + Vite). Nessun backend, nessun database server. Tutto il dato viene salvato nel browser (IndexedDB). Le uniche chiamate di rete sono verso le API Google Gemini.
+
+Il bridge Outlook è implementato come plugin Vite (`outlookPlugin` in `vite.config.ts`): intercetta le richieste `/api/outlook/*` ed esegue script PowerShell che leggono il calendario tramite COM automation. Funziona solo in modalità dev su Windows.
