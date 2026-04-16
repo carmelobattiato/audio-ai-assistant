@@ -40,7 +40,7 @@ import {
   htmlToPlainText, getCurrentTimestampSuffix,
 } from '../utils/textUtils';
 import {
-  createSessionZipBlob, generateStandardMetadataHeader, saveBlobToFile,
+  createSessionZipBlob, generateStandardMetadataHeader, generateAnalysisHtmlDocument, saveBlobToFile,
 } from '../utils/fileUtils';
 import { llmService } from '../services/geminiService';
 import { loggingService } from '../services/loggingService';
@@ -422,9 +422,17 @@ export const NewHome: React.FC = () => {
         transcriptionLanguage: appSettings.transcription.language,
         llmProcessingType,
       });
+      const analysisHtml = generateAnalysisHtmlDocument(llmProcessedText, {
+        title: finalEffectiveTitle,
+        sourceTimestamp: audioRecordingStartTime,
+        sourceFileName: audioFileName,
+        llmProcessingType,
+        transcriptionLanguage: appSettings.transcription.language,
+      });
       const zipBlob = createSessionZipBlob([
         { name: `${finalEffectiveTitle}_transcription.txt`, content: meta + htmlToPlainText(transcribedText) },
         { name: `${finalEffectiveTitle}_ai_analysis.txt`,   content: meta + htmlToPlainText(llmProcessedText) },
+        { name: `${finalEffectiveTitle}_ai_analysis.html`,  content: analysisHtml },
       ]);
       saveBlobToFile(zipBlob, `${finalEffectiveTitle}_session.zip`);
     } catch (e) { console.error('Session ZIP creation failed:', e); }

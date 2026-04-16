@@ -109,7 +109,7 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
         >
           {APP_TITLE}
         </h1>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Developed by Carmelo Battiato · v1.73</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Developed by Carmelo Battiato · v1.75</p>
       </div>
     </div>
 

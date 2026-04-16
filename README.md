@@ -1,4 +1,4 @@
-# Audio AI Assistant — v1.73
+# Audio AI Assistant — v1.75
 
 A **client-side-only** web app for audio recording, automatic transcription via Google Gemini, and LLM-powered analysis. Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.
 
@@ -322,6 +322,21 @@ Processes the transcript with Google Gemini.
 
 ---
 
+### Chat with the Meeting Session
+
+Interactive multi-turn chat tab (next to AI Analysis) with full meeting context.
+
+- Full transcript + AI analysis injected as system context on every call
+- Multi-turn conversation — history of last 12 exchanges passed to the model
+- **Response formats**: markdown text, tables, code blocks, inline SVG bar charts
+  - Charts rendered from a `chart` code block: `{"type":"bar","title":"...","labels":[...],"values":[...],"unit":""}`
+- Quick-start suggestion chips (action items, decisions, follow-up email, etc.)
+- Per-message copy button (hover to reveal)
+- **Export chat as Markdown** (`.md` download)
+- Chat history **persisted in IndexedDB** and saved to session JSON — fully restored on session load
+
+---
+
 ### Bubble Notes
 
 Contextual annotation system synchronized with the recording.
@@ -429,6 +444,7 @@ audio-ai-assistant/
 │   ├── AudioRecorder.tsx
 │   ├── TranscriptionView.tsx
 │   ├── LlmProcessor.tsx
+│   ├── MeetingChatPanel.tsx
 │   ├── BubbleNotes.tsx
 │   ├── SettingsPanel.tsx
 │   └── OutlookCalendarModal.tsx
@@ -463,6 +479,13 @@ All state lives in `App.tsx` (~565 lines) and `pages/NewHome.tsx`. No Redux or C
 
 ### CSS Theming
 The Neo UI uses CSS custom properties (`--neo-bg`, `--neo-primary`, etc.) defined in `index.html`. A `.neo-ctx` context class scopes Tailwind overrides so existing gray-palette components render in violet without being modified.
+
+### LLM Configuration (Google provider)
+In **Settings → LLM Configuration**, the Google provider section now exposes:
+- **Google API Key** — paste a key directly in the UI; takes precedence over the `.env` system key. Supports show/hide toggle and one-click removal to fall back to the system key.
+- **API Base URL** — optional custom endpoint (proxy, Vertex AI, etc.). Placeholder shows the official default: `https://generativelanguage.googleapis.com`.
+- **Model name (editable)** — free-text override for any model ID not yet in the selection table.
+- **Model selection table** — quick picker for known Gemini models.
 
 ### Gemini API Resilience
 `geminiService.ts` implements:

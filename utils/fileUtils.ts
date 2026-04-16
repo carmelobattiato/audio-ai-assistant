@@ -112,6 +112,167 @@ export const generateStandardMetadataHeader = (
   return metadataHeader;
 };
 
+export const generateAnalysisHtmlDocument = (
+  htmlContent: string,
+  meta: {
+    title: string;
+    sourceTimestamp: Date | null;
+    sourceFileName?: string;
+    llmProcessingType?: string;
+    transcriptionLanguage?: string;
+  }
+): string => {
+  const dateStr = meta.sourceTimestamp
+    ? meta.sourceTimestamp.toLocaleString()
+    : new Date().toLocaleString();
+  const generatedStr = new Date().toLocaleString();
+
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${meta.title}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 2rem 1rem;
+      background-color: #1f2937;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .page {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .doc-header {
+      border-bottom: 2px solid #4a5568;
+      padding-bottom: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .doc-header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.5rem;
+      color: #93c5fd;
+      word-break: break-word;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.35rem 2rem;
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    .meta-grid span { display: block; }
+    .meta-label { font-weight: 600; color: #6b7280; }
+    .content {
+      color: #e5e7eb;
+      background-color: #374151;
+      border: 1px solid #4a5568;
+      border-radius: 0.375rem;
+      padding: 1.25rem 1.5rem;
+      line-height: 1.7;
+    }
+    .content h1, .content h2, .content h3,
+    .content h4, .content h5, .content h6 {
+      color: #93c5fd;
+      margin-top: 1.4em;
+      margin-bottom: 0.5em;
+    }
+    .content h1 { font-size: 1.4em; }
+    .content h2 { font-size: 1.25em; }
+    .content h3 { font-size: 1.1em; }
+    .content p { margin-bottom: 1em; }
+    .content ul, .content ol {
+      margin-left: 1.5em;
+      margin-bottom: 1em;
+      list-style-position: outside;
+    }
+    .content ul { list-style-type: disc; }
+    .content ol { list-style-type: decimal; }
+    .content ul ul { list-style-type: circle; margin-top: 0.25em; margin-bottom: 0.25em; }
+    .content ul ul ul { list-style-type: square; }
+    .content strong { font-weight: bold; }
+    .content em { font-style: italic; }
+    .content a { color: #60a5fa; text-decoration: underline; }
+    .content blockquote {
+      border-left: 4px solid #4a5568;
+      padding-left: 1em;
+      margin-left: 0;
+      font-style: italic;
+      color: #9ca3af;
+    }
+    .content pre {
+      background-color: #111827;
+      color: #d1d5db;
+      padding: 1em;
+      border-radius: 0.375rem;
+      overflow-x: auto;
+      font-size: 0.85em;
+    }
+    .content code {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      background-color: #4a5568;
+      padding: 0.15em 0.4em;
+      border-radius: 0.25rem;
+      font-size: 0.9em;
+    }
+    .content pre code { background: none; padding: 0; }
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1em 0 1.5em;
+      font-size: 0.875rem;
+      background-color: rgba(17, 24, 39, 0.4);
+    }
+    .content th, .content td {
+      border: 1px solid #4b5563;
+      padding: 0.65rem 0.75rem;
+      text-align: left;
+    }
+    .content th {
+      background-color: #374151;
+      color: #93c5fd;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .content tr:nth-child(even) { background-color: rgba(55, 65, 81, 0.25); }
+    .content hr { border: none; border-top: 1px solid #4a5568; margin: 1.5em 0; }
+    .doc-footer {
+      margin-top: 2rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #374151;
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="doc-header">
+      <h1>${meta.title}</h1>
+      <div class="meta-grid">
+        ${meta.sourceTimestamp ? `<span><span class="meta-label">Data registrazione:</span> ${dateStr}</span>` : ''}
+        ${meta.sourceFileName ? `<span><span class="meta-label">File sorgente:</span> ${meta.sourceFileName}</span>` : ''}
+        ${meta.llmProcessingType ? `<span><span class="meta-label">Tipo analisi:</span> ${meta.llmProcessingType}</span>` : ''}
+        ${meta.transcriptionLanguage ? `<span><span class="meta-label">Lingua:</span> ${meta.transcriptionLanguage}</span>` : ''}
+        <span><span class="meta-label">Generato il:</span> ${generatedStr}</span>
+      </div>
+    </div>
+    <div class="content">
+      ${htmlContent}
+    </div>
+    <div class="doc-footer">Audio AI Assistant — AI Analysis Export</div>
+  </div>
+</body>
+</html>`;
+};
+
 export const saveTextToFile = (
   text: string, 
   filename: string, 
