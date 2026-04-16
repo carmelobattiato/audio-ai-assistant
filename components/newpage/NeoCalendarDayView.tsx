@@ -193,7 +193,7 @@ const ApptInfoModal: React.FC<{
       <div
         className="rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         style={{
-          width: 520, maxWidth: '95vw', maxHeight: '80vh',
+          width: 760, maxWidth: '95vw', maxHeight: '88vh',
           background: 'var(--neo-surface-solid, #0F0B2E)',
           border: '1px solid var(--neo-border)',
           boxShadow: '0 32px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(139,92,246,0.3)',
@@ -370,11 +370,21 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
     }
   }, [isOpen]);
 
-  // Clock tick
+  // Clock tick — aligned to wall-clock minute boundaries
   useEffect(() => {
     if (!isOpen) return;
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
+    const tick = () => setNow(new Date());
+    let intervalId: ReturnType<typeof setInterval>;
+    // Fire at the next whole minute, then every 60 s
+    const msToNextMinute = 60_000 - (Date.now() % 60_000);
+    const timeoutId = setTimeout(() => {
+      tick();
+      intervalId = setInterval(tick, 60_000);
+    }, msToNextMinute);
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+    };
   }, [isOpen]);
 
   // Internal fetch
@@ -444,7 +454,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
         <div
           className="flex flex-col rounded-2xl shadow-2xl overflow-hidden"
           style={{
-            width: 700, maxWidth: '95vw', height: '82vh',
+            width: 1000, maxWidth: '96vw', height: '88vh',
             background: 'var(--neo-surface-solid, #0F0B2E)',
             border: '1px solid var(--neo-border)',
             boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.2)',

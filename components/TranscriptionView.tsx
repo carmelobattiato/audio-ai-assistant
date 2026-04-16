@@ -307,7 +307,17 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
       {showTranscriptionArea ? (
         <>
           {activeSourceText && !isTranscribing && (
-            <div className="flex justify-end mb-2">
+            <div className="flex justify-end items-center gap-2 mb-2">
+                <Button
+                    onClick={handleSaveTranscription}
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<SaveIcon className="w-4 h-4"/>}
+                    disabled={disabled}
+                    className="transition-transform transform hover:scale-105"
+                >
+                    Save Transcription as {settings.outputFormat.toUpperCase()}
+                </Button>
                 <Button
                     onClick={handleOpenEditor}
                     variant="ghost"
@@ -326,17 +336,6 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
             className={`llm-result-display-prose min-h-[200px] ${isTranscribing || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             dangerouslySetInnerHTML={{ __html: activeSourceText ? activeSourceText : "<p class='text-gray-500'>Audio transcription will appear here...</p>" }}
           />
-          {activeSourceText && !isTranscribing && (
-            <Button
-              onClick={handleSaveTranscription}
-              variant="secondary"
-              leftIcon={<SaveIcon className="w-5 h-5"/>}
-              disabled={disabled}
-              className="transition-transform transform hover:scale-105 w-full sm:w-auto mt-2"
-            >
-              Save Transcription as {settings.outputFormat.toUpperCase()}
-            </Button>
-          )}
         </>
       ) : (
         <p className="text-gray-500 text-center py-10">

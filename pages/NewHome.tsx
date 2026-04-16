@@ -5,6 +5,7 @@ import { NeoRecordingPanel } from '../components/newpage/NeoRecordingPanel';
 import { BubbleNotes } from '../components/BubbleNotes';
 import { TranscriptionView } from '../components/TranscriptionView';
 import { LlmProcessor, LlmProcessorRef } from '../components/LlmProcessor';
+import { MeetingChatPanel } from '../components/MeetingChatPanel';
 import { AppModals } from '../components/AppModals';
 import { NeoTopbar } from '../components/newpage/NeoTopbar';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
@@ -30,6 +31,7 @@ import {
   LlmUsageStats,
   ProcessedResult,
   PipelineStep,
+  MeetingChatMessage,
 } from '../types';
 
 import { DEFAULT_SETTINGS, APP_VERSION } from '../constants';
@@ -42,6 +44,7 @@ import {
 } from '../utils/fileUtils';
 import { llmService } from '../services/geminiService';
 import { loggingService } from '../services/loggingService';
+import { useRecordingFavicon } from '../hooks/useRecordingFavicon';
 
 const APP_SETTINGS_KEY = 'audioAIAssistantSettings';
 
@@ -63,6 +66,12 @@ const SparklesIcon = () => (
       d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
   </svg>
 );
+const ChatIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  </svg>
+);
 
 export const NewHome: React.FC = () => {
   // ── State (identical to App.tsx) ──────────────────────────────────────────
@@ -80,6 +89,7 @@ export const NewHome: React.FC = () => {
   const [llmProcessingType, setLlmProcessingType] = useState<string>('');
   const [llmUsageHistory, setLlmUsageHistory] = useState<LlmUsageStats[]>([]);
   const [llmResultsHistory, setLlmResultsHistory] = useState<ProcessedResult[]>([]);
+  const [meetingChatHistory, setMeetingChatHistory] = useState<MeetingChatMessage[]>([]);
   const [recordingState, setRecordingState] = useState<RecordingState>(RecordingState.IDLE);
   const [recordingTitle, setRecordingTitle] = useState<string>('');
   const [recordingTimestampSuffix, setRecordingTimestampSuffix] = useState<string>(getCurrentTimestampSuffix());
@@ -182,6 +192,7 @@ export const NewHome: React.FC = () => {
       setRecordingTimestampSuffix(getCurrentTimestampSuffix());
     }
     setLlmProcessedText(''); setLlmProcessingType(''); setLlmUsageHistory([]); setLlmResultsHistory([]);
+    setMeetingChatHistory([]);
     setEmotionHistory([]); setAppUserMessage(null);
     setCoherenceAssessment(null); setCoherenceStatus(CoherenceAssessmentStatus.IDLE);
     setPipelineStep(PipelineStep.IDLE);
@@ -248,6 +259,9 @@ export const NewHome: React.FC = () => {
     }
   }, [pipelineStep]);
 
+  // ── Animated favicon while recording ──────────────────────────────────────
+  useRecordingFavicon(recordingState === RecordingState.RECORDING);
+
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const transLogic = useTranscriptionLogic(
     appSettings, audioBlob, audioFileName, audioRecordingStartTime,
@@ -296,6 +310,7 @@ export const NewHome: React.FC = () => {
         setEmotionHistory(data.emotionHistory || []);
         setLlmUsageHistory(data.llmUsageHistory || []);
         setLlmResultsHistory(data.llmResultsHistory || []);
+        setMeetingChatHistory(data.meetingChatHistory || []);
         setAppSettings(data.settings);
         if (data.chunks && data.chunks.length > 0) {
           setRecordingChunks(data.chunks);
@@ -349,6 +364,12 @@ export const NewHome: React.FC = () => {
       }
     }
   }, [transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory, pipelineStep]);
+
+  useEffect(() => {
+    if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
+      db.updateSessionIncremental(activeSessionIdRef.current, { meetingChatHistory });
+    }
+  }, [meetingChatHistory]);
 
   useEffect(() => {
     if (pipelineStep !== PipelineStep.TRANSCRIBING) wasTranscribingRef.current = false;
@@ -549,6 +570,8 @@ export const NewHome: React.FC = () => {
     { id: 'transcript', label: 'Transcript', icon: <DocumentIcon /> },
     { id: 'analysis',   label: 'AI Analysis', icon: <SparklesIcon />,
       badge: llmProcessedText ? '✓' : undefined },
+    { id: 'chat',       label: 'Chat', icon: <ChatIcon />,
+      badge: meetingChatHistory.length > 0 ? String(meetingChatHistory.length) : undefined },
   ];
 
   // ── Calendar background sync ──────────────────────────────────────────────
@@ -795,6 +818,22 @@ export const NewHome: React.FC = () => {
               onQuickProcessComplete={() => {}}
               onProcessingError={handleLlmProcessingError}
               resultType={llmProcessingType}
+            />
+
+            {/* Tab 3: Chat with the Meeting Session */}
+            <MeetingChatPanel
+              sessionContext={{
+                transcription: activeSourceText,
+                llmResult: llmProcessedText,
+                sessionTitle: finalEffectiveTitle,
+                audioDuration: audioBlob ? audioDuration : undefined,
+                audioRecordingStartTime: audioRecordingStartTime,
+              }}
+              llmSettings={appSettings.llm}
+              history={meetingChatHistory}
+              onHistoryChange={setMeetingChatHistory}
+              onLlmUsage={(stats) => setLlmUsageHistory(prev => [...prev, stats])}
+              disabled={isBusy}
             />
           </NeoTabs>
         </div>

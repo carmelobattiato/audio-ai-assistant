@@ -190,12 +190,13 @@ export interface ModelInfo {
 export interface LlmSettings {
   provider: string;
   model: string;
-  apiBaseUrl: string; 
-  customApiKey?: string; 
+  apiBaseUrl: string;
+  customApiKey?: string;
+  googleApiKey?: string;
   customPromptInstruction: string;
   enhanceWithWebSearch: boolean;
   maxRetries?: number;
-  timeout?: number; 
+  timeout?: number;
   rateLimitRequests?: number;
   rateLimitPeriodSeconds?: number;
 }
@@ -340,6 +341,13 @@ export interface ChatMessage {
     target?: 'transcription' | 'llm_result';
 }
 
+export interface MeetingChatMessage {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+}
+
 export interface SavedSessionData {
   audioBlob: Blob | null;
   chunks?: Blob[]; // Added for real-time saving
@@ -352,9 +360,10 @@ export interface SavedSessionData {
   llmProcessedText: string;
   llmProcessingType: string;
   settings: AppSettings;
-  emotionHistory?: EmotionEvent[]; 
+  emotionHistory?: EmotionEvent[];
   llmUsageHistory?: LlmUsageStats[];
   llmResultsHistory?: ProcessedResult[];
+  meetingChatHistory?: MeetingChatMessage[];
 }
 
 export interface SavedSession {

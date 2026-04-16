@@ -1,231 +1,478 @@
 # Audio AI Assistant — v1.73
 
-Applicazione web locale per la **registrazione audio**, **trascrizione automatica** tramite Google Gemini e **analisi con LLM**. Pensata per registrare riunioni, interviste e meeting Teams/Zoom, anche in presenza di cuffie.
+A **client-side-only** web app for audio recording, automatic transcription via Google Gemini, and LLM-powered analysis. Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.
 
-Sviluppata da **Carmelo Battiato**.
+Built by **Carmelo Battiato**.
 
 ---
 
-## Avvio rapido (Windows)
+## Quick Start (Windows)
 
-Lo script `setup_and_run.ps1` gestisce l'intero ciclo di vita dell'applicazione: installazione dipendenze, avvio in background, stop e reinstallazione.
+The `setup_and_run.ps1` script manages the full application lifecycle: dependency installation, background startup, stop, and reinstall.
 
-### Prerequisiti
+### Prerequisites
 
-- **Node.js** (v18 o superiore) — [nodejs.org](https://nodejs.org)
+- **Node.js** v18 or higher — [nodejs.org](https://nodejs.org)
 - **Google Gemini API Key** — [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-- File `.env.local` nella cartella del progetto con:
+- A `.env.local` file in the project root:
   ```
-  GEMINI_API_KEY=la_tua_chiave_api
+  GEMINI_API_KEY=your_api_key_here
   ```
 
-### Comandi disponibili
-
-Aprire PowerShell nella cartella del progetto ed eseguire:
+### PowerShell Commands
 
 ```powershell
-# Avvia l'applicazione in background (installa le dipendenze al primo avvio)
+# Start the app in background (installs deps on first run)
 .\setup_and_run.ps1 start
 
-# Ferma il servizio
+# Stop the service
 .\setup_and_run.ps1 stop
 
-# Controlla lo stato del servizio e l'URL di accesso
+# Check service status and access URL
 .\setup_and_run.ps1 status
 
-# Reinstalla da zero (elimina node_modules e riesegue l'installazione)
+# Full reinstall (deletes node_modules and reinstalls)
 .\setup_and_run.ps1 reinstall
 ```
 
-Al primo `start` lo script installa automaticamente le dipendenze npm e copia il collegamento sul Desktop.
+On first `start`, npm dependencies are installed automatically and a Desktop shortcut is created.
 
-L'app sarà accessibile su: **http://127.0.0.1:8090**
+The app is accessible at: **http://127.0.0.1:8090**
 
-Per usare una porta diversa: `.\setup_and_run.ps1 start -Port 3000`
+To use a different port: `.\setup_and_run.ps1 start -Port 3000`
 
-### Avvio alternativo (terminale)
+### Alternative (terminal)
 
 ```bash
 npm install
-npm run dev       # dev server su http://localhost:8090
-npm run build     # build di produzione
-npm run lint      # type-checking TypeScript
+npm run dev       # dev server at http://localhost:8090
+npm run build     # production build → dist/
+npm run lint      # TypeScript type-checking (tsc --noEmit)
 ```
 
 ---
 
-## Interfacce disponibili
+## Available Interfaces
 
-L'applicazione offre due UI coesistenti, navigabili tramite i link nella topbar:
+Two coexisting UIs, switchable from the topbar:
 
-| URL | Interfaccia |
-|-----|-------------|
-| `/` | **Neo UI** — interfaccia moderna con palette viola Accenture, layout a due pannelli, glassmorphism |
-| `/oldui` | **Classic UI** — interfaccia originale monocromatica |
-
----
-
-## Registrazione audio e System Audio
-
-### Senza cuffie
-
-Il microfono cattura sia la voce locale che l'audio degli altoparlanti. La registrazione funziona automaticamente senza configurazioni aggiuntive.
-
-### Con cuffie — perché attivare "System Audio"
-
-Quando si usano le cuffie, il microfono non sente l'audio proveniente dagli altoparlanti. Senza System Audio attivo, la registrazione cattura **solo la propria voce** e perde le voci degli altri partecipanti.
-
-Cliccando il pulsante **"Rec with headphones"** appare una guida che illustra come:
-
-1. Aprire il dialogo di condivisione schermo del browser
-2. Selezionare la scheda **"Entire Screen"** (non "Chrome Tab")
-3. Attivare il toggle **"Also share system audio"**
-4. Cliccare **Share** per avviare la registrazione
-
-In alternativa, il pulsante **"Rec without headphones"** avvia immediatamente la registrazione con solo il microfono, senza aprire il dialogo di screen share.
+| URL | Interface |
+|-----|-----------|
+| `/` | **Neo UI** — modern Accenture violet palette, two-panel glassmorphism layout |
+| `/oldui` | **Classic UI** — original monochromatic dark interface |
 
 ---
 
-## Funzionalità principali
+## Architecture
 
-### Registrazione
+### Stack
 
-- Avvio/Pausa/Ripresa della registrazione
-- Visualizzatore waveform in tempo reale
-- **Registrazione a segmenti** (chunk): salvataggio automatico ogni N minuti (default 15) per evitare perdite di dati in sessioni lunghe
-- **Auto-pausa sul silenzio**: pausa automatica dopo N secondi di silenzio, con soglia configurabile
-- **Analisi emozioni in tempo reale**: rileva l'emozione dominante nell'audio con visualizzazione cromatica
-- **Trascrizione in tempo reale** durante la registrazione (modalità live)
-- Import di file audio già registrati per la trascrizione
-- **Screenshot integrati**: manuale o automatico a intervalli configurabili (countdown con frecce +/-)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19 + TypeScript |
+| Build | Vite (OXC transformer) |
+| AI / Speech | Google Gemini API (`@google/genai` v1) |
+| Persistence | IndexedDB via `idb` v8 |
+| Document parsing | `mammoth` (DOCX), `pdfjs-dist` (PDF) |
+| Outlook bridge | Vite dev-only plugin → PowerShell COM automation |
 
-**Impostazioni qualità audio:**
-- Bitrate: 64 / 96 / 128 (default) / 192 / 256 kbps
-- Canali: Mono (default) / Stereo
-- Filtri microfono: noise suppression, echo cancellation, auto gain control
+**No backend. No server database. All data stays in the browser (IndexedDB).** The only outbound network calls are to the Google Gemini API.
 
 ---
 
-### Trascrizione
+### High-Level Data Flow
 
-Alimentata da Google Gemini (Speech-to-Text multimodale).
+```mermaid
+flowchart TD
+    MIC["🎙️ Microphone\n(getUserMedia)"]
+    SYS["🔊 System Audio\n(getDisplayMedia)"]
+    MIX["AudioContext\nMixer"]
+    MR["MediaRecorder\n(WebM/Opus)"]
+    CHUNK["Blob Chunks\n(default 15 min)"]
+    IDB[("IndexedDB\nSession Store")]
+    QUEUE["Transcription\nQueue"]
+    GEMINI_STT["Gemini API\nSpeech-to-Text"]
+    TRANSCRIPT["Transcript\n(editable text)"]
+    GEMINI_LLM["Gemini API\nLLM Analysis"]
+    RESULT["Analysis Result\n(rich HTML)"]
+    EXPORT["Export\nZIP / HTML / SRT / CSV"]
 
-- **Lingua:** Italiano (default) o Inglese
-- **Qualità:** 5 livelli (da "Veloce/Base" a "Migliore/Lento")
-- **Formato output:** TXT, SRT, CSV, HTML
-- Coda di trascrizione con gestione di più file in sequenza
-- **Smart Pipeline**: al termine della registrazione avvia automaticamente trascrizione → analisi LLM
+    MIC --> MIX
+    SYS --> MIX
+    MIX --> MR
+    MR -->|"chunk event\nevery N min"| CHUNK
+    CHUNK --> IDB
+    CHUNK --> QUEUE
+    QUEUE --> GEMINI_STT
+    GEMINI_STT --> TRANSCRIPT
+    TRANSCRIPT --> GEMINI_LLM
+    GEMINI_LLM --> RESULT
+    RESULT --> EXPORT
+    IDB -->|"session restore"| TRANSCRIPT
+```
 
 ---
 
-### Analisi LLM
+### Component & Module Map
 
-Elabora il testo trascritto con Google Gemini.
+```mermaid
+graph TD
+    subgraph Pages
+        APP["App.tsx\n(Classic UI root)"]
+        NH["pages/NewHome.tsx\n(Neo UI root)"]
+    end
 
-**Azioni disponibili:**
+    subgraph Hooks
+        UAR["useAudioRecorder"]
+        UTL["useTranscriptionLogic"]
+        USL["useSessionLogic"]
+        URF["useRecordingFavicon"]
+        UAV["useAudioVisualizer"]
+    end
 
-| Azione | Descrizione |
+    subgraph Services
+        GEM["geminiService.ts\n(rate limit · circuit breaker · retry)"]
+        TRANS["transcriptionService.ts"]
+        LOG["loggingService.ts"]
+    end
+
+    subgraph Utils
+        DB["utils/db.ts\n(IndexedDB CRUD)"]
+        FU["utils/fileUtils.ts\n(ZIP · SRT · HTML · CSV)"]
+        AU["utils/audioUtils.ts"]
+        TU["utils/textUtils.ts"]
+    end
+
+    subgraph "Neo UI Components"
+        NL["NeoLayout"]
+        NTB["NeoTopbar"]
+        NRP["NeoRecordingPanel"]
+        NWP["NeoWorkspacePanel"]
+        NCD["NeoCalendarDayView"]
+        NTP["NeoTipsPanel"]
+    end
+
+    APP --> UAR
+    APP --> UTL
+    APP --> USL
+    NH  --> UAR
+    NH  --> UTL
+    NH  --> USL
+    NH  --> URF
+
+    UAR --> GEM
+    UTL --> TRANS
+    TRANS --> GEM
+    USL --> DB
+
+    NH  --> NL
+    NL  --> NTB
+    NL  --> NRP
+    NL  --> NWP
+    NRP --> UAV
+    NTB --> NCD
+```
+
+---
+
+### Session Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Recording : Start recording
+    Recording --> Paused : Pause / silence detected
+    Paused --> Recording : Resume
+    Recording --> Idle : Stop
+    Idle --> Transcribing : Transcribe audio
+    Transcribing --> Transcribed : Gemini STT complete
+    Transcribed --> Analyzing : Run LLM analysis
+    Analyzing --> Complete : Analysis done
+    Complete --> Idle : Reset
+
+    Recording --> Interrupted : Browser closed
+    Interrupted --> Idle : Load & recover session
+```
+
+---
+
+### Gemini API Call Pipeline
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant GeminiService
+    participant RateLimit
+    participant CircuitBreaker
+    participant GeminiAPI
+
+    UI->>GeminiService: transcribe(audioBlob)
+    GeminiService->>RateLimit: acquire slot\n(≤15 req/60s)
+    RateLimit-->>GeminiService: ok
+    GeminiService->>CircuitBreaker: check state
+    CircuitBreaker-->>GeminiService: CLOSED (healthy)
+    GeminiService->>GeminiAPI: POST /generateContent\n(inline audio data)
+    GeminiAPI-->>GeminiService: text response + token counts
+    GeminiService-->>UI: transcript string
+
+    note over CircuitBreaker: 3 consecutive errors\nopen circuit for 2 min
+```
+
+---
+
+### Outlook Calendar Bridge (Windows only)
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant VitePlugin
+    participant PowerShell
+    participant OutlookCOM
+
+    Browser->>VitePlugin: GET /api/outlook/appointments
+    VitePlugin->>PowerShell: spawn ps1 script
+    PowerShell->>OutlookCOM: Application.Session\n.GetDefaultFolder(9)\n.Items (today)
+    OutlookCOM-->>PowerShell: appointment objects\n(subject, start, end, attendees,\nresponseStatus, onlineMeetingUrl)
+    PowerShell-->>VitePlugin: JSON array
+    VitePlugin-->>Browser: JSON response
+    Browser->>Browser: render Day View / List View
+```
+
+---
+
+## Features
+
+### Recording
+
+- Start / Pause / Resume
+- Real-time waveform visualizer
+- **Chunked recording**: auto-saves every N minutes (default 15) to IndexedDB — safe for long sessions
+- **Auto-pause on silence**: configurable threshold and timeout
+- **Real-time emotion detection**: dominant emotion shown with color overlay
+- **Live transcription**: streaming transcript during recording
+- Import existing audio files for transcription
+- **Integrated screenshots**: manual or auto at configurable intervals
+
+**Audio quality settings:**
+
+| Setting | Options |
+|---------|---------|
+| Bitrate | 64 / 96 / 128 (default) / 192 / 256 kbps |
+| Channels | Mono (default) / Stereo |
+| Mic filters | Noise suppression, echo cancellation, auto gain control |
+
+---
+
+### System Audio Capture (headphones mode)
+
+When headphones are in use the microphone cannot pick up speaker output. Click **"Rec with headphones"** to open the screen-share guide:
+
+1. Open the browser's screen-share dialog
+2. Select **"Entire Screen"** tab (not "Chrome Tab")
+3. Enable **"Also share system audio"**
+4. Click **Share** — the app mixes mic + system audio via `AudioContext`
+
+Click **"Rec without headphones"** in the dialog footer to skip screen share and record mic only.
+
+---
+
+### Transcription
+
+Powered by Google Gemini multimodal speech-to-text.
+
+| Setting | Options |
+|---------|---------|
+| Language | Italian (default), English |
+| Quality | 5 levels — Fast/Basic → Best/Slow |
+| Output format | TXT, SRT, CSV, HTML |
+
+- Transcription queue with multi-file sequencing
+- **Smart Pipeline**: auto-starts transcription → LLM analysis on recording stop
+- Transcript is fully editable inline before analysis
+
+---
+
+### LLM Analysis
+
+Processes the transcript with Google Gemini.
+
+| Action | Description |
 |--------|-------------|
-| Solo istruzioni personalizzate | Applica solo il prompt custom inserito dall'utente |
-| Genera riassunto | Sintesi del contenuto |
-| Verbale conciso (stile email) | Verbale breve pronto per l'invio |
-| Verbale dettagliato (stile email) | Verbale completo con tutti i punti trattati |
-| 10 punti chiave | Lista dei concetti principali |
-| Formato intervista/dialogo | Riformatta il testo come trascrizione dialogica |
-| Report HTML con timeline | Report formattato con timeline, speaker e note integrate |
+| Custom instructions only | Apply only the user-supplied prompt |
+| Generate summary | Concise content summary |
+| Concise minutes (email style) | Short meeting minutes ready to send |
+| Detailed minutes (email style) | Full minutes with all points covered |
+| 10 key points | Bulleted list of main concepts |
+| Interview / dialogue format | Reformats as dialogic transcript |
+| HTML report with timeline | Formatted report with timeline, speakers, embedded notes |
 
-- **Modelli selezionabili:** `gemini-3-flash-preview` (default), `gemini-3-pro-preview`, `gemini-2.5-pro`, `gemini-2.5-flash`
-- **Provider personalizzato:** supporto a qualsiasi endpoint compatibile OpenAI con modello e URL configurabili
-- **Web search** (Google only): arricchisce l'analisi con fonti web, con citazioni
-- Istruzioni personalizzate per ogni elaborazione
-- Editor rich text per modificare i risultati
-- Copia risultato negli appunti come HTML ricco (compatibile con Outlook/Gmail)
+**Available models:**
 
----
+| Model ID | Notes |
+|----------|-------|
+| `gemini-3-flash-preview` | Default — fast, cost-efficient |
+| `gemini-3-pro-preview` | Higher quality |
+| `gemini-2.5-pro` | Most capable |
+| `gemini-2.5-flash` | Fast + capable |
+| Custom OpenAI-compatible endpoint | Any URL + model name |
 
-### Note a bolle (Bubble Notes)
-
-Sistema di annotazioni contestuali sincronizzate con la registrazione.
-
-- Editor rich text con formattazione completa (grassetto, corsivo, colori, liste, link, immagini)
-- Timestamp automatico legato al momento della registrazione
-- **Screenshot integrati**: inserimento manuale o automatico a intervalli configurabili
-- Import di immagini, documenti, PDF e presentazioni nelle note
-- Le note vengono incorporate automaticamente nell'analisi LLM (es. report HTML con timeline)
-- Visualizzatore fullscreen
-- Export delle note come file HTML
+- **Web search** (Google models only): grounds analysis with live search results and citations
+- Rich-text result editor
+- Copy result as rich HTML (preserves formatting in Outlook / Gmail)
 
 ---
 
-### Calendario Outlook (Neo UI)
+### Bubble Notes
 
-Integrazione con Microsoft Outlook tramite bridge PowerShell (solo Windows con Outlook installato).
+Contextual annotation system synchronized with the recording.
 
-Il pulsante **Calendar** nella topbar apre una finestra con due viste selezionabili:
-
-**Vista Calendar (Day View)**
-- Layout Outlook-style con fasce orarie da 00:00 a 24:00
-- Rettangoli colorati proporzionali alla durata di ogni riunione
-- Riunioni parallele affiancate (fino a 10 colonne dinamiche, senza sovrapposizioni)
-- Indicatore rosso della posizione temporale corrente, con auto-scroll centrato sull'ora attuale
-- Linee orarie (solide) e linee dei 30 minuti (tratteggiate)
-- Colori per stato: verde (in corso), ambra (prossima), viola (futura), grigio (passata)
-
-**Vista List**
-- Elenco compatto di tutte le riunioni del giorno
-- Cliccando su una card si espandono i partecipanti
-
-**Funzionalità comuni a entrambe le viste:**
-- Badge stato risposta: ✓ Accepted, ~ Tentative, ★ Organizer, ✗ Declined (letti da Outlook via COM)
-- Selezione riunione → quick bar in basso con:
-  - **Show Info**: modal dettagliato con partecipanti (avatar iniziali), luogo, organizzatore, link Teams, testo body
-  - **Teams + Rec**: apre Microsoft Teams desktop direttamente via protocollo `msteams://` (senza aprire una finestra Chrome), carica le info della riunione nelle note e avvia la guida System Audio
-  - **Load Info**: importa titolo e partecipanti nelle note della sessione
-- Aggiornamento manuale con pulsante Refresh
+- Rich-text editor (bold, italic, colors, lists, links, images)
+- Automatic timestamp tied to recording time
+- **Integrated screenshots**: manual or auto-interval with countdown
+- Import images, documents, PDFs, and presentations
+- Notes are included in LLM analysis (e.g. HTML report with timeline)
+- Fullscreen viewer
+- Export notes as HTML
 
 ---
 
-### Gestione sessioni
+### Outlook Calendar (Neo UI)
 
-- Salvataggio di fino a **15 sessioni** in IndexedDB (storage locale del browser, nessun server)
-- Ogni sessione contiene: audio, chunk, trascrizione, risultati LLM, note, statistiche
-- Operazioni: salva, carica, unisci sessioni, sovrascrivi
-- Ripristino automatico delle sessioni interrotte in modo anomalo
-- Dimensione massima per sessione: 50 MB
+Integration with Microsoft Outlook via a PowerShell bridge (Windows with Outlook installed only).
+
+The **Calendar** button in the topbar opens a modal with two switchable views:
+
+**Calendar View (Day View)**
+- Outlook-style layout with 00:00–24:00 time slots
+- Colored rectangles proportional to meeting duration
+- Parallel meetings shown side-by-side (up to 10 dynamic columns, no overlaps)
+- Red current-time indicator with auto-scroll to current hour
+- Solid hour lines + dashed 30-minute lines
+- Status colors: green (ongoing), amber (next), violet (future), grey (past)
+
+**List View**
+- Compact list of all today's meetings
+- Click a card to expand attendees
+
+**Common features:**
+- Response status badges: ✓ Accepted · ~ Tentative · ★ Organizer · ✗ Declined
+- Select a meeting → quick action bar:
+  - **Show Info**: detailed modal (attendees with initials, location, organizer, Teams link, body)
+  - **Teams + Rec**: opens Teams desktop via `msteams://` protocol (no Chrome window), loads meeting info into notes, triggers System Audio guide
+  - **Load Info**: imports title and attendees into session notes
+- Manual refresh
+
+---
+
+### Session Management
+
+- Up to **15 sessions** stored in IndexedDB (browser local storage, no server)
+- Each session: audio chunks, transcript, LLM results, notes, statistics
+- Operations: save, load, merge, overwrite
+- Automatic recovery of sessions interrupted by browser crash
+- Max 50 MB per session
 
 ---
 
 ### Export
 
-| Formato | Contenuto |
-|---------|-----------|
-| ZIP | Archivio completo con audio, trascrizione, risultati e note |
-| TXT | Testo trascritto con intestazione metadati opzionale |
-| SRT | Sottotitoli (compatibile con video editor e player) |
-| CSV | Dati strutturati |
-| HTML | Output formattato pronto per la stampa o condivisione |
+| Format | Content |
+|--------|---------|
+| ZIP | Full archive: audio + transcript + LLM result + notes |
+| TXT | Transcript text with optional metadata header |
+| SRT | Subtitles (compatible with video editors and players) |
+| CSV | Structured transcript data |
+| HTML | Formatted report ready for printing or sharing |
 
 ---
 
-### Statistiche e monitoraggio
+### Statistics & Monitoring
 
-- Conteggio token (input/output) per ogni chiamata API
-- Statistiche testo: caratteri, parole, token stimati, dimensione
-- Dettagli audio: formato, durata, bitrate, canali
-- Log delle operazioni con livello configurabile (tab "Log & Monitoraggio" nelle impostazioni)
-
----
-
-### Temi UI (Classic UI)
-
-- Scuro (default)
-- Chiaro
-- Grigio scuro
+- Token count (input/output) per API call
+- Text stats: characters, words, estimated tokens, size
+- Audio details: format, duration, bitrate, channels
+- Coherence score for LLM analysis
+- Operation log with configurable level (Settings → Log & Monitoring tab)
 
 ---
 
-## Architettura
+### Animated Recording Favicon
 
-Applicazione **client-side only** (React 19 + TypeScript + Vite). Nessun backend, nessun database server. Tutto il dato viene salvato nel browser (IndexedDB). Le uniche chiamate di rete sono verso le API Google Gemini.
+While recording, the browser tab favicon is replaced with a **canvas-animated red waveform**:
 
-Il bridge Outlook è implementato come plugin Vite (`outlookPlugin` in `vite.config.ts`): intercetta le richieste `/api/outlook/*` ed esegue script PowerShell che leggono il calendario tramite COM automation. Funziona solo in modalità dev su Windows.
+- 32×32 canvas, 8 sine-wave bars, 14 fps (throttled via `requestAnimationFrame`)
+- A new `<link rel="icon">` is injected at the end of `<head>` — browsers use the last matching favicon link, so this overrides all static icons without touching them
+- On stop, the injected element is removed and the originals are restored automatically
+
+---
+
+## Project Structure
+
+```
+audio-ai-assistant/
+├── App.tsx                    # Classic UI root — all state, no Redux/Context
+├── pages/
+│   └── NewHome.tsx            # Neo UI root — mirrors App.tsx state
+├── components/
+│   ├── common/                # Modal, ConfirmModal — shared primitives
+│   ├── recorder/              # RecorderActions, RecorderStatus
+│   ├── settings/              # Settings tab sub-components
+│   ├── llm/                   # LLM provider selector, result renderer
+│   ├── notes/                 # NoteBubble, screenshot toolbar
+│   ├── newpage/               # Neo UI shell components
+│   │   ├── NeoLayout.tsx
+│   │   ├── NeoTopbar.tsx
+│   │   ├── NeoRecordingPanel.tsx
+│   │   ├── NeoWorkspacePanel.tsx
+│   │   ├── NeoCalendarDayView.tsx
+│   │   └── NeoTipsPanel.tsx
+│   ├── AudioRecorder.tsx
+│   ├── TranscriptionView.tsx
+│   ├── LlmProcessor.tsx
+│   ├── BubbleNotes.tsx
+│   ├── SettingsPanel.tsx
+│   └── OutlookCalendarModal.tsx
+├── hooks/
+│   ├── useAudioRecorder.ts    # MediaRecorder + chunking + silence detection
+│   ├── useAudioVisualizer.ts  # Canvas waveform renderer
+│   ├── useTranscriptionLogic.ts
+│   ├── useSessionLogic.ts     # IndexedDB save/load/merge
+│   └── useRecordingFavicon.ts # Animated tab icon during recording
+├── services/
+│   ├── geminiService.ts       # Rate limiter + circuit breaker + retry
+│   ├── transcriptionService.ts
+│   └── loggingService.ts
+├── utils/
+│   ├── db.ts                  # IndexedDB CRUD (idb library)
+│   ├── fileUtils.ts           # ZIP, SRT, HTML, CSV export
+│   ├── audioUtils.ts
+│   └── textUtils.ts
+├── constants/
+│   └── defaultSettings.ts
+├── types.ts                   # Shared TypeScript types
+├── vite.config.ts             # Vite config + Outlook PowerShell bridge plugin
+└── index.html                 # CSS variables (--neo-*), tooltip system
+```
+
+---
+
+## Technical Notes
+
+### State Management
+All state lives in `App.tsx` (~565 lines) and `pages/NewHome.tsx`. No Redux or Context API — props and callbacks are drilled down. The two page roots share identical hook calls; Neo UI re-renders the same child components inside glassmorphism card wrappers.
+
+### CSS Theming
+The Neo UI uses CSS custom properties (`--neo-bg`, `--neo-primary`, etc.) defined in `index.html`. A `.neo-ctx` context class scopes Tailwind overrides so existing gray-palette components render in violet without being modified.
+
+### Gemini API Resilience
+`geminiService.ts` implements:
+- **Rate limiter**: sliding window, default 15 req / 60 s (configurable)
+- **Circuit breaker**: opens after 3 consecutive errors, resets after 2 minutes
+- **Retry**: exponential back-off on transient failures
+- **Token tracking**: input + output tokens logged per call
+
+### Outlook Bridge
+`vite.config.ts` contains a dev-only Vite plugin that intercepts `GET /api/outlook/*` requests and spawns a PowerShell process that reads the Outlook calendar via COM automation (`Application.Session.GetDefaultFolder(9)`). Includes `responseStatus` mapped from the Outlook `OlResponseStatus` enum (0–5).
+
+### Path Alias
+`@/` maps to the project root in both `tsconfig.json` and `vite.config.ts`.

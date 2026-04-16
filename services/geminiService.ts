@@ -123,10 +123,13 @@ export const llmService = {
             
             if (provider !== 'Google') return { text: `Error: Invalid provider.` };
 
-            const apiKey = process.env.API_KEY;
-            if (!apiKey) return { text: `Error: API_KEY missing.` };
-                    
-            const ai = new GoogleGenAI({ apiKey });
+            const apiKey = llmSettings.googleApiKey?.trim() || process.env.API_KEY;
+            if (!apiKey) return { text: `Error: API_KEY missing. Set it in LLM Configuration settings.` };
+
+            const ai = new GoogleGenAI({
+              apiKey,
+              ...(apiBaseUrl?.trim() && { httpOptions: { baseUrl: apiBaseUrl.trim() } }),
+            });
             const params: GenerateContentParameters = {
                 model,
                 contents: typeof promptOrParts === 'string' ? { parts: [{ text: promptOrParts }] } : { parts: promptOrParts },
@@ -189,7 +192,11 @@ export const llmService = {
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = llmSettings.googleApiKey?.trim() || process.env.API_KEY;
+            const ai = new GoogleGenAI({
+              apiKey,
+              ...(llmSettings.apiBaseUrl?.trim() && { httpOptions: { baseUrl: llmSettings.apiBaseUrl.trim() } }),
+            });
             let diarization = attemptDiarization ? `\nFormat as script with labels (e.g. Speaker 1:). ${approximateSpeakerCount ? `Approx ${approximateSpeakerCount} speakers.` : 'Auto-detect speakers.'}` : "";
             const response: GenerateContentResponse = await promiseWithTimeout(ai.models.generateContent({
                 model,

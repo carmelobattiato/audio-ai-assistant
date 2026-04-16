@@ -6,9 +6,11 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Tailwind max-width class, e.g. "max-w-5xl". Defaults to "max-w-2xl". */
+  maxWidth?: string;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidth }) => {
   if (!isOpen) return null;
 
   console.log(`Modal: Rendering modal with title "${title}".`);
@@ -19,7 +21,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
       onClick={onClose}
     >
       <div 
-        className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-in-out scale-95 group-hover:scale-100"
+        className={`bg-gray-800 rounded-lg shadow-xl w-full ${maxWidth ?? 'max-w-2xl'} max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-in-out scale-95 group-hover:scale-100`}
         onClick={(e) => e.stopPropagation()} // Prevent click inside modal from closing it
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-700">

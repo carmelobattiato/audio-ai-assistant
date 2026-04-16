@@ -75,6 +75,7 @@ const ModelSelectionTable: React.FC<{
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, settings, onSettingsChange }) => {
   const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
   const [activeTab, setActiveTab] = useState(TABS[0].id);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -163,7 +164,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, s
   const currentProviderInfo = LLM_PROVIDERS[localSettings.llm.provider];
   
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Application Settings">
+    <Modal isOpen={isOpen} onClose={onClose} title="Application Settings" maxWidth="max-w-4xl">
        <div className="border-b border-gray-700">
         <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
           {TABS.map((tab) => (
@@ -240,14 +241,73 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, s
                 </div>
               ) : (
                 <>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Select Model:</label>
-                  <ModelSelectionTable
-                    models={currentProviderInfo?.models || []}
-                    selectedModel={localSettings.llm.model}
-                    onSelectModel={handleModelSelect}
+                  {/* API Key */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Google API Key:
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        id="googleApiKey"
+                        type={showApiKey ? 'text' : 'password'}
+                        value={localSettings.llm.googleApiKey || ''}
+                        onChange={(e) => handleLocalLlmChange('googleApiKey', e.target.value || undefined)}
+                        placeholder="Incolla la tua API key… (vuoto = usa la chiave di sistema)"
+                        className="flex-1 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        autoComplete="off"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(v => !v)}
+                        className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-200 bg-gray-700 rounded border border-gray-600"
+                        title={showApiKey ? 'Nascondi' : 'Mostra'}
+                      >
+                        {showApiKey ? '🙈' : '👁'}
+                      </button>
+                      {localSettings.llm.googleApiKey && (
+                        <button
+                          type="button"
+                          onClick={() => handleLocalLlmChange('googleApiKey', undefined)}
+                          className="px-2 py-1.5 text-xs text-gray-400 hover:text-red-400 bg-gray-700 rounded border border-gray-600"
+                          title="Rimuovi e usa la chiave di sistema"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      Se vuoto, viene usata la chiave configurata nell'ambiente di sistema (.env).
+                    </p>
+                  </div>
+
+                  {/* Base URL */}
+                  <Input
+                    label="API Base URL:"
+                    id="googleApiBaseUrl"
+                    type="text"
+                    value={localSettings.llm.apiBaseUrl || ''}
+                    onChange={(e) => handleLocalLlmChange('apiBaseUrl', e.target.value)}
+                    placeholder="https://generativelanguage.googleapis.com"
                   />
-                  <div className="text-xs text-sky-300 p-1.5 bg-sky-900 bg-opacity-30 rounded-md">
-                      The API Key is configured by the system and does not need to be set here.
+
+                  {/* Editable model name */}
+                  <Input
+                    label="Nome Modello (editabile):"
+                    id="googleModelName"
+                    type="text"
+                    value={localSettings.llm.model}
+                    onChange={(e) => handleLocalLlmChange('model', e.target.value)}
+                    placeholder="es. gemini-2.5-pro-preview-05-06"
+                  />
+
+                  {/* Model selection table */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Seleziona Modello:</label>
+                    <ModelSelectionTable
+                      models={currentProviderInfo?.models || []}
+                      selectedModel={localSettings.llm.model}
+                      onSelectModel={handleModelSelect}
+                    />
                   </div>
                 </>
               )}
