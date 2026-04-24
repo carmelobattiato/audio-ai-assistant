@@ -5,7 +5,6 @@ import { StatisticsModal } from './StatisticsModal';
 import { LoadSessionModal } from './LoadSessionModal';
 import { BubbleNoteViewerModal } from './BubbleNoteViewerModal';
 import { ConfirmModal } from './common/ConfirmModal';
-import { OutlookCalendarModal, OutlookAppointment } from './OutlookCalendarModal';
 import { AppSettings, BubbleNote, SavedSession } from '../types';
 
 interface AppModalsProps {
@@ -34,50 +33,38 @@ interface AppModalsProps {
   handleUpdateBubbleNote: (n: BubbleNote) => void;
   handleDeleteBubbleNote: (id: string) => void;
   handleGenerateSummaryForBubble: (n: BubbleNote) => Promise<string | null>;
-  // DO add comment above each fix.
-  // Fix: Changed return type from void to Promise<void> to match implementation in App.tsx and expectation in StatisticsModal.
   handleAssessCoherence: () => Promise<void>;
-  // Optional: Outlook calendar modal (classic App.tsx only — NewHome uses NeoCalendarDayView instead)
-  isOutlookModalOpen?: boolean;
-  setIsOutlookModalOpen?: (v: boolean) => void;
-  handleOutlookImport?: (title: string, noteHtml: string) => void;
-  handleOutlookOpenTeams?: (title: string, noteHtml: string, teamsUrl: string) => void;
-  calendarAppointments?: OutlookAppointment[];
-  calendarBridgeAvailable?: boolean | null;
-  calendarError?: string | null;
-  calendarRefreshing?: boolean;
-  onCalendarRefresh?: () => void;
 }
 
 export const AppModals: React.FC<AppModalsProps> = (props) => (
   <>
-    <SettingsPanel 
-      isOpen={props.isSettingsOpen} 
-      onClose={() => props.setIsSettingsOpen(false)} 
-      settings={props.appSettings} 
-      onSettingsChange={props.handleSettingsChange} 
+    <SettingsPanel
+      isOpen={props.isSettingsOpen}
+      onClose={() => props.setIsSettingsOpen(false)}
+      settings={props.appSettings}
+      onSettingsChange={props.handleSettingsChange}
     />
-    
-    <StatisticsModal 
-      isOpen={props.isStatisticsModalOpen} 
-      onClose={() => props.setIsStatisticsModalOpen(false)} 
-      stats={props.appStatistics} 
-      onAssessCoherence={props.handleAssessCoherence} 
-      coherenceAssessmentText={props.coherenceAssessment} 
-      coherenceStatus={props.coherenceStatus} 
+
+    <StatisticsModal
+      isOpen={props.isStatisticsModalOpen}
+      onClose={() => props.setIsStatisticsModalOpen(false)}
+      stats={props.appStatistics}
+      onAssessCoherence={props.handleAssessCoherence}
+      coherenceAssessmentText={props.coherenceAssessment}
+      coherenceStatus={props.coherenceStatus}
     />
-    
-    <LoadSessionModal 
-      isOpen={props.showLoadSessionModal} 
-      onClose={() => props.setShowLoadSessionModal(false)} 
-      sessions={props.savedSessions} 
-      onLoadSession={props.handleLoadSession} 
+
+    <LoadSessionModal
+      isOpen={props.showLoadSessionModal}
+      onClose={() => props.setShowLoadSessionModal(false)}
+      sessions={props.savedSessions}
+      onLoadSession={props.handleLoadSession}
       onDeleteSession={props.handleDeleteSession}
       onExportSessionJson={props.handleExportSessionJson}
       onImportSessionJson={props.handleImportSessionJson}
       onStartMerge={() => {}}
     />
-    
+
     <ConfirmModal
       isOpen={props.showLoadChunksModal}
       onClose={() => props.setShowLoadChunksModal(false)}
@@ -87,7 +74,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
     >
       <p>Load {props.recordingChunksCount} segments into queue?</p>
     </ConfirmModal>
-    
+
     <BubbleNoteViewerModal
       isOpen={!!props.viewingBubbleNote}
       onClose={props.handleCloseBubbleNoteViewer}
@@ -97,19 +84,5 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       onGenerateSummary={props.handleGenerateSummaryForBubble}
       llmSettings={props.appSettings.llm}
     />
-
-    {props.isOutlookModalOpen !== undefined && props.setIsOutlookModalOpen && props.handleOutlookImport && (
-      <OutlookCalendarModal
-        isOpen={props.isOutlookModalOpen}
-        onClose={() => props.setIsOutlookModalOpen!(false)}
-        onImport={props.handleOutlookImport}
-        onOpenTeamsAndRecord={props.handleOutlookOpenTeams}
-        externalAppointments={props.calendarAppointments}
-        externalBridgeAvailable={props.calendarBridgeAvailable}
-        externalError={props.calendarError}
-        isBackgroundRefreshing={props.calendarRefreshing}
-        onRequestRefresh={props.onCalendarRefresh}
-      />
-    )}
   </>
 );

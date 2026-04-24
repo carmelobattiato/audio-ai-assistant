@@ -109,7 +109,7 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
         >
           {APP_TITLE}
         </h1>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Developed by Carmelo Battiato · v1.76</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Developed by Carmelo Battiato · v1.77</p>
       </div>
     </div>
 
@@ -136,47 +136,6 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
         onClick={onOpenSettings} disabled={isBusy} highlight
       />
 
-      {/* Divider */}
-      <div style={{ width: '1px', height: '20px', background: 'var(--neo-border)', margin: '0 2px', flexShrink: 0 }} />
-
-      {/* Switch to Classic UI */}
-      <NeoTooltip text="Switch to Classic UI">
-        <a
-          href="/oldui"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: 500,
-            textDecoration: 'none',
-            background: 'var(--neo-card)',
-            border: '1px solid var(--neo-border)',
-            color: 'var(--neo-muted)',
-            transition: 'all 0.2s',
-            flexShrink: 0,
-          }}
-          onMouseEnter={e => {
-            const el = e.currentTarget as HTMLAnchorElement;
-            el.style.color = 'var(--neo-primary-l)';
-            el.style.borderColor = 'rgba(139,92,246,0.5)';
-            el.style.background = 'rgba(124,58,237,0.12)';
-          }}
-          onMouseLeave={e => {
-            const el = e.currentTarget as HTMLAnchorElement;
-            el.style.color = 'var(--neo-muted)';
-            el.style.borderColor = 'var(--neo-border)';
-            el.style.background = 'var(--neo-card)';
-          }}
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          <span className="hidden sm:inline">Classic UI</span>
-        </a>
-      </NeoTooltip>
     </nav>
 
     {/* Status message — right */}
