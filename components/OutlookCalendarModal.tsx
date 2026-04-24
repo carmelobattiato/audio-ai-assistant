@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const OUTLOOK_API = '/api/outlook';
 
-interface Attendee {
+export interface Attendee {
   name: string;
   email: string;
+  type?: 'required' | 'optional';
 }
 
 export interface OutlookAppointment {
@@ -26,8 +27,8 @@ type MeetingStatus = 'live' | 'next' | 'future' | 'past';
 interface OutlookCalendarModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (title: string, noteHtml: string) => void;
-  onOpenTeamsAndRecord?: (title: string, noteHtml: string, teamsUrl: string) => void;
+  onImport: (title: string, noteHtml: string, attendees: Attendee[]) => void;
+  onOpenTeamsAndRecord?: (title: string, noteHtml: string, teamsUrl: string, attendees: Attendee[]) => void;
   /** When provided: skip internal fetch; use this data instead */
   externalAppointments?: OutlookAppointment[];
   externalBridgeAvailable?: boolean | null;
@@ -201,7 +202,7 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
 
   const handleImport = () => {
     if (!selected) return;
-    onImport(selected.subject, buildNoteHtml(selected));
+    onImport(selected.subject, buildNoteHtml(selected), selected.attendees);
     onClose();
   };
 
@@ -209,7 +210,7 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
     if (!selected) return;
     const url = extractTeamsUrl(selected);
     if (!url || !onOpenTeamsAndRecord) return;
-    onOpenTeamsAndRecord(selected.subject, buildNoteHtml(selected), url);
+    onOpenTeamsAndRecord(selected.subject, buildNoteHtml(selected), url, selected.attendees);
   };
 
   if (!isOpen) return null;

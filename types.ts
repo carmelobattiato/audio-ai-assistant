@@ -247,11 +247,19 @@ export interface AppearanceSettings {
   theme: Theme;
 }
 
+export interface CustomInstruction {
+  id: string;
+  name: string;
+  text: string;
+  enabled: boolean;
+}
+
 export interface AppSettings {
   appearance: AppearanceSettings;
   audio: AudioSettings;
   transcription: TranscriptionSettings;
   llm: LlmSettings;
+  customInstructions: CustomInstruction[];
 }
 
 export interface GroundingChunkWeb {

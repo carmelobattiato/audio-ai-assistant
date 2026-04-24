@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { OutlookAppointment } from '../OutlookCalendarModal';
+import { Attendee, OutlookAppointment } from '../OutlookCalendarModal';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const HOUR_PX    = 80;
@@ -326,8 +326,8 @@ const ApptInfoModal: React.FC<{
 interface NeoCalendarDayViewProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (title: string, noteHtml: string) => void;
-  onOpenTeamsAndRecord?: (title: string, noteHtml: string, teamsUrl: string) => void;
+  onImport: (title: string, noteHtml: string, attendees: Attendee[]) => void;
+  onOpenTeamsAndRecord?: (title: string, noteHtml: string, teamsUrl: string, attendees: Attendee[]) => void;
   externalAppointments?: OutlookAppointment[];
   externalBridgeAvailable?: boolean | null;
   externalError?: string | null;
@@ -370,21 +370,12 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
     }
   }, [isOpen]);
 
-  // Clock tick — aligned to wall-clock minute boundaries
+  // Clock tick — every second for accurate red-line position and live clock
   useEffect(() => {
     if (!isOpen) return;
     const tick = () => setNow(new Date());
-    let intervalId: ReturnType<typeof setInterval>;
-    // Fire at the next whole minute, then every 60 s
-    const msToNextMinute = 60_000 - (Date.now() % 60_000);
-    const timeoutId = setTimeout(() => {
-      tick();
-      intervalId = setInterval(tick, 60_000);
-    }, msToNextMinute);
-    return () => {
-      clearTimeout(timeoutId);
-      clearInterval(intervalId);
-    };
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
   }, [isOpen]);
 
   // Internal fetch
@@ -431,7 +422,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
   const nextId   = appointments
     .filter(a => new Date(a.start) > now)
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0]?.id ?? null;
-  const nowMin   = now.getHours() * 60 + now.getMinutes();
+  const nowMin   = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
   const nowPx    = toPx(nowMin);
   const liveCount = appointments.filter(a => getStatus(a, now, nextId) === 'live').length;
 
@@ -482,6 +473,19 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
               {isBackgroundRefreshing && (
                 <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
               )}
+            </div>
+
+            {/* Live clock — centered */}
+            <div className="flex flex-col items-center select-none" title="Ora corrente">
+              <span
+                className="font-mono font-bold tracking-tight tabular-nums"
+                style={{ fontSize: '1.45rem', lineHeight: 1, color: '#C4B5FD' }}
+              >
+                {now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className="text-[10px] mt-0.5 font-medium uppercase tracking-widest" style={{ color: 'var(--neo-muted)' }}>
+                ora corrente
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -538,7 +542,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
 
           {/* ── Body ─────────────────────────────────────────────────────────── */}
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-            {loading ? (
+            {loading || (isBackgroundRefreshing && bridgeAvailable === null && appointments.length === 0) ? (
               <div className="flex-1 flex items-center justify-center gap-3" style={{ color: 'var(--neo-muted)' }}>
                 <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
                 <span className="text-sm">Caricamento calendario…</span>
@@ -620,15 +624,14 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                         >
                           <div className="absolute left-0 top-0 bottom-0" style={{ width: 3, background: c.dot }} />
                           <div className="pl-2 pr-1.5 py-1 h-full flex flex-col overflow-hidden">
-                            {status === 'live' && (
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: c.text }}>Live</span>
-                              </div>
-                            )}
-                            <p className="text-[11px] font-semibold leading-tight truncate" style={{ color: c.text }}>
-                              {appt.subject}
-                            </p>
+                            <div className="flex items-center gap-1 min-w-0">
+                              {status === 'live' && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+                              )}
+                              <p className="text-[11px] font-semibold leading-tight truncate" style={{ color: c.text }}>
+                                {appt.subject}
+                              </p>
+                            </div>
                             {heightPx > 36 && (
                               <p className="text-[10px] mt-0.5" style={{ color: c.text, opacity: 0.7 }}>
                                 {fmt(appt.start)} – {fmt(appt.end)}
@@ -783,7 +786,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                       <button
                         onClick={() => {
                           const url = extractTeamsUrl(selected)!;
-                          onOpenTeamsAndRecord(selected.subject, buildNoteHtml(selected), url);
+                          onOpenTeamsAndRecord(selected.subject, buildNoteHtml(selected), url, selected.attendees);
                           onClose();
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
@@ -795,7 +798,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                       </button>
                     )}
                     <button
-                      onClick={() => { onImport(selected.subject, buildNoteHtml(selected)); onClose(); }}
+                      onClick={() => { onImport(selected.subject, buildNoteHtml(selected), selected.attendees); onClose(); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
                       style={{ background: 'linear-gradient(135deg,#7C3AED,#C026D3)', color: 'white' }}>
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -823,13 +826,13 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
           appt={infoAppt}
           onClose={() => setInfoAppt(null)}
           onLoadInfo={() => {
-            onImport(infoAppt.subject, buildNoteHtml(infoAppt));
+            onImport(infoAppt.subject, buildNoteHtml(infoAppt), infoAppt.attendees);
             setInfoAppt(null);
             onClose();
           }}
           onTeams={onOpenTeamsAndRecord && extractTeamsUrl(infoAppt) ? () => {
             const url = extractTeamsUrl(infoAppt)!;
-            onOpenTeamsAndRecord!(infoAppt.subject, buildNoteHtml(infoAppt), url);
+            onOpenTeamsAndRecord!(infoAppt.subject, buildNoteHtml(infoAppt), url, infoAppt.attendees);
             setInfoAppt(null);
             onClose();
           } : undefined}

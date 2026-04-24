@@ -1,4 +1,4 @@
-# Audio AI Assistant — v1.75
+# Audio AI Assistant — v1.76
 
 A **client-side-only** web app for audio recording, automatic transcription via Google Gemini, and LLM-powered analysis. Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.
 
@@ -469,6 +469,44 @@ audio-ai-assistant/
 ├── vite.config.ts             # Vite config + Outlook PowerShell bridge plugin
 └── index.html                 # CSS variables (--neo-*), tooltip system
 ```
+
+---
+
+## Changelog
+
+### v1.76 — 2026-04-24
+
+#### AI Rules (custom prompt instructions)
+- New **Settings → AI Rules** tab for managing persistent prompt rules applied to every AI Analysis.
+- Each rule has a name, instruction text, and an enable/disable toggle — active rules are injected into the Gemini `systemInstruction` on every analysis call.
+- Typical use: terminology corrections (`"when you read T&D replace with T&A"`), style directives, mandatory sections.
+- Rules persist in `localStorage` alongside all other settings and survive app restarts.
+
+#### Prepare Email (Windows)
+- New **✉ Prepare Email** button in the AI Analysis result toolbar (visible on Windows only), placed alongside Download / Copy Text / Edit Result.
+- Opens the system mail client (Outlook or default) with a pre-filled draft — no send, no LLM re-elaboration:
+  - **Subject**: taken directly from the recording title field.
+  - **Body**: the plain-text version of the already-generated AI Analysis result.
+  - **To**: required meeting attendees (from Outlook calendar import).
+  - **CC**: optional meeting attendees (from Outlook calendar import).
+  - **Fallback**: if the meeting was not imported from the calendar, emails are extracted automatically from Bubble Notes.
+- Uses proper URI percent-encoding (`encodeURIComponent`) for subject and body — avoids the `+` corruption caused by `URLSearchParams` form encoding.
+
+#### Outlook Calendar — attendee data threading
+- `OutlookAppointment.Attendee` extended with optional `type: 'required' | 'optional'` field, ready for when the PowerShell bridge exposes the Exchange attendee type.
+- Calendar import callbacks (`onImport`, `onOpenTeamsAndRecord`) now propagate the full attendee array from `NeoCalendarDayView` and `OutlookCalendarModal` through to `NewHome` state and down to `LlmProcessor`.
+
+---
+
+### v1.75 — 2026-04-10
+
+- LLM Configuration: custom API key, custom base URL, and editable model name exposed in Settings.
+- Added new Gemini model entries to the selection table (`gemini-3-flash-preview`, `gemini-3-pro-preview`).
+- Neo Calendar Day View: parallel-meeting layout algorithm (connected-component grouping, up to 10 dynamic columns).
+- Teams + Rec: opens Teams desktop via `msteams://` protocol to avoid Chrome opening the web client.
+- Auto-screenshot interval configurable in Settings (Transcription & Notes tab).
+- Improved ZIP export: includes AI analysis HTML alongside transcript and audio.
+- Various UI polish and bug fixes.
 
 ---
 

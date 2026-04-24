@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from './common/Modal';
 import { Button } from './common/Button';
 import { Select } from './common/Select';
-import { Input } from './common/Input'; 
-import { Checkbox } from './common/Checkbox'; 
-import { AppSettings, TranscriptionQuality, SupportedLanguage, TranscriptionOutputFormat, ModelInfo, Theme } from '../types';
+import { Input } from './common/Input';
+import { Checkbox } from './common/Checkbox';
+import { AppSettings, CustomInstruction, TranscriptionQuality, SupportedLanguage, TranscriptionOutputFormat, ModelInfo, Theme } from '../types';
 import { DEFAULT_SETTINGS, LLM_PROVIDERS } from '../constants';
 
 import { LogsTab } from './settings/LogsTab';
+import { CustomInstructionsTab } from './settings/CustomInstructionsTab';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'llm', label: 'LLM Configuration' },
   { id: 'audio', label: 'Audio Recording' },
   { id: 'transcription', label: 'Transcription & Notes' },
+  { id: 'custom-instructions', label: 'AI Rules' },
   { id: 'logs', label: 'Logs & Monitoring' },
 ];
 
@@ -504,6 +506,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, s
                 id="transcriptionEnableAutoSave"
                 checked={localSettings.transcription.enableAutoSave ?? true}
                 onChange={(e) => handleLocalGenericChange('transcription', 'enableAutoSave', e.target.checked)}
+              />
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'custom-instructions' && (
+          <section>
+            <div className="p-3 bg-gray-700 rounded-md">
+              <CustomInstructionsTab
+                instructions={localSettings.customInstructions ?? []}
+                onChange={(instructions: CustomInstruction[]) =>
+                  setLocalSettings(prev => ({ ...prev, customInstructions: instructions }))
+                }
               />
             </div>
           </section>

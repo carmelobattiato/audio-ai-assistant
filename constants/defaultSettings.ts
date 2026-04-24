@@ -1,5 +1,5 @@
 
-import { AppSettings, SupportedLanguage, TranscriptionQuality, TranscriptionOutputFormat, Theme } from '../types';
+import { AppSettings, CustomInstruction, SupportedLanguage, TranscriptionQuality, TranscriptionOutputFormat, Theme } from '../types';
 import { LLM_PROVIDERS } from './appConfig';
 
 export const DEFAULT_AUDIO_SETTINGS: AppSettings['audio'] = {
@@ -49,9 +49,12 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppSettings['appearance'] = {
   theme: Theme.DARK,
 };
 
+export const DEFAULT_CUSTOM_INSTRUCTIONS: CustomInstruction[] = [];
+
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: DEFAULT_APPEARANCE_SETTINGS,
   audio: DEFAULT_AUDIO_SETTINGS,
   transcription: DEFAULT_TRANSCRIPTION_SETTINGS,
   llm: DEFAULT_LLM_SETTINGS,
+  customInstructions: DEFAULT_CUSTOM_INSTRUCTIONS,
 };

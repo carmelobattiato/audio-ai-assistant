@@ -293,7 +293,10 @@ export const App: React.FC = () => {
     const init = async () => {
         loggingService.info('APP_INIT', 'Application initializing', { version: APP_VERSION });
         const stored = localStorage.getItem(APP_SETTINGS_LOCAL_STORAGE_KEY);
-        if (stored) setAppSettings(JSON.parse(stored));
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setAppSettings({ ...DEFAULT_SETTINGS, ...parsed, customInstructions: parsed.customInstructions ?? [] });
+        }
         const crashed = await db.markCrashedSessions();
         if (crashed > 0) {
           loggingService.warn('SESSION_RECOVERY', `${crashed} interrupted session(s) detected and recovered.`);

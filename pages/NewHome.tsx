@@ -11,7 +11,7 @@ import { NeoTopbar } from '../components/newpage/NeoTopbar';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
 import { NeoTabs } from '../components/newpage/NeoTabs';
 import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
-import { OutlookAppointment } from '../components/OutlookCalendarModal';
+import { Attendee, OutlookAppointment } from '../components/OutlookCalendarModal';
 import { NeoCalendarDayView } from '../components/newpage/NeoCalendarDayView';
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
@@ -130,6 +130,7 @@ export const NewHome: React.FC = () => {
   const [calBridgeAvailable, setCalBridgeAvailable] = useState<boolean | null>(null);
   const [calError, setCalError] = useState<string | null>(null);
   const [calRefreshing, setCalRefreshing] = useState(false);
+  const [meetingAttendees, setMeetingAttendees] = useState<Attendee[]>([]);
 
   const [leftWidthPct, setLeftWidthPct] = useState<number>(28);
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -201,8 +202,9 @@ export const NewHome: React.FC = () => {
     activeSessionIdRef.current = null;
   }, []);
 
-  const handleOutlookImport = useCallback((title: string, noteHtml: string) => {
+  const handleOutlookImport = useCallback((title: string, noteHtml: string, attendees: Attendee[] = []) => {
     setRecordingTitle(title);
+    setMeetingAttendees(attendees);
     const newNote: BubbleNote = {
       id: `n_outlook_${Date.now()}`, contentHtml: noteHtml,
       timestamp: Date.now(), recordingElapsedTime: 0, isEditing: false, isProcessing: false,
@@ -212,8 +214,8 @@ export const NewHome: React.FC = () => {
     setTimeout(() => setAppUserMessage(null), 4000);
   }, []);
 
-  const handleOutlookOpenTeams = useCallback((title: string, noteHtml: string, teamsUrl: string) => {
-    handleOutlookImport(title, noteHtml);
+  const handleOutlookOpenTeams = useCallback((title: string, noteHtml: string, teamsUrl: string, attendees: Attendee[] = []) => {
+    handleOutlookImport(title, noteHtml, attendees);
     // Open Teams desktop app directly via msteams:// protocol — avoids Chrome opening the Teams web page
     const msteamsUrl = teamsUrl.replace(/^https:\/\/teams\.microsoft\.com/, 'msteams://teams.microsoft.com');
     const a = document.createElement('a');
@@ -607,6 +609,9 @@ export const NewHome: React.FC = () => {
   // Fetch once silently on page load
   useEffect(() => { fetchCalendarData(); }, [fetchCalendarData]);
 
+  // Refresh in background every time the calendar is opened
+  useEffect(() => { if (isCalendarOpen) fetchCalendarData(); }, [isCalendarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Divider drag handler ──────────────────────────────────────────────────
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -670,9 +675,9 @@ export const NewHome: React.FC = () => {
             <NeoTipsPanel />
           </div>
 
-          {/* Recording panel — below tips with ample gap */}
+          {/* Recording panel — below tips */}
           <div className="flex-1 overflow-y-auto flex flex-col" style={{ minHeight: 0 }}>
-            <div className="mt-32 pb-2">
+            <div className="pb-2">
             <NeoRecordingPanel
             ref={audioRecorderRef}
             onRecordingStateChange={handleRecordingStateChange}
@@ -816,6 +821,9 @@ export const NewHome: React.FC = () => {
               settings={appSettings.llm}
               transcriptionSettings={appSettings.transcription}
               transcriptionLanguage={appSettings.transcription.language}
+              customInstructions={appSettings.customInstructions ?? []}
+              meetingTitle={recordingTitle}
+              meetingAttendees={meetingAttendees}
               disabled={isBusy}
               audioDuration={audioBlob ? audioDuration : undefined}
               audioRecordingStartTime={audioRecordingStartTime}

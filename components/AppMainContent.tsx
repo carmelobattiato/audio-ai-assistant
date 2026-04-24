@@ -209,8 +209,9 @@ export const AppMainContent: React.FC<AppMainContentProps> = (props) => {
         currentLlmResult={props.llmProcessedText} 
         onLlmResultUpdate={props.handleLlmResultUpdateFromEditor} 
         settings={props.appSettings.llm}
-        transcriptionSettings={props.appSettings.transcription} 
+        transcriptionSettings={props.appSettings.transcription}
         transcriptionLanguage={props.appSettings.transcription.language}
+        customInstructions={props.appSettings.customInstructions ?? []}
         disabled={props.isBusy}
         audioDuration={props.audioBlob ? props.audioDuration : undefined}
         audioRecordingStartTime={props.audioRecordingStartTime}

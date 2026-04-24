@@ -6,7 +6,7 @@ import { Button } from './common/Button';
 import { Select } from './common/Select'; 
 import { TextArea } from './common/TextArea'; 
 import { LoadingModal } from './common/LoadingModal';
-import { AppSettings, GroundingChunk, SupportedLanguage, TranscriptionOutputFormat, BubbleNote } from '../types';
+import { AppSettings, CustomInstruction, GroundingChunk, SupportedLanguage, TranscriptionOutputFormat, BubbleNote } from '../types';
 import { RichTextEditorModal } from './RichTextEditorModal';
 import { EditIcon as EditPencilIcon, SaveIcon as CopyIcon, DownloadIcon } from '../constants'; 
 import { formatTime, htmlToPlainText, parseHtmlForGeminiParts, markdownToHtmlSimple } from '../utils/textUtils';
@@ -21,6 +21,9 @@ interface LlmProcessorProps {
   settings: AppSettings['llm'];
   transcriptionSettings: AppSettings['transcription'];
   transcriptionLanguage: SupportedLanguage;
+  customInstructions?: CustomInstruction[];
+  meetingTitle?: string;
+  meetingAttendees?: { name: string; email: string; type?: string }[];
   disabled?: boolean;
   audioDuration?: number; 
   audioRecordingStartTime?: Date | null; 
@@ -66,6 +69,9 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
   onQuickProcessComplete,
   onProcessingError,
   resultType,
+  customInstructions,
+  meetingTitle,
+  meetingAttendees,
 }, ref) => {
   const [customContext, setCustomContext] = useState<string>("");
   const [activeProcessingDisplayTitle, setActiveProcessingDisplayTitle] = useState<string | null>(null);
@@ -77,6 +83,8 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
   const [copyButtonText, setCopyButtonText] = useState<string>("Copy Text");
   const lastProcessedAutoTrigger = useRef<number>(-1);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const isWindows = navigator.userAgent.includes('Windows');
 
   const serializeBubbleNotesForGeminiLocal = useCallback((bubbles: BubbleNote[]) => {
     const allParts: Part[] = [];
@@ -181,6 +189,10 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
     contextualInfo += "---\n\n";
 
     let systemInstruction = `Sei un assistente esperto in verbali di riunione. Usa sempre la lingua ${transcriptionLanguage}. Presta particolare attenzione ai nomi dei partecipanti che possono essere indicati sia nella trascrizione che nelle "Bubble Notes" supplementari.`;
+    const activeCustomInstructions = (customInstructions ?? []).filter(r => r.enabled);
+    if (activeCustomInstructions.length > 0) {
+      systemInstruction += `\n\nRegole personalizzate da applicare sempre:\n${activeCustomInstructions.map(r => `- ${r.text}`).join('\n')}`;
+    }
     const defaultCustomContextAddition = customContext ? `\n\nIstruzioni aggiuntive: "${customContext}"` : "";
     
     const formattedDate = audioRecordingStartTime 
@@ -256,16 +268,14 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
       const isHtmlType = selectedProcessingActionKey === 'default-timeline';
       const cleanResult = result.replace(/^```html\n?/, '').replace(/\n?```$/, '').trim();
       let finalHtml = isHtmlType ? cleanResult : markdownToHtmlSimple(cleanResult);
-      
+
       if (isHtmlType) {
-          // Replace image references with actual base64
-          imageMap.forEach((src, ref) => {
-              // Replace both [REF] and REF (in case Gemini put it in src directly)
-              finalHtml = finalHtml.split(`[${ref}]`).join(src);
-              finalHtml = finalHtml.split(ref).join(src);
-          });
+        imageMap.forEach((src, ref) => {
+          finalHtml = finalHtml.split(`[${ref}]`).join(src);
+          finalHtml = finalHtml.split(ref).join(src);
+        });
       }
-      
+
       onProcessingComplete(finalHtml, currentActionTitle); 
       if (settings.enhanceWithWebSearch && groundingMetadata?.groundingChunks) setGroundingChunks(groundingMetadata.groundingChunks);
     } catch (err) {
@@ -348,6 +358,35 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
     }
   };
 
+  const handlePrepareEmail = () => {
+    if (!currentLlmResult) return;
+    const body = htmlToPlainText(currentLlmResult);
+    const subject = meetingTitle?.trim() || recordingTitle;
+
+    let toEmails = (meetingAttendees ?? [])
+      .filter(a => a.email && (!a.type || a.type === 'required'))
+      .map(a => a.email);
+    let ccEmails = (meetingAttendees ?? [])
+      .filter(a => a.email && a.type === 'optional')
+      .map(a => a.email);
+
+    // Fallback: extract emails from bubble notes when no structured attendees available
+    if (toEmails.length === 0) {
+      const emailRegex = /[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}/g;
+      const noteText = bubbleNotes.map(n => htmlToPlainText(n.contentHtml)).join(' ');
+      toEmails = [...new Set(noteText.match(emailRegex) ?? [])];
+    }
+
+    // mailto: requires proper percent-encoding; URLSearchParams uses + for spaces which breaks Outlook
+    const parts = [
+      `subject=${encodeURIComponent(subject)}`,
+      `body=${encodeURIComponent(body)}`,
+    ];
+    if (ccEmails.length > 0) parts.push(`cc=${encodeURIComponent(ccEmails.join(', '))}`);
+
+    window.location.href = `mailto:${encodeURIComponent(toEmails.join(', '))}?${parts.join('&')}`;
+  };
+
   const handleDownloadLlmResult = () => {
     if (currentLlmResult) {
         const typeSuffix = activeProcessingDisplayTitle ? activeProcessingDisplayTitle.replace(/\s+/g, '_').toLowerCase() : 'llm_result';
@@ -408,10 +447,15 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
             <label className="block text-sm font-medium text-gray-300">
               Result from {settings.provider} ({activeProcessingDisplayTitle}):
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={handleDownloadLlmResult} variant="ghost" size="sm" leftIcon={<DownloadIcon className="w-4 h-4"/>}>Download</Button>
               <Button onClick={handleCopyText} variant="ghost" size="sm" leftIcon={<CopyIcon className="w-4 h-4"/>}>{copyButtonText}</Button>
               <Button onClick={() => setIsEditorModalOpen(true)} variant="ghost" size="sm" leftIcon={<EditPencilIcon className="w-4 h-4"/>}>Edit Result</Button>
+              {isWindows && (
+                <Button onClick={handlePrepareEmail} variant="ghost" size="sm">
+                  ✉ Prepare Email
+                </Button>
+              )}
             </div>
           </div>
           <div
