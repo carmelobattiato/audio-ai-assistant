@@ -73,6 +73,8 @@ interface NeoTopbarProps {
   isBusy: boolean;
   canSaveZip: boolean;
   statsDisabled: boolean;
+  transcriptionLabel: string;
+  analysisLabel: string;
   onManageSessions: () => void;
   onSaveAll: () => void;
   onOpenStats: () => void;
@@ -82,6 +84,7 @@ interface NeoTopbarProps {
 
 export const NeoTopbar: React.FC<NeoTopbarProps> = ({
   appUserMessage, isBusy, canSaveZip, statsDisabled,
+  transcriptionLabel, analysisLabel,
   onManageSessions, onSaveAll, onOpenStats, onOpenSettings,
   onOpenCalendar,
 }) => (
@@ -109,7 +112,13 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
         >
           {APP_TITLE}
         </h1>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Developed by Carmelo Battiato · v1.78</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Developed by Carmelo Battiato · v1.79</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)', opacity: 0.75 }}>
+          {transcriptionLabel === analysisLabel
+            ? <>Transcription &amp; Analysis: <span style={{ color: 'var(--neo-primary-l)' }}>{analysisLabel}</span></>
+            : <>Transcription: <span style={{ color: 'var(--neo-primary-l)' }}>{transcriptionLabel}</span>{' · '}Analysis: <span style={{ color: 'var(--neo-primary-l)' }}>{analysisLabel}</span></>
+          }
+        </p>
       </div>
     </div>
 

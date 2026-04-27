@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from './common/Modal';
 import { Button } from './common/Button';
 import { Select } from './common/Select';
@@ -7,6 +7,14 @@ import { Input } from './common/Input';
 import { Checkbox } from './common/Checkbox';
 import { AppSettings, CustomInstruction, TranscriptionQuality, SupportedLanguage, TranscriptionOutputFormat, ModelInfo, Theme } from '../types';
 import { DEFAULT_SETTINGS, LLM_PROVIDERS } from '../constants';
+import { whisperService, ProgressInfo } from '../services/whisperService';
+
+const WHISPER_MODELS = [
+  { id: 'Xenova/whisper-tiny',   label: 'Tiny (~200 MB, più veloce)' },
+  { id: 'Xenova/whisper-base',   label: 'Base (~400 MB)' },
+  { id: 'Xenova/whisper-small',  label: 'Small (~1.2 GB)' },
+  { id: 'Xenova/whisper-medium', label: 'Medium (~3 GB, migliore accuratezza)' },
+];
 
 import { LogsTab } from './settings/LogsTab';
 import { CustomInstructionsTab } from './settings/CustomInstructionsTab';
@@ -84,6 +92,54 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
   const [activeTab, setActiveTab] = useState(TABS[0].id);
 
+  // Whisper download state
+  const [whisperStatus, setWhisperStatus] = useState<'idle' | 'checking' | 'downloading' | 'loaded' | 'error'>(() =>
+    whisperService.isLoaded() ? 'loaded' : 'idle'
+  );
+  const [whisperProgress, setWhisperProgress] = useState<number | null>(null);
+  const [whisperError, setWhisperError] = useState<string | null>(null);
+
+  const resolvedWhisperModel = useCallback((raw?: string): string => {
+    const r = raw ?? 'Xenova/whisper-tiny';
+    return r.startsWith('openai/whisper-') ? r.replace('openai/whisper-', 'Xenova/whisper-') : r;
+  }, []);
+
+  const checkCacheForModel = useCallback(async (model: string) => {
+    setWhisperStatus('checking');
+    const cached = await whisperService.checkModelCached(model);
+    setWhisperStatus(cached ? 'loaded' : 'idle');
+  }, []);
+
+  const handleWhisperDownload = useCallback(async () => {
+    const model = resolvedWhisperModel(localSettings.transcription.whisperModel);
+    setWhisperStatus('downloading');
+    setWhisperProgress(0);
+    setWhisperError(null);
+    try {
+      await whisperService.loadModel(model, (info: ProgressInfo) => {
+        if (info.loaded != null && info.total != null && info.total > 0) {
+          setWhisperProgress(Math.round((info.loaded / info.total) * 100));
+        }
+      });
+      setWhisperStatus('loaded');
+      setWhisperProgress(100);
+    } catch (err) {
+      setWhisperStatus('error');
+      setWhisperError(err instanceof Error ? err.message : String(err));
+    }
+  }, [localSettings.transcription.whisperModel, resolvedWhisperModel]);
+
+  const handleWhisperDelete = useCallback(async () => {
+    const model = resolvedWhisperModel(localSettings.transcription.whisperModel);
+    try {
+      await whisperService.deleteModel(model);
+      setWhisperStatus('idle');
+      setWhisperProgress(null);
+    } catch (err) {
+      setWhisperError(err instanceof Error ? err.message : String(err));
+    }
+  }, [localSettings.transcription.whisperModel, resolvedWhisperModel]);
+
   // API key UI state
   const [showSystemKey, setShowSystemKey] = useState(false);
   const [showCustomKey, setShowCustomKey] = useState(false);
@@ -99,16 +155,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setLocalSettings(JSON.parse(JSON.stringify(settings)));
-      // Pre-fill with resolved in-memory key if source is custom
+      const s: AppSettings = JSON.parse(JSON.stringify(settings));
+      setLocalSettings(s);
       setCustomKeyInput(
         settings.llm.apiKeySource === 'custom' ? settings.llm.googleApiKey || '' : ''
       );
       setShowSystemKey(false);
       setShowCustomKey(false);
       setKeyFeedback(null);
+      setWhisperProgress(null);
+      setWhisperError(null);
+      // If in-memory model already loaded, trust that; otherwise check browser cache
+      if (whisperService.isLoaded()) {
+        setWhisperStatus('loaded');
+      } else if (s.transcription.transcriptionEngine === 'whisper') {
+        checkCacheForModel(resolvedWhisperModel(s.transcription.whisperModel));
+      } else {
+        setWhisperStatus('idle');
+      }
     }
-  }, [isOpen, settings]);
+  }, [isOpen, settings, checkCacheForModel, resolvedWhisperModel]);
 
   const handleSaveKey = async () => {
     if (!customKeyInput.trim()) return;
@@ -610,6 +676,108 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {activeTab === 'transcription' && (
           <section>
             <div className="space-y-4 p-3 bg-gray-700 rounded-md">
+
+              {/* ── Engine selector ── */}
+              <div>
+                <p className="text-sm font-medium text-gray-300 mb-2">Transcription engine:</p>
+                <div className="flex flex-col gap-2">
+                  {(['gemini', 'whisper'] as const).map((engine) => (
+                    <label key={engine} className="flex items-center gap-2 cursor-pointer text-sm text-gray-200">
+                      <input
+                        type="radio"
+                        name="transcriptionEngine"
+                        value={engine}
+                        checked={(localSettings.transcription.transcriptionEngine ?? 'gemini') === engine}
+                        onChange={() => {
+                          handleLocalGenericChange('transcription', 'transcriptionEngine', engine);
+                          if (engine === 'whisper') {
+                            checkCacheForModel(resolvedWhisperModel(localSettings.transcription.whisperModel));
+                          }
+                        }}
+                        className="accent-violet-500"
+                      />
+                      {engine === 'gemini' ? 'Use configured LLM (cloud)' : 'Local Whisper (offline, no API key)'}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Whisper model picker (only when engine = whisper) ── */}
+              {(localSettings.transcription.transcriptionEngine ?? 'gemini') === 'whisper' && (
+                <div className="p-3 bg-gray-600 rounded-md space-y-3">
+                  <Select
+                    label="Whisper model:"
+                    id="whisperModel"
+                    options={WHISPER_MODELS.map(m => ({ value: m.id, label: m.label }))}
+                    value={(() => {
+                      const v = localSettings.transcription.whisperModel ?? 'Xenova/whisper-tiny';
+                      return v.startsWith('openai/whisper-') ? v.replace('openai/whisper-', 'Xenova/whisper-') : v;
+                    })()}
+                    onChange={(e) => {
+                      handleLocalGenericChange('transcription', 'whisperModel', e.target.value);
+                      setWhisperProgress(null);
+                      setWhisperError(null);
+                      checkCacheForModel(resolvedWhisperModel(e.target.value));
+                    }}
+                  />
+
+                  {/* Status + download/delete buttons */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={handleWhisperDownload}
+                      disabled={whisperStatus === 'downloading' || whisperStatus === 'loaded' || whisperStatus === 'checking'}
+                    >
+                      {whisperStatus === 'downloading' ? 'Downloading…'
+                        : whisperStatus === 'checking' ? 'Checking…'
+                        : whisperStatus === 'loaded' ? 'Model loaded ✓'
+                        : 'Download model'}
+                    </Button>
+                    {whisperStatus === 'loaded' && (
+                      <Button size="sm" variant="ghost" onClick={handleWhisperDelete}
+                        className="text-red-400 hover:text-red-300 border-red-400/30 hover:border-red-300/50">
+                        Delete model
+                      </Button>
+                    )}
+                    {whisperStatus === 'loaded' && (
+                      <span className="text-xs text-emerald-400">Ready for offline transcription</span>
+                    )}
+                    {whisperStatus === 'idle' && (
+                      <span className="text-xs text-gray-400">Model not downloaded</span>
+                    )}
+                    {whisperStatus === 'checking' && (
+                      <span className="text-xs text-gray-400">Checking browser cache…</span>
+                    )}
+                    {whisperStatus === 'error' && (
+                      <span className="text-xs text-red-400">Error: {whisperError}</span>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  {whisperStatus === 'downloading' && whisperProgress !== null && (
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-violet-500 h-2 rounded-full transition-all duration-200"
+                        style={{ width: `${whisperProgress}%` }}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">{whisperProgress}% downloaded</p>
+                    </div>
+                  )}
+                  {whisperStatus === 'downloading' && whisperProgress === null && (
+                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div className="bg-violet-500 h-2 rounded-full w-1/3 animate-pulse" />
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-400">
+                    Cached in browser Cache Storage (<code className="text-gray-300">transformers-cache</code>).
+                    View or clear in DevTools → Application → Cache Storage.
+                    <strong> Tiny</strong> is recommended for everyday Italian/English use.
+                  </p>
+                </div>
+              )}
+
               <Checkbox
                 label="Enable Real-time Transcription (Live)"
                 id="transcriptionEnableRealtime"
@@ -629,7 +797,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 options={transcriptionQualityOptions}
                 value={localSettings.transcription.quality}
                 onChange={(e) => handleLocalGenericChange('transcription', 'quality', e.target.value as TranscriptionQuality)}
-                disabled={localSettings.llm.provider !== 'Google'}
+                disabled={(localSettings.transcription.transcriptionEngine ?? 'gemini') !== 'gemini' || localSettings.llm.provider !== 'Google'}
               />
               <Select
                 label="Output Format (for saving):"
@@ -643,7 +811,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 id="transcriptionAttemptSpeakerDiarization"
                 checked={localSettings.transcription.attemptSpeakerDiarization}
                 onChange={(e) => handleLocalGenericChange('transcription', 'attemptSpeakerDiarization', e.target.checked)}
-                disabled={localSettings.llm.provider !== 'Google'}
+                disabled={(localSettings.transcription.transcriptionEngine ?? 'gemini') !== 'gemini' || localSettings.llm.provider !== 'Google'}
               />
               <Checkbox
                 label="Include Date & Time in Text"

@@ -169,6 +169,8 @@ export interface TranscriptionSettings {
   chunkRecordingIntervalSeconds?: number;
   enableRealtimeTranscription?: boolean;
   enableAutoPipeline?: boolean;
+  transcriptionEngine?: 'gemini' | 'whisper';
+  whisperModel?: string;
 }
 
 export interface BubbleNote {

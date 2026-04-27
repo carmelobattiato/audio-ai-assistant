@@ -686,6 +686,10 @@ export const NewHome: React.FC = () => {
         isBusy={isBusy}
         canSaveZip={!!activeSessionIdRef.current}
         statsDisabled={!audioBlob && !activeSourceText && bubbleNotes.length === 0}
+        transcriptionLabel={appSettings.transcription.transcriptionEngine === 'whisper'
+          ? `Whisper (${(appSettings.transcription.whisperModel ?? 'Xenova/whisper-tiny').split('/').pop() ?? 'tiny'})`
+          : appSettings.llm.model}
+        analysisLabel={appSettings.llm.model}
         onManageSessions={() => { fetchSessions(); setShowLoadSessionModal(true); }}
         onSaveAll={() => { if (activeSessionIdRef.current) sessLogic.handleExportSessionJson(activeSessionIdRef.current); }}
         onOpenStats={() => setIsStatisticsModalOpen(true)}

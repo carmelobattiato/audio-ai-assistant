@@ -146,13 +146,13 @@ fi
 
 BRANCH="$LOCAL_BRANCH"
 
-# ── Estrae ultima sezione da CHANGELOG.md ─────────────────────────────────────
+# ── Estrae sezione [Unreleased] da CHANGELOG.md ───────────────────────────────
 get_latest_changelog() {
     local changelog="CHANGELOG.md"
     [[ ! -f "$changelog" ]] && return
-    # Tutto ciò che è tra il primo "## [" e il secondo "## [" (o fine file)
-    awk '/^## \[/{if(n++)exit;next} n && !/^---/{print}' "$changelog" \
-        | sed '/^[[:space:]]*$/d'
+    # Legge solo il blocco ## [Unreleased], esclude righe vuote iniziali/finali
+    awk '/^## \[Unreleased\]/{found=1;next} found && /^## \[/{exit} found && !/^---/{print}' \
+        "$changelog" | sed '/^[[:space:]]*$/d'
 }
 
 # ── Bump versione minor ────────────────────────────────────────────────────────
@@ -193,44 +193,55 @@ bump_version() {
         sedi "s/— v${current_version}/— v${new_version}/" "$readme_file"
     fi
 
-    # 4. CHANGELOG.md — inserisce nuova sezione in cima (dopo il titolo/intro)
+    # 4. CHANGELOG.md — promuove [Unreleased] → [new_version], crea nuovo [Unreleased] vuoto
     if [[ -f "$changelog_file" ]]; then
-        # Costruisce il blocco della nuova versione riga per riga
-        local new_block
-        new_block="## [${new_version}] — ${today}"$'\n'$'\n'
-        # Aggiunge ogni riga del commit_msg come bullet point
+        # Costruisce i bullet points dal commit_msg
+        local bullets=""
         while IFS= read -r line; do
             [[ -z "$line" ]] && continue
-            # Se già inizia con "- " la lascia com'è, altrimenti aggiunge "- "
             if [[ "$line" == -\ * ]]; then
-                new_block+="$line"$'\n'
+                bullets+="$line"$'\n'
             else
-                new_block+="- $line"$'\n'
+                bullets+="- $line"$'\n'
             fi
         done <<< "$commit_msg"
-        new_block+=$'\n---\n'
 
-        # Inserisce dopo la prima riga vuota che segue il titolo/intro del file
-        awk -v block="$new_block" '
-            /^---$/ && !inserted {
-                print block
-                inserted=1
-            }
-            { print }
-        ' "$changelog_file" > "${changelog_file}.tmp" \
-            && mv "${changelog_file}.tmp" "$changelog_file"
+        # Scrive il file risultante riga per riga tramite un tmp
+        local tmp
+        tmp=$(mktemp)
+        local in_unreleased=0
+        while IFS= read -r line; do
+            if [[ "$line" == "## [Unreleased]" ]]; then
+                # Inserisce nuovo [Unreleased] vuoto
+                printf '## [Unreleased]\n\n---\n\n' >> "$tmp"
+                # Poi la riga del nuovo versioned header
+                printf '## [%s] — %s\n\n' "$new_version" "$today" >> "$tmp"
+                printf '%s\n' "$bullets" >> "$tmp"
+                in_unreleased=1
+                continue
+            fi
+            # Salta le righe dei vecchi bullet points di [Unreleased] e il suo separatore
+            if [[ $in_unreleased -eq 1 ]]; then
+                if [[ "$line" == "---" ]]; then
+                    in_unreleased=0
+                fi
+                continue
+            fi
+            printf '%s\n' "$line" >> "$tmp"
+        done < "$changelog_file"
+        mv "$tmp" "$changelog_file"
     fi
 
     echo "🔖 Versione: v${current_version} → v${new_version}" >&2
 }
 
 # ── 4. Commit ──────────────────────────────────────────────────────────────────
-# Legge l'ultima sezione del CHANGELOG come testo suggerito
+# Legge la sezione [Unreleased] dal CHANGELOG come testo suggerito
 CHANGELOG_DEFAULT="$(get_latest_changelog)"
 
 if [[ -n "$CHANGELOG_DEFAULT" ]]; then
     echo ""
-    echo "📋 Ultima sezione CHANGELOG.md (default commit):"
+    echo "📋 CHANGELOG.md → [Unreleased] (default commit):"
     echo "---------------------------------------------------------"
     echo "$CHANGELOG_DEFAULT"
     echo "---------------------------------------------------------"

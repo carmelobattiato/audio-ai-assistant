@@ -55,7 +55,7 @@ tar -czf "$BACKUP_FILE" "${EXCLUDES[@]}" . 2>"$TAR_LOG"
 TAR_EXIT=$?
 
 if [ $TAR_EXIT -eq 0 ]; then
-    COMPRESSED_SIZE=$(stat -c%s "$BACKUP_FILE")
+    COMPRESSED_SIZE=$(stat -f%z "$BACKUP_FILE" 2>/dev/null || stat -c%s "$BACKUP_FILE" 2>/dev/null || echo 0)
     LIST=$(tar -tf "$BACKUP_FILE")
     FILE_COUNT=$(echo "$LIST" | grep -v "/$" | wc -l)
     DIR_COUNT=$(echo "$LIST" | grep "/$" | grep -v "^\./$" | wc -l)
@@ -91,7 +91,7 @@ else
     fi
 
     if [ -f "$BACKUP_FILE" ]; then
-        PARTIAL_SIZE=$(stat -c%s "$BACKUP_FILE")
+        PARTIAL_SIZE=$(stat -f%z "$BACKUP_FILE" 2>/dev/null || stat -c%s "$BACKUP_FILE" 2>/dev/null || echo 0)
         mv "$BACKUP_FILE" "$BACKUP_FILE_ERR"
         echo ""
         echo "⚠️  File parziale salvato come: $BACKUP_FILE_ERR"

@@ -30,6 +30,8 @@ export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
   chunkRecordingIntervalSeconds: 900, // Updated to 15 minutes (15 * 60)
   enableRealtimeTranscription: false,
   enableAutoPipeline: true,
+  transcriptionEngine: 'gemini' as const,
+  whisperModel: 'Xenova/whisper-tiny',
 };
 
 export const DEFAULT_LLM_SETTINGS: AppSettings['llm'] = {

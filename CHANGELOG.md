@@ -4,6 +4,20 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [Unreleased]
+
+---
+
+## [1.79] — 2026-04-27
+
+- Trascrizione locale offline via Whisper (Transformers.js, WebAssembly): scelta modello, download con progress bar, cache browser, eliminazione modello
+- Settings → Transcription: selettore motore (LLM configurato / Whisper locale), rilevamento automatico modelli già scaricati
+- Auto-caricamento modello Whisper da cache browser alla prima trascrizione (senza ri-download)
+- Topbar: indicatore "Transcription & Analysis: model" (unificato se stesso modello, separato se Whisper)
+- Fix `github_push.sh`: awk multi-riga su macOS (usato ENVIRON invece di -v), sezione [Unreleased] come sorgente commit default
+- Fix `backup.sh`: `stat -f%z` cross-platform (macOS/Linux)
+
+
 ## [1.77] — 2026-04-27
 
 - Gestione chiave API Google cifrata con AES-GCM (Web Crypto API) in IndexedDB; scelta tra chiave di sistema (.env) e chiave personalizzata nel pannello Settings
