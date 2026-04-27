@@ -368,10 +368,10 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
         ? 'rgba(245,158,11,0.4)'
         : 'rgba(139,92,246,0.2)';
 
-    // Primary button config
-    const primaryBtn = isStartMode ? null : isPaused
+    // Primary button config — RESUME only for manual pause; auto-pause keeps STOP
+    const primaryBtn = isStartMode ? null : (isPaused && !isAutoPaused)
       ? { icon: <PlayIcon />, label: 'RESUME', bg: 'linear-gradient(135deg, #D97706, #F59E0B)', glow: 'rgba(217,119,6,0.55)', action: resumeRecording }
-      : { icon: <StopSquareIcon />, label: 'STOP', bg: 'linear-gradient(135deg, #DC2626, #EF4444)', glow: 'rgba(220,38,38,0.55)', action: stopRecording, pulse: true };
+      : { icon: <StopSquareIcon />, label: 'STOP', bg: 'linear-gradient(135deg, #DC2626, #EF4444)', glow: 'rgba(220,38,38,0.55)', action: stopRecording, pulse: !isAutoPaused };
 
     const showSave = !!audioBlob && !props.transcriptionSettings.enableChunkedRecording;
 
@@ -580,20 +580,37 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
               </div>
             )}
 
-            {/* Pause / Resume when recording */}
-            {isRecording && !isPaused && (
+            {/* Pause / countdown / Resume when recording */}
+            {isRecording && (!isPaused || isAutoPaused) && (
               <button
-                onClick={pauseRecording}
+                onClick={isAutoPaused ? resumeRecording : pauseRecording}
                 disabled={!!props.disabled}
                 className="w-full mt-3 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium transition-all hover:scale-[1.01]"
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(139,92,246,0.2)',
-                  color: 'var(--neo-muted)',
+                  background: isAutoPaused
+                    ? 'rgba(16,185,129,0.1)'
+                    : autoPauseState === 'warning'
+                    ? 'rgba(245,158,11,0.08)'
+                    : 'rgba(255,255,255,0.04)',
+                  border: isAutoPaused
+                    ? '1px solid rgba(16,185,129,0.35)'
+                    : autoPauseState === 'warning'
+                    ? '1px solid rgba(245,158,11,0.35)'
+                    : '1px solid rgba(139,92,246,0.2)',
+                  color: isAutoPaused
+                    ? '#6EE7B7'
+                    : autoPauseState === 'warning'
+                    ? '#FCD34D'
+                    : 'var(--neo-muted)',
                 }}
               >
-                <PauseIcon />
-                Pause
+                {isAutoPaused ? (
+                  <><PlayIcon />Resume</>
+                ) : autoPauseState === 'warning' ? (
+                  <><PauseIcon />Pausa in {autoPauseCountdown}s…</>
+                ) : (
+                  <><PauseIcon />Pause</>
+                )}
               </button>
             )}
           </div>
@@ -602,17 +619,17 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
           {isRecording && props.audioSettings.enableAutoPause && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.15)' }}>
-              {autoPauseState === 'sound' && (
+              {autoPauseState === 'listening' && (
                 <><div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span style={{ color: '#6EE7B7' }}>Sound detected</span></>
+                  <span style={{ color: '#6EE7B7' }}>Audio rilevato</span></>
               )}
-              {autoPauseState === 'countdown' && (
+              {autoPauseState === 'warning' && (
                 <><div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span style={{ color: '#FCD34D' }}>Silence — pausing in {autoPauseCountdown}s…</span></>
+                  <span style={{ color: '#FCD34D' }}>Silenzio — pausa in {autoPauseCountdown}s…</span></>
               )}
-              {autoPauseState === 'paused' && (
+              {autoPauseState === 'auto-paused' && (
                 <><div className="w-2 h-2 rounded-full bg-red-400" />
-                  <span style={{ color: '#FCA5A5' }}>Auto-paused — listening to resume…</span></>
+                  <span style={{ color: '#FCA5A5' }}>Auto-paused — in ascolto per riprendere…</span></>
               )}
             </div>
           )}

@@ -192,6 +192,7 @@ export interface LlmSettings {
   model: string;
   apiBaseUrl: string;
   customApiKey?: string;
+  /** Resolved in-memory only — never persisted to localStorage. */
   googleApiKey?: string;
   customPromptInstruction: string;
   enhanceWithWebSearch: boolean;
@@ -199,6 +200,8 @@ export interface LlmSettings {
   timeout?: number;
   rateLimitRequests?: number;
   rateLimitPeriodSeconds?: number;
+  /** 'system' = use process.env.API_KEY; 'custom' = use key encrypted in IndexedDB. */
+  apiKeySource?: 'system' | 'custom';
 }
 
 export enum Theme {

@@ -12,6 +12,9 @@ interface AppModalsProps {
   setIsSettingsOpen: (v: boolean) => void;
   appSettings: AppSettings;
   handleSettingsChange: (s: AppSettings) => void;
+  hasCustomApiKey: boolean;
+  onSaveCustomApiKey: (key: string) => Promise<void>;
+  onDeleteCustomApiKey: () => Promise<void>;
   isStatisticsModalOpen: boolean;
   setIsStatisticsModalOpen: (v: boolean) => void;
   appStatistics: any;
@@ -43,6 +46,9 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       onClose={() => props.setIsSettingsOpen(false)}
       settings={props.appSettings}
       onSettingsChange={props.handleSettingsChange}
+      hasCustomApiKey={props.hasCustomApiKey}
+      onSaveCustomApiKey={props.onSaveCustomApiKey}
+      onDeleteCustomApiKey={props.onDeleteCustomApiKey}
     />
 
     <StatisticsModal

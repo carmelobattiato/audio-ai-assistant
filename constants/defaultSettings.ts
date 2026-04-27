@@ -43,6 +43,7 @@ export const DEFAULT_LLM_SETTINGS: AppSettings['llm'] = {
   timeout: 600,
   rateLimitRequests: 15,
   rateLimitPeriodSeconds: 60,
+  apiKeySource: 'system',
 };
 
 export const DEFAULT_APPEARANCE_SETTINGS: AppSettings['appearance'] = {

@@ -7,6 +7,15 @@ set -euo pipefail
 
 CONFIG_FILE="$HOME/.github_push_config"
 
+# Cross-platform sed -i
+sedi() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
 echo "📦 Verifica repository Git..."
 
 # ── Config persistente ─────────────────────────────────────────────────────────
@@ -137,9 +146,107 @@ fi
 
 BRANCH="$LOCAL_BRANCH"
 
+# ── Estrae ultima sezione da CHANGELOG.md ─────────────────────────────────────
+get_latest_changelog() {
+    local changelog="CHANGELOG.md"
+    [[ ! -f "$changelog" ]] && return
+    # Tutto ciò che è tra il primo "## [" e il secondo "## [" (o fine file)
+    awk '/^## \[/{if(n++)exit;next} n && !/^---/{print}' "$changelog" \
+        | sed '/^[[:space:]]*$/d'
+}
+
+# ── Bump versione minor ────────────────────────────────────────────────────────
+bump_version() {
+    local commit_msg="$1"
+    local config_file="constants/appConfig.ts"
+    local topbar_file="components/newpage/NeoTopbar.tsx"
+    local readme_file="README.md"
+    local changelog_file="CHANGELOG.md"
+
+    # Legge versione corrente
+    local current_version
+    current_version=$(grep 'APP_VERSION' "$config_file" 2>/dev/null \
+        | sed 's/.*"\([0-9][0-9]*\.[0-9][0-9]*\)".*/\1/') || true
+
+    if [[ -z "$current_version" ]]; then
+        echo "⚠️  Versione non trovata in $config_file, bump saltato." >&2
+        return 0
+    fi
+
+    local major minor new_version today
+    major=$(echo "$current_version" | cut -d. -f1)
+    minor=$(echo "$current_version" | cut -d. -f2)
+    new_version="${major}.$((minor + 1))"
+    today=$(date "+%Y-%m-%d")
+
+    # 1. appConfig.ts
+    sedi "s/APP_VERSION = \"$current_version\"/APP_VERSION = \"$new_version\"/" \
+        "$config_file"
+
+    # 2. NeoTopbar.tsx (stringa hardcoded)
+    if [[ -f "$topbar_file" ]]; then
+        sedi "s/v${current_version}/v${new_version}/g" "$topbar_file"
+    fi
+
+    # 3. README.md — aggiorna solo l'header di versione
+    if [[ -f "$readme_file" ]]; then
+        sedi "s/— v${current_version}/— v${new_version}/" "$readme_file"
+    fi
+
+    # 4. CHANGELOG.md — inserisce nuova sezione in cima (dopo il titolo/intro)
+    if [[ -f "$changelog_file" ]]; then
+        # Costruisce il blocco della nuova versione riga per riga
+        local new_block
+        new_block="## [${new_version}] — ${today}"$'\n'$'\n'
+        # Aggiunge ogni riga del commit_msg come bullet point
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            # Se già inizia con "- " la lascia com'è, altrimenti aggiunge "- "
+            if [[ "$line" == -\ * ]]; then
+                new_block+="$line"$'\n'
+            else
+                new_block+="- $line"$'\n'
+            fi
+        done <<< "$commit_msg"
+        new_block+=$'\n---\n'
+
+        # Inserisce dopo la prima riga vuota che segue il titolo/intro del file
+        awk -v block="$new_block" '
+            /^---$/ && !inserted {
+                print block
+                inserted=1
+            }
+            { print }
+        ' "$changelog_file" > "${changelog_file}.tmp" \
+            && mv "${changelog_file}.tmp" "$changelog_file"
+    fi
+
+    echo "🔖 Versione: v${current_version} → v${new_version}" >&2
+}
+
 # ── 4. Commit ──────────────────────────────────────────────────────────────────
-read -p "📝 Messaggio commit (INVIO = 'Aggiornamento'): " COMMIT_MSG
-COMMIT_MSG="${COMMIT_MSG:-Aggiornamento}"
+# Legge l'ultima sezione del CHANGELOG come testo suggerito
+CHANGELOG_DEFAULT="$(get_latest_changelog)"
+
+if [[ -n "$CHANGELOG_DEFAULT" ]]; then
+    echo ""
+    echo "📋 Ultima sezione CHANGELOG.md (default commit):"
+    echo "---------------------------------------------------------"
+    echo "$CHANGELOG_DEFAULT"
+    echo "---------------------------------------------------------"
+    echo "  → Premi INVIO per usarla, oppure digita un messaggio personalizzato."
+    echo ""
+fi
+
+read -p "📝 Messaggio commit: " COMMIT_MSG
+
+if [[ -z "$COMMIT_MSG" ]] && [[ -n "$CHANGELOG_DEFAULT" ]]; then
+    COMMIT_MSG="$CHANGELOG_DEFAULT"
+elif [[ -z "$COMMIT_MSG" ]]; then
+    COMMIT_MSG="Aggiornamento"
+fi
+
+bump_version "$COMMIT_MSG"
 
 echo "⏳ Aggiungo le modifiche..."
 git add .

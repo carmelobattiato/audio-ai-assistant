@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Changelog
+
+`CHANGELOG.md` è il file di riferimento per tutte le modifiche. **Aggiornarlo è obbligatorio** prima di ogni commit, nella sezione della versione corrente.
+
+Stile richiesto:
+- Una riga per punto, inizia con verbo all'infinito o sostantivo
+- Niente frasi lunghe, niente aggettivi superflui, niente "aggiunto/migliorato" generico
+- Solo ciò che cambia il comportamento per l'utente o la struttura del codice
+- Il blocco dell'ultima versione viene usato automaticamente come corpo del messaggio di commit da `github_push.sh`
+
+Esempio corretto:
+```
+- Cifratura AES-GCM per la chiave API in IndexedDB
+- Fix countdown auto-pause: il tasto mostra `Pausa in Ns…` durante warning
+```
+
+Esempio da evitare:
+```
+- Migliorata l'esperienza utente nella gestione delle chiavi API con una nuova UI molto più intuitiva
+- Risolto un problema che causava un comportamento non corretto durante l'auto-pause
+```
+
 ## Commands
 
 ```bash

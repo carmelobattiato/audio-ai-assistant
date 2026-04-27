@@ -45,6 +45,7 @@ import {
 import { llmService } from '../services/geminiService';
 import { loggingService } from '../services/loggingService';
 import { useRecordingFavicon } from '../hooks/useRecordingFavicon';
+import { encryptString, decryptString } from '../utils/crypto';
 
 const APP_SETTINGS_KEY = 'audioAIAssistantSettings';
 
@@ -76,6 +77,7 @@ const ChatIcon = () => (
 export const NewHome: React.FC = () => {
   // ── State (identical to App.tsx) ──────────────────────────────────────────
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [hasCustomApiKey, setHasCustomApiKey] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioFileName, setAudioFileName] = useState<string>('');
   const [audioDuration, setAudioDuration] = useState<number>(0);
@@ -448,7 +450,21 @@ export const NewHome: React.FC = () => {
     const init = async () => {
       loggingService.info('APP_INIT', 'NewHome initializing', { version: APP_VERSION });
       const stored = localStorage.getItem(APP_SETTINGS_KEY);
-      if (stored) setAppSettings(JSON.parse(stored));
+      let settings: AppSettings = stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
+
+      // Resolve encrypted API key from IndexedDB
+      const encrypted = await db.getEncryptedApiKey();
+      setHasCustomApiKey(!!encrypted);
+      if (settings.llm?.apiKeySource === 'custom' && encrypted) {
+        try {
+          const decrypted = await decryptString(encrypted);
+          settings = { ...settings, llm: { ...settings.llm, googleApiKey: decrypted } };
+        } catch {
+          loggingService.warn('API_KEY', 'Failed to decrypt custom API key — falling back to system');
+        }
+      }
+
+      setAppSettings(settings);
       const crashed = await db.markCrashedSessions();
       if (crashed > 0) {
         setAppUserMessage(`${crashed} interrupted session(s) detected and recovered.`);
@@ -461,6 +477,30 @@ export const NewHome: React.FC = () => {
   useEffect(() => {
     document.body.className = `theme-${appSettings.appearance?.theme || Theme.DARK}`;
   }, [appSettings.appearance?.theme]);
+
+  const handleSaveCustomApiKey = useCallback(async (key: string) => {
+    const blob = await encryptString(key);
+    await db.saveEncryptedApiKey(blob);
+    setHasCustomApiKey(true);
+    // Update resolved key in memory
+    setAppSettings(prev => ({
+      ...prev,
+      llm: { ...prev.llm, googleApiKey: key, apiKeySource: 'custom' },
+    }));
+    const toSave = { ...appSettings, llm: { ...appSettings.llm, googleApiKey: undefined, apiKeySource: 'custom' } };
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(toSave));
+  }, [appSettings]);
+
+  const handleDeleteCustomApiKey = useCallback(async () => {
+    await db.deleteEncryptedApiKey();
+    setHasCustomApiKey(false);
+    setAppSettings(prev => ({
+      ...prev,
+      llm: { ...prev.llm, googleApiKey: undefined, apiKeySource: 'system' },
+    }));
+    const toSave = { ...appSettings, llm: { ...appSettings.llm, googleApiKey: undefined, apiKeySource: 'system' } };
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(toSave));
+  }, [appSettings]);
 
   useEffect(() => {
     if (uploadedTextFileContent?.textContent) {
@@ -859,7 +899,28 @@ export const NewHome: React.FC = () => {
       <AppModals
         isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen}
         appSettings={appSettings}
-        handleSettingsChange={(s: AppSettings) => { setAppSettings(s); localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(s)); }}
+        hasCustomApiKey={hasCustomApiKey}
+        onSaveCustomApiKey={handleSaveCustomApiKey}
+        onDeleteCustomApiKey={handleDeleteCustomApiKey}
+        handleSettingsChange={async (s: AppSettings) => {
+          // Resolve API key for in-memory state
+          let resolved = { ...s };
+          if (s.llm?.apiKeySource === 'custom') {
+            const encrypted = await db.getEncryptedApiKey();
+            if (encrypted) {
+              try {
+                const decrypted = await decryptString(encrypted);
+                resolved = { ...s, llm: { ...s.llm, googleApiKey: decrypted } };
+              } catch { /* keep googleApiKey undefined */ }
+            }
+          } else {
+            resolved = { ...s, llm: { ...s.llm, googleApiKey: undefined } };
+          }
+          setAppSettings(resolved);
+          // Never persist raw key to localStorage
+          const toSave = { ...resolved, llm: { ...resolved.llm, googleApiKey: undefined } };
+          localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(toSave));
+        }}
         isStatisticsModalOpen={isStatisticsModalOpen} setIsStatisticsModalOpen={setIsStatisticsModalOpen}
         appStatistics={appStatistics}
         coherenceAssessment={coherenceAssessment} coherenceStatus={coherenceStatus}

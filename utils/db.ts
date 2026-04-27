@@ -2,21 +2,32 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { SavedSession, InProgressSessionData } from '../types';
 import { MAX_SESSIONS } from '../constants';
+import type { EncryptedBlob } from './crypto';
 
 const DB_NAME = 'AudioAIAssistantDB';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const SESSIONS_STORE_NAME = 'sessions';
 const IN_PROGRESS_STORE_NAME = 'inProgressSessions';
+const SECRETS_STORE_NAME = 'appSecrets';
+const API_KEY_RECORD_ID = 'googleApiKey';
+
+interface SecretRecord extends EncryptedBlob {
+  id: string;
+}
 
 interface AppDB extends DBSchema {
   [SESSIONS_STORE_NAME]: {
-    key: string; 
+    key: string;
     value: SavedSession;
     indexes: { 'by-timestamp': number };
   };
   [IN_PROGRESS_STORE_NAME]: {
     key: string;
     value: InProgressSessionData;
+  };
+  [SECRETS_STORE_NAME]: {
+    key: string;
+    value: SecretRecord;
   };
 }
 
@@ -27,7 +38,6 @@ const dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
       const store = db.createObjectStore(SESSIONS_STORE_NAME, { keyPath: 'id' });
       store.createIndex('by-timestamp', 'timestamp');
     } else {
-      // Migrazione: aggiunge l'indice se mancante (store preesistente da versioni precedenti)
       const store = tx.objectStore(SESSIONS_STORE_NAME);
       if (!store.indexNames.contains('by-timestamp')) {
         store.createIndex('by-timestamp', 'timestamp');
@@ -36,6 +46,9 @@ const dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
     }
     if (!db.objectStoreNames.contains(IN_PROGRESS_STORE_NAME)) {
       db.createObjectStore(IN_PROGRESS_STORE_NAME, { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains(SECRETS_STORE_NAME)) {
+      db.createObjectStore(SECRETS_STORE_NAME, { keyPath: 'id' });
     }
   },
 });
@@ -118,6 +131,23 @@ export const db = {
   async deleteSession(sessionId: string): Promise<void> {
     const dbInstance = await dbPromise;
     await dbInstance.delete(SESSIONS_STORE_NAME, sessionId);
+  },
+
+  async saveEncryptedApiKey(blob: EncryptedBlob): Promise<void> {
+    const dbInstance = await dbPromise;
+    await dbInstance.put(SECRETS_STORE_NAME, { id: API_KEY_RECORD_ID, ...blob });
+  },
+
+  async getEncryptedApiKey(): Promise<EncryptedBlob | null> {
+    const dbInstance = await dbPromise;
+    const record = await dbInstance.get(SECRETS_STORE_NAME, API_KEY_RECORD_ID);
+    if (!record) return null;
+    return { iv: record.iv, data: record.data };
+  },
+
+  async deleteEncryptedApiKey(): Promise<void> {
+    const dbInstance = await dbPromise;
+    await dbInstance.delete(SECRETS_STORE_NAME, API_KEY_RECORD_ID);
   },
 
   async markCrashedSessions(): Promise<number> {
