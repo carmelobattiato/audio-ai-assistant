@@ -24,13 +24,13 @@ SAVED_REPO_URL="$1"
 SAVED_TOKEN="$2"
 EOF
     chmod 600 "$CONFIG_FILE"
-    echo "💾 URL e token salvati in $CONFIG_FILE"
+    echo "💾 URL e token salvati in $CONFIG_FILE" >&2
 }
 
 # ── Helpers URL ────────────────────────────────────────────────────────────────
 strip_token() {
     # Rimuove il token dall'URL: https://TOKEN@github.com/... → https://github.com/...
-    echo "$1" | sed -E 's|https://[^@]+@(github\.com)|\https://\1|'
+    echo "$1" | sed -E 's|https://[^@]+@(github\.com)|https://\1|'
 }
 
 build_auth_url() {
