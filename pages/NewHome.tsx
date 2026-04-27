@@ -13,6 +13,7 @@ import { NeoTabs } from '../components/newpage/NeoTabs';
 import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
 import { Attendee, OutlookAppointment } from '../components/OutlookCalendarModal';
 import { NeoCalendarDayView } from '../components/newpage/NeoCalendarDayView';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
 import { useSessionLogic } from '../hooks/useSessionLogic';
@@ -140,6 +141,8 @@ export const NewHome: React.FC = () => {
   const [leftWidthPct, setLeftWidthPct] = useState<number>(28);
   const mainContentRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef<boolean>(false);
+  const appUserMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const systemAudioGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const finalEffectiveTitle = useMemo(() => {
@@ -200,6 +203,13 @@ export const NewHome: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (appUserMessageTimerRef.current) clearTimeout(appUserMessageTimerRef.current);
+      if (systemAudioGuideTimerRef.current) clearTimeout(systemAudioGuideTimerRef.current);
+    };
+  }, []);
+
   const resetAllDataStates = useCallback(async (opts?: { preserveBubbleNotes?: boolean }) => {
     setAudioBlob(null); setAudioFileName(''); setAudioDuration(0); setAudioRecordingStartTime(null);
     setUploadedTextFileContent(null); setTranscribedText(''); setActiveSourceText('');
@@ -227,7 +237,8 @@ export const NewHome: React.FC = () => {
     };
     setBubbleNotes(prev => [newNote, ...prev]);
     setAppUserMessage(`📅 Meeting "${title}" imported from Outlook`);
-    setTimeout(() => setAppUserMessage(null), 4000);
+    if (appUserMessageTimerRef.current) clearTimeout(appUserMessageTimerRef.current);
+    appUserMessageTimerRef.current = setTimeout(() => setAppUserMessage(null), 4000);
   }, []);
 
   const handleOutlookOpenTeams = useCallback((title: string, noteHtml: string, teamsUrl: string, attendees: Attendee[] = []) => {
@@ -240,7 +251,8 @@ export const NewHome: React.FC = () => {
     a.click();
     document.body.removeChild(a);
     setIsCalendarOpen(false);
-    setTimeout(() => audioRecorderRef.current?.triggerSystemAudioGuide(), 150);
+    if (systemAudioGuideTimerRef.current) clearTimeout(systemAudioGuideTimerRef.current);
+    systemAudioGuideTimerRef.current = setTimeout(() => audioRecorderRef.current?.triggerSystemAudioGuide(), 150);
   }, [handleOutlookImport]);
 
   const handleGenerateSummaryForBubble = useCallback(async (note: BubbleNote) => {
@@ -372,28 +384,33 @@ export const NewHome: React.FC = () => {
   // ── Effects (identical to App.tsx) ───────────────────────────────────────
   useEffect(() => {
     if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { name: finalEffectiveTitle });
+      db.updateSessionIncremental(activeSessionIdRef.current, { name: finalEffectiveTitle })
+        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session name', { err: String(err) }));
     }
   }, [finalEffectiveTitle]);
 
   useEffect(() => {
     if (activeSessionIdRef.current && recordingState === RecordingState.RECORDING && !isInitialLoadingRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { bubbleNotes, emotionHistory, llmUsageHistory });
+      db.updateSessionIncremental(activeSessionIdRef.current, { bubbleNotes, emotionHistory, llmUsageHistory })
+        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session notes/emotion', { err: String(err) }));
     }
   }, [bubbleNotes, emotionHistory, llmUsageHistory, recordingState]);
 
   useEffect(() => {
     if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory });
+      db.updateSessionIncremental(activeSessionIdRef.current, { transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory })
+        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session transcription/llm', { err: String(err) }));
       if (pipelineStep === PipelineStep.COMPLETED) {
-        db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Success' });
+        db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Success' })
+          .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Success', { err: String(err) }));
       }
     }
   }, [transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory, pipelineStep]);
 
   useEffect(() => {
     if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { meetingChatHistory });
+      db.updateSessionIncremental(activeSessionIdRef.current, { meetingChatHistory })
+        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session chat history', { err: String(err) }));
     }
   }, [meetingChatHistory]);
 
@@ -426,7 +443,8 @@ export const NewHome: React.FC = () => {
         if (transLogic.transcriptionError) {
           loggingService.error('PIPELINE_ERROR', `Transcription failed: ${transLogic.transcriptionError}`);
           setPipelineStep(PipelineStep.ERROR);
-          if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Failed' });
+          if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Failed' })
+            .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Failed (transcription)', { err: String(err) }));
           setAppUserMessage(`Pipeline failed: ${transLogic.transcriptionError}`);
         } else if (transcribedText && transcribedText.trim().length > 0) {
           loggingService.info('PIPELINE', 'Transcription OK → starting ANALYZING');
@@ -450,7 +468,8 @@ export const NewHome: React.FC = () => {
       if (llmProcessedText.toLowerCase().includes('error from') || llmProcessedText.toLowerCase().includes('failed')) {
         loggingService.error('PIPELINE_ERROR', 'LLM analysis returned error string');
         setPipelineStep(PipelineStep.ERROR);
-        if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Failed' });
+        if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Failed' })
+          .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Failed (analysis)', { err: String(err) }));
         setAppUserMessage('Pipeline failed at AI Analysis step.');
       } else {
         loggingService.info('PIPELINE', 'LLM analysis OK → DOWNLOADING');
@@ -568,7 +587,8 @@ export const NewHome: React.FC = () => {
     setEmotionHistory(emo || []);
     const updates: Partial<SavedSessionData> = { audioBlob: blob, audioFileName: name };
     if (start) updates.audioRecordingStartTime = start;
-    if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, updates);
+    if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, updates)
+      .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session on recording complete', { err: String(err) }));
     loggingService.info('PIPELINE', 'handleRecordingComplete', {
       name, autoPipeline: appSettings.transcription.enableAutoPipeline,
       chunked: appSettings.transcription.enableChunkedRecording, realtime: appSettings.transcription.enableRealtimeTranscription,
@@ -594,7 +614,8 @@ export const NewHome: React.FC = () => {
     const chunkName = `${finalEffectiveTitleRef.current}_segment_${chunkIndex.toString().padStart(3, '0')}.${ext}`;
 
     if (activeSessionIdRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { chunks: recordingChunksRef.current });
+      db.updateSessionIncremental(activeSessionIdRef.current, { chunks: recordingChunksRef.current })
+        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session chunks', { err: String(err) }));
     }
     setRecordingChunks(p => [...p, chunk]);
 
@@ -917,6 +938,7 @@ export const NewHome: React.FC = () => {
             />
 
             {/* Tab 2: AI Analysis */}
+            <ErrorBoundary variant="inline" label="LlmProcessor">
             <LlmProcessor
               ref={llmProcessorRef}
               sourceText={activeSourceText}
@@ -941,6 +963,7 @@ export const NewHome: React.FC = () => {
               onProcessingError={handleLlmProcessingError}
               resultType={llmProcessingType}
             />
+            </ErrorBoundary>
 
             {/* Tab 3: Chat with the Meeting Session */}
             <MeetingChatPanel

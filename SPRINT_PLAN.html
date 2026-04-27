@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprint Plan — audio-ai-assistant</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; padding: 2rem; }
+  h1 { font-size: 1.4rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem; }
+  .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 2rem; }
+  .sprint { background: #1e2130; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; border: 1px solid #2d3348; }
+  .sprint-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+  .sprint-title { font-size: 1rem; font-weight: 600; color: #f1f5f9; }
+  .sprint-meta { font-size: 0.72rem; color: #64748b; margin-left: auto; }
+  .progress-bar { background: #2d3348; border-radius: 999px; height: 5px; margin-bottom: 1rem; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 999px; transition: width 0.3s; }
+  .s1 .progress-fill { background: #3b82f6; }
+  .s2 .progress-fill { background: #8b5cf6; }
+  .s3 .progress-fill { background: #f59e0b; }
+  .item { display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.45rem 0; border-bottom: 1px solid #2d3348; }
+  .item:last-child { border-bottom: none; }
+  .icon { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; }
+  .done .icon { background: #166534; color: #4ade80; }
+  .done .icon::before { content: '✓'; font-size: 0.7rem; font-weight: 700; }
+  .todo .icon { background: #1e2a3a; border: 1.5px solid #3b5068; color: transparent; }
+  .wip .icon { background: #1c2a1c; border: 1.5px dashed #4ade80; color: #4ade80; }
+  .wip .icon::before { content: '›'; font-size: 0.9rem; font-weight: 700; }
+  .label { font-size: 0.82rem; line-height: 1.4; }
+  .done .label { color: #94a3b8; text-decoration: line-through; text-decoration-color: #475569; }
+  .todo .label { color: #cbd5e1; }
+  .wip .label { color: #86efac; font-weight: 500; }
+  .file-ref { font-size: 0.72rem; color: #475569; margin-top: 0.15rem; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .badge { display: inline-block; font-size: 0.65rem; padding: 1px 6px; border-radius: 999px; margin-left: 0.4rem; vertical-align: middle; font-weight: 600; }
+  .badge-bug { background: #450a0a; color: #f87171; }
+  .badge-type { background: #0c1a3d; color: #60a5fa; }
+  .badge-perf { background: #1a1a0c; color: #facc15; }
+  .badge-arch { background: #0f1a2e; color: #a78bfa; }
+  .summary { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .stat { background: #1e2130; border: 1px solid #2d3348; border-radius: 8px; padding: 0.75rem 1.25rem; text-align: center; min-width: 90px; }
+  .stat-num { font-size: 1.6rem; font-weight: 700; }
+  .stat-label { font-size: 0.7rem; color: #64748b; margin-top: 0.1rem; }
+  .done-num { color: #4ade80; }
+  .todo-num { color: #60a5fa; }
+  .total-num { color: #f1f5f9; }
+</style>
+</head>
+<body>
+
+<h1>Sprint Plan — audio-ai-assistant</h1>
+<p class="subtitle">Aggiornato: 28 Aprile 2026 &nbsp;·&nbsp; Fonte: /audit-all</p>
+
+<div class="summary">
+  <div class="stat"><div class="stat-num done-num">5</div><div class="stat-label">Completati</div></div>
+  <div class="stat"><div class="stat-num todo-num">10</div><div class="stat-label">Da fare</div></div>
+  <div class="stat"><div class="stat-num total-num">15</div><div class="stat-label">Totale</div></div>
+</div>
+
+<!-- SPRINT 1 -->
+<div class="sprint s1">
+  <div class="sprint-header">
+    <div class="sprint-title">Sprint 1 — Quick wins</div>
+    <div class="sprint-meta">1 giornata &nbsp;·&nbsp; 5 / 5 completati ✓</div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div>
+
+  <div class="item done">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Abilita <code>strict: true</code> in tsconfig.json + fix errori di compilazione <span class="badge badge-type">type</span></div>
+      <div class="file-ref">tsconfig.json · @types/react@19 · 7 errori risolti</div>
+    </div>
+  </div>
+
+  <div class="item done">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Fix 19 <code>any</code> QUICK_FIX <span class="badge badge-type">type</span></div>
+      <div class="file-ref">types.ts · db.ts · loggingService.ts · NewHome.tsx · NoteEditorToolbar.tsx</div>
+    </div>
+  </div>
+
+  <div class="item done">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Aggiungi React Error Boundary globale (avvolge &lt;NewHome /&gt;) + boundary inline per LlmProcessor <span class="badge badge-arch">arch</span></div>
+      <div class="file-ref">nuovo components/ErrorBoundary.tsx · index.tsx · pages/NewHome.tsx</div>
+    </div>
+  </div>
+
+  <div class="item done">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Fix <code>setTimeout</code> senza cleanup <span class="badge badge-bug">bug</span></div>
+      <div class="file-ref">pages/NewHome.tsx — appUserMessageTimerRef + systemAudioGuideTimerRef + useEffect cleanup</div>
+    </div>
+  </div>
+
+  <div class="item done">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Aggiunto <code>.catch()</code> alle 9 call <code>db.updateSessionIncremental</code> non protette <span class="badge badge-bug">bug</span></div>
+      <div class="file-ref">pages/NewHome.tsx — errori IndexedDB ora loggati via loggingService.error</div>
+    </div>
+  </div>
+</div>
+
+<!-- SPRINT 2 -->
+<div class="sprint s2">
+  <div class="sprint-header">
+    <div class="sprint-title">Sprint 2 — Performance</div>
+    <div class="sprint-meta">2-3 giorni &nbsp;·&nbsp; 0 / 4 completati</div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Debounce DB writes: consolida 4 <code>useEffect</code> → <code>useBatchedDbUpdate(500ms)</code> <span class="badge badge-perf">perf</span></div>
+      <div class="file-ref">pages/NewHome.tsx:372-397 · nuovo hook useBatchedDbUpdate.ts</div>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label"><code>useMemo</code> per <code>appSettings.audio/transcription/llm</code> prima di passarli a NeoRecordingPanel <span class="badge badge-perf">perf</span></div>
+      <div class="file-ref">pages/NewHome.tsx:791-793</div>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Fix stale closure in <code>useEffect</code> DOWNLOADING (9 variabili catturate, dipende solo da <code>pipelineStep</code>) <span class="badge badge-bug">bug</span></div>
+      <div class="file-ref">pages/NewHome.tsx:488</div>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Fix race condition <code>fetchCalendarData</code> (mancante dalle deps + eslint-disable) <span class="badge badge-bug">bug</span></div>
+      <div class="file-ref">pages/NewHome.tsx:711</div>
+    </div>
+  </div>
+</div>
+
+<!-- SPRINT 3 -->
+<div class="sprint s3">
+  <div class="sprint-header">
+    <div class="sprint-title">Sprint 3 — Architettura</div>
+    <div class="sprint-meta">1 settimana &nbsp;·&nbsp; 0 / 6 completati</div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Decomposizione NewHome.tsx: split 41 <code>useState</code> in 4-5 sotto-componenti/hook <span class="badge badge-arch">arch</span></div>
+      <div class="file-ref">pages/NewHome.tsx:79-139 · ~1 settimana</div>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Web Worker per export ZIP (blocca main thread su sessioni &gt;50MB) <span class="badge badge-perf">perf</span></div>
+      <div class="file-ref">utils/fileUtils.ts · nuovo workers/zipWorker.ts · ~4h</div>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Lazy loading tab components con <code>React.lazy</code> + <code>Suspense</code> <span class="badge badge-perf">perf</span></div>
+      <div class="file-ref">pages/NewHome.tsx — 14 import sincroni · ~2.5h</div>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Refactor 24 <code>any</code> REFACTOR (geminiService, SettingsPanel API models, hooks recorder) <span class="badge badge-type">type</span></div>
+      <div class="file-ref">services/geminiService.ts · components/SettingsPanel.tsx · hooks/recorder/</div>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Wrapper type per <code>Part</code> da <code>@google/genai</code> (elimina <code>(p as any).text</code>) <span class="badge badge-type">type</span></div>
+      <div class="file-ref">services/geminiService.ts:103</div>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Abilita <code>noUncheckedIndexedAccess</code> in tsconfig.json <span class="badge badge-type">type</span></div>
+      <div class="file-ref">tsconfig.json · richiede fix diffusi su array[i] e obj[key]</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
