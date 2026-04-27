@@ -85,8 +85,8 @@ export const db = {
     if (sessions.length > MAX_SESSIONS) {
       const toDeleteCount = sessions.length - MAX_SESSIONS;
       for (let i = 0; i < toDeleteCount; i++) {
-        console.log(`DB: Deleting old session '${sessions[i].name}' due to retention policy.`);
-        await tx.store.delete(sessions[i].id);
+        console.log(`DB: Deleting old session '${sessions[i]!.name}' due to retention policy.`);
+        await tx.store.delete(sessions[i]!.id);
       }
     }
     await tx.done;

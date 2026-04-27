@@ -75,7 +75,7 @@ export const useTranscriptionLogic = (
 
     try {
       for (let i = 0; i < pending.length; i++) {
-        const item = pending[i];
+        const item = pending[i]!;
         const { file } = item;
         setTranscriptionProgress({ current: i + 1, total: pending.length, filename: file.name });
         try {
@@ -300,7 +300,7 @@ export const useTranscriptionLogic = (
       const newQueue = [...prev];
       if (destinationIndex < 0 || destinationIndex >= newQueue.length) return newQueue;
       const [removed] = newQueue.splice(sourceIndex, 1);
-      newQueue.splice(destinationIndex, 0, removed);
+      if (removed) newQueue.splice(destinationIndex, 0, removed);
       return newQueue;
     });
   };

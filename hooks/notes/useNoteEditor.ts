@@ -99,7 +99,7 @@ export const useNoteEditor = (
     event.preventDefault();
     const items = event.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+      const item = items[i]!;
       if (item.kind === 'file' && item.type.startsWith('image/')) {
         const blob = item.getAsFile();
         if (blob) {

@@ -88,7 +88,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
   const handleSaveTranscription = () => {
     if (activeSourceText) {
       // Prioritize recordingTitle, then audioFileName, then fallback
-      const nameSeed = recordingTitle.trim() || (audioFileName ? audioFileName.split('.')[0] : 'transcription');
+      const nameSeed = recordingTitle.trim() || (audioFileName ? (audioFileName.split('.')[0] ?? 'transcription') : 'transcription');
       const safeBaseName = nameSeed.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const baseFileName = `${safeBaseName}_transcription`;
 

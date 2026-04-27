@@ -123,7 +123,7 @@ export const useWhisperLiveLogic = (
     }
 
     const PREFERRED = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
-    mimeTypeRef.current = PREFERRED.find(m => MediaRecorder.isTypeSupported(m)) ?? PREFERRED[0];
+    mimeTypeRef.current = PREFERRED.find(m => MediaRecorder.isTypeSupported(m)) ?? PREFERRED[0] ?? 'audio/webm';
 
     micStreamRef.current = micStream;
     isPausedRefLocal.current = isPausedRef;

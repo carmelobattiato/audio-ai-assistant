@@ -86,7 +86,7 @@ export function markdownToHtmlSimple(markdownText: string): string {
   };
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i] ?? '';
     const trimmed = line.trim();
 
     // Table detection
@@ -104,9 +104,9 @@ export function markdownToHtmlSimple(markdownText: string): string {
     // List detection
     const listMatch = line.match(/^(\s*)([\*\-\+]|\d+\.)\s+(.*)/);
     if (listMatch) {
-      const indent = listMatch[1].length;
-      const type = listMatch[2].match(/\d/) ? 'ol' : 'ul';
-      const content = listMatch[3];
+      const indent = (listMatch[1] ?? '').length;
+      const type = (listMatch[2] ?? '').match(/\d/) ? 'ol' : 'ul';
+      const content = listMatch[3] ?? '';
       const level = Math.floor(indent / 2);
 
       while (listStack.length > level + 1) {
@@ -126,8 +126,8 @@ export function markdownToHtmlSimple(markdownText: string): string {
     if (trimmed.startsWith('#')) {
       const hMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
       if (hMatch) {
-        const level = hMatch[1].length;
-        html += `<h${level}>${markdownToHtmlInline(hMatch[2])}</h${level}>`;
+        const level = (hMatch[1] ?? '').length;
+        html += `<h${level}>${markdownToHtmlInline(hMatch[2] ?? '')}</h${level}>`;
         continue;
       }
     }
@@ -203,7 +203,7 @@ export const parseHtmlForGeminiParts = (htmlString: string): Part[] => {
         const src = el.getAttribute('src');
         if (src?.startsWith('data:image/')) {
           const [header, data] = src.split(',');
-          const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
+          const mimeType = header?.match(/:(.*?);/)?.[1] || 'image/png';
           parts.push({ inlineData: { mimeType, data } });
         }
       } else {

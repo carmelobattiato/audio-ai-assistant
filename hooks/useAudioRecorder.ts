@@ -16,7 +16,7 @@ function selectSupportedMimeType(): string {
   for (const mimeType of PREFERRED_MIME_TYPES) {
     if (MediaRecorder.isTypeSupported(mimeType)) return mimeType;
   }
-  return PREFERRED_MIME_TYPES[0];
+  return PREFERRED_MIME_TYPES[0] ?? 'audio/webm';
 }
 
 export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioRecorderResult => {

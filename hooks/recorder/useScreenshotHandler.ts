@@ -4,6 +4,10 @@ import { BubbleNote } from '../../types';
 import { formatTime } from '../../utils/textUtils';
 import { loggingService } from '../../services/loggingService';
 
+// ImageCapture is not yet in lib.dom.d.ts for all environments
+interface ImageCapture { grabFrame(): Promise<ImageBitmap> }
+declare const ImageCapture: { new(track: MediaStreamTrack): ImageCapture } | undefined;
+
 export const useScreenshotHandler = (
   displayStream: MediaStream | null,
   bubbleNotes: BubbleNote[],
@@ -22,7 +26,8 @@ export const useScreenshotHandler = (
       loggingService.info('SCREENSHOT_GETDISPLAY', 'No stream active — requesting getDisplayMedia');
       try {
         const newStream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'monitor' }, audio: false });
-        newStream.getVideoTracks()[0].onended = () => { loggingService.info('SCREENSHOT_STREAM_ENDED', 'Screen share stream ended'); setScreenshotStream(null); };
+        const firstTrack = newStream.getVideoTracks()[0];
+        if (firstTrack) firstTrack.onended = () => { loggingService.info('SCREENSHOT_STREAM_ENDED', 'Screen share stream ended'); setScreenshotStream(null); };
         setScreenshotStream(newStream);
         streamToUse = newStream;
         loggingService.info('SCREENSHOT_STREAM_ACQUIRED', 'Screen share stream acquired');
@@ -39,7 +44,8 @@ export const useScreenshotHandler = (
     }
 
     try {
-      const imageCapture = new (window as any).ImageCapture(videoTrack);
+      if (typeof ImageCapture === 'undefined') { loggingService.warn('SCREENSHOT', 'ImageCapture API not available'); return; }
+      const imageCapture = new ImageCapture(videoTrack);
       const imageBitmap = await imageCapture.grabFrame();
       const canvas = document.createElement('canvas');
       canvas.width = imageBitmap.width;

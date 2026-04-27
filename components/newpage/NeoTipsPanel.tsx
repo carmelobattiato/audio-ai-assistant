@@ -142,6 +142,7 @@ export const NeoTipsPanel: React.FC = () => {
   }, []);
 
   const tip = TIPS[current];
+  if (!tip) return null;
 
   return (
     <div

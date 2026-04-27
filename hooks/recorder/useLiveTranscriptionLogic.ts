@@ -55,7 +55,7 @@ export const useLiveTranscriptionLogic = (
             if (isPausedRef.current) return;
             const inputData = e.inputBuffer.getChannelData(0);
             const int16 = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
+            for (let i = 0; i < inputData.length; i++) int16[i] = (inputData[i] ?? 0) * 32768;
 
             const pcmBlob = {
               data: encode(new Uint8Array(int16.buffer)),

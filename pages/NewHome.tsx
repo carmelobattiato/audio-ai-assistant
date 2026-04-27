@@ -1,19 +1,23 @@
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { db } from '../utils/db';
+// Always-visible shell components (load eagerly)
 import { NeoRecordingPanel } from '../components/newpage/NeoRecordingPanel';
-import { BubbleNotes } from '../components/BubbleNotes';
-import { TranscriptionView } from '../components/TranscriptionView';
-import { LlmProcessor, LlmProcessorRef } from '../components/LlmProcessor';
-import { MeetingChatPanel } from '../components/MeetingChatPanel';
 import { AppModals } from '../components/AppModals';
 import { NeoTopbar } from '../components/newpage/NeoTopbar';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
 import { NeoTabs } from '../components/newpage/NeoTabs';
 import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
-import { Attendee, OutlookAppointment } from '../components/OutlookCalendarModal';
-import { NeoCalendarDayView } from '../components/newpage/NeoCalendarDayView';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+// Type-only imports (no runtime cost)
+import type { LlmProcessorRef } from '../components/LlmProcessor';
+import type { Attendee, OutlookAppointment } from '../components/OutlookCalendarModal';
+// Tab content — lazy-loaded on first render of each tab
+const BubbleNotes       = lazy(() => import('../components/BubbleNotes').then(m => ({ default: m.BubbleNotes })));
+const TranscriptionView = lazy(() => import('../components/TranscriptionView').then(m => ({ default: m.TranscriptionView })));
+const LlmProcessor      = lazy(() => import('../components/LlmProcessor').then(m => ({ default: m.LlmProcessor as React.ComponentType<React.ComponentProps<typeof m.LlmProcessor>> })));
+const MeetingChatPanel  = lazy(() => import('../components/MeetingChatPanel').then(m => ({ default: m.MeetingChatPanel })));
+const NeoCalendarDayView = lazy(() => import('../components/newpage/NeoCalendarDayView').then(m => ({ default: m.NeoCalendarDayView })));
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
 import { useSessionLogic } from '../hooks/useSessionLogic';
@@ -31,6 +35,7 @@ import {
   EmotionEvent,
   LlmUsageStats,
   SavedSessionData,
+  SupportedLanguage,
   ProcessedResult,
   PipelineStep,
   MeetingChatMessage,
@@ -42,11 +47,13 @@ import {
   htmlToPlainText, getCurrentTimestampSuffix,
 } from '../utils/textUtils';
 import {
-  createSessionZipBlob, generateStandardMetadataHeader, generateAnalysisHtmlDocument, saveBlobToFile,
+  generateStandardMetadataHeader, generateAnalysisHtmlDocument, saveBlobToFile,
 } from '../utils/fileUtils';
+import type { ZipEntry } from '../utils/fileUtils';
 import { llmService } from '../services/geminiService';
 import { loggingService } from '../services/loggingService';
 import { useRecordingFavicon } from '../hooks/useRecordingFavicon';
+import { useBatchedDbUpdate } from '../hooks/useBatchedDbUpdate';
 import { encryptString, decryptString } from '../utils/crypto';
 
 const APP_SETTINGS_KEY = 'audioAIAssistantSettings';
@@ -143,6 +150,17 @@ export const NewHome: React.FC = () => {
   const isDraggingRef = useRef<boolean>(false);
   const appUserMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const systemAudioGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pipelineDataRef = useRef({
+    audioRecordingStartTime: null as Date | null,
+    audioFileName: '',
+    language: 'Italian' as SupportedLanguage,
+    llmProcessingType: '',
+    finalEffectiveTitle: '',
+    transcribedText: '',
+    llmProcessedText: '',
+  });
+
+  const { schedule: scheduleDbUpdate, flush: flushDbUpdate } = useBatchedDbUpdate(activeSessionIdRef, isInitialLoadingRef);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const finalEffectiveTitle = useMemo(() => {
@@ -172,6 +190,11 @@ export const NewHome: React.FC = () => {
     llmUsageHistory,
     recordingTimestamp: audioRecordingStartTime?.toLocaleString(),
   }), [audioBlob, audioDuration, appSettings.audio, activeSourceText, llmProcessedText, llmUsageHistory, audioRecordingStartTime]);
+
+  // Stable sub-objects for NeoRecordingPanel — prevent re-renders when unrelated settings change
+  const audioSettings = useMemo(() => appSettings.audio, [appSettings.audio]);
+  const transcriptionSettings = useMemo(() => appSettings.transcription, [appSettings.transcription]);
+  const llmSettings = useMemo(() => appSettings.llm, [appSettings.llm]);
 
   // ── Callbacks (identical to App.tsx) ─────────────────────────────────────
   const addLlmUsageStat = useCallback((stat: Omit<LlmUsageStats, 'timestamp'>) => {
@@ -361,8 +384,8 @@ export const NewHome: React.FC = () => {
         }
         const parts = session.name.split('_');
         if (parts.length >= 2) {
-          const timePart = parts[parts.length - 1];
-          const datePart = parts[parts.length - 2];
+          const timePart = parts[parts.length - 1] ?? '';
+          const datePart = parts[parts.length - 2] ?? '';
           if (datePart.match(/^\d{6}$/) && timePart.match(/^\d{4}$/)) {
             setRecordingTimestampSuffix(`${datePart}_${timePart}`);
             setRecordingTitle(parts.slice(0, -2).join('_'));
@@ -381,38 +404,43 @@ export const NewHome: React.FC = () => {
     }
   }, [resetAllDataStates, transLogic]);
 
-  // ── Effects (identical to App.tsx) ───────────────────────────────────────
+  // ── Effects ───────────────────────────────────────────────────────────────
+
+  // Keep pipelineDataRef in sync so the DOWNLOADING effect always reads fresh values
+  // without capturing stale closures (no deps = runs after every render)
   useEffect(() => {
-    if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { name: finalEffectiveTitle })
-        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session name', { err: String(err) }));
-    }
-  }, [finalEffectiveTitle]);
+    pipelineDataRef.current = {
+      audioRecordingStartTime,
+      audioFileName,
+      language: appSettings.transcription.language,
+      llmProcessingType,
+      finalEffectiveTitle,
+      transcribedText,
+      llmProcessedText,
+    };
+  });
+
+  // Batched DB writes — individual state changes are coalesced into one write per 500ms
+  useEffect(() => { scheduleDbUpdate({ name: finalEffectiveTitle }); }, [finalEffectiveTitle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (activeSessionIdRef.current && recordingState === RecordingState.RECORDING && !isInitialLoadingRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { bubbleNotes, emotionHistory, llmUsageHistory })
-        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session notes/emotion', { err: String(err) }));
+    if (recordingState === RecordingState.RECORDING) {
+      scheduleDbUpdate({ bubbleNotes, emotionHistory, llmUsageHistory });
     }
-  }, [bubbleNotes, emotionHistory, llmUsageHistory, recordingState]);
+  }, [bubbleNotes, emotionHistory, llmUsageHistory, recordingState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory })
-        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session transcription/llm', { err: String(err) }));
-      if (pipelineStep === PipelineStep.COMPLETED) {
+    scheduleDbUpdate({ transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory });
+    if (pipelineStep === PipelineStep.COMPLETED) {
+      flushDbUpdate();
+      if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
         db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Success' })
           .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Success', { err: String(err) }));
       }
     }
-  }, [transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory, pipelineStep]);
+  }, [transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory, pipelineStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { meetingChatHistory })
-        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session chat history', { err: String(err) }));
-    }
-  }, [meetingChatHistory]);
+  useEffect(() => { scheduleDbUpdate({ meetingChatHistory }); }, [meetingChatHistory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (pipelineStep !== PipelineStep.TRANSCRIBING) wasTranscribingRef.current = false;
@@ -481,31 +509,42 @@ export const NewHome: React.FC = () => {
 
   useEffect(() => {
     if (pipelineStep !== PipelineStep.DOWNLOADING) return;
-    loggingService.info('PIPELINE', 'Creating session ZIP and downloading');
-    try {
-      const meta = generateStandardMetadataHeader(audioRecordingStartTime, audioFileName, {
-        transcriptionLanguage: appSettings.transcription.language,
-        llmProcessingType,
-      });
-      const analysisHtml = generateAnalysisHtmlDocument(llmProcessedText, {
-        title: finalEffectiveTitle,
-        sourceTimestamp: audioRecordingStartTime,
-        sourceFileName: audioFileName,
-        llmProcessingType,
-        transcriptionLanguage: appSettings.transcription.language,
-      });
-      const zipBlob = createSessionZipBlob([
-        { name: `${finalEffectiveTitle}_transcription.txt`, content: meta + htmlToPlainText(transcribedText) },
-        { name: `${finalEffectiveTitle}_ai_analysis.txt`,   content: meta + htmlToPlainText(llmProcessedText) },
-        { name: `${finalEffectiveTitle}_ai_analysis.html`,  content: analysisHtml },
-      ]);
-      saveBlobToFile(zipBlob, `${finalEffectiveTitle}_session.zip`);
-    } catch (e) { console.error('Session ZIP creation failed:', e); }
-    finally {
+    const { audioRecordingStartTime: recStart, audioFileName: recFile, language,
+            llmProcessingType: procType, finalEffectiveTitle: title,
+            transcribedText: transcript, llmProcessedText: analysis } = pipelineDataRef.current;
+
+    loggingService.info('PIPELINE', 'Creating session ZIP via Web Worker');
+
+    const meta = generateStandardMetadataHeader(recStart, recFile, { transcriptionLanguage: language, llmProcessingType: procType });
+    const analysisHtml = generateAnalysisHtmlDocument(analysis, {
+      title, sourceTimestamp: recStart, sourceFileName: recFile, llmProcessingType: procType, transcriptionLanguage: language,
+    });
+    const entries: ZipEntry[] = [
+      { name: `${title}_transcription.txt`, content: meta + htmlToPlainText(transcript) },
+      { name: `${title}_ai_analysis.txt`,   content: meta + htmlToPlainText(analysis) },
+      { name: `${title}_ai_analysis.html`,  content: analysisHtml },
+    ];
+
+    const worker = new Worker(new URL('../workers/zipWorker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<{ blob?: Blob; fileName?: string; error?: string }>) => {
+      worker.terminate();
+      if (e.data.blob) {
+        saveBlobToFile(e.data.blob, `${title}_session.zip`);
+      } else {
+        loggingService.error('PIPELINE', 'ZIP worker failed', { err: e.data.error });
+      }
       setPipelineStep(PipelineStep.COMPLETED);
       setAppUserMessage('Processing Pipeline Completed.');
-    }
-  }, [pipelineStep]); // eslint-disable-line react-hooks/exhaustive-deps
+    };
+    worker.onerror = (err) => {
+      worker.terminate();
+      loggingService.error('PIPELINE', 'ZIP worker error', { err: err.message });
+      setPipelineStep(PipelineStep.COMPLETED);
+    };
+    worker.postMessage({ entries, fileName: `${title}_session.zip` });
+
+    return () => worker.terminate();
+  }, [pipelineStep]);
 
   useEffect(() => {
     const init = async () => {
@@ -730,7 +769,7 @@ export const NewHome: React.FC = () => {
   useEffect(() => { fetchCalendarData(); }, [fetchCalendarData]);
 
   // Refresh in background every time the calendar is opened
-  useEffect(() => { if (isCalendarOpen) fetchCalendarData(); }, [isCalendarOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isCalendarOpen) fetchCalendarData(); }, [isCalendarOpen, fetchCalendarData]);
 
   // ── Divider drag handler ──────────────────────────────────────────────────
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -810,9 +849,9 @@ export const NewHome: React.FC = () => {
             onRecordingStop={handleRecordingStop}
             onFilesSelected={transLogic.handleFilesSelected}
             onRecordingSessionStart={handleRecordingSessionStart}
-            audioSettings={appSettings.audio}
-            transcriptionSettings={appSettings.transcription}
-            llmSettings={appSettings.llm}
+            audioSettings={audioSettings}
+            transcriptionSettings={transcriptionSettings}
+            llmSettings={llmSettings}
             disabled={isBusy || !!uploadedTextFileContent}
             onAudioDurationChange={setAudioDuration}
             audioDuration={audioDuration}
@@ -889,6 +928,7 @@ export const NewHome: React.FC = () => {
             className="h-full"
           >
             {/* Tab 0: Notes */}
+            <Suspense fallback={<div style={{ padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>Caricamento…</div>}>
             <BubbleNotes
               isEditorEditable={!isBusy}
               isRecordingCurrentlyActive={recordingState === RecordingState.RECORDING}
@@ -906,8 +946,10 @@ export const NewHome: React.FC = () => {
               viewingBubbleNoteId={viewingBubbleNoteId}
               recordingTitle={finalEffectiveTitle}
             />
+            </Suspense>
 
             {/* Tab 1: Transcript */}
+            <Suspense fallback={<div style={{ padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>Caricamento…</div>}>
             <TranscriptionView
               audioBlob={audioBlob}
               audioFileName={audioFileName}
@@ -936,9 +978,11 @@ export const NewHome: React.FC = () => {
               currentlyPlayingFile={transLogic.playbackFile?.file ?? null}
               isRealtimeTranscriptAvailable={!!(appSettings.transcription.enableRealtimeTranscription && activeSourceText && audioBlob)}
             />
+            </Suspense>
 
             {/* Tab 2: AI Analysis */}
             <ErrorBoundary variant="inline" label="LlmProcessor">
+            <Suspense fallback={<div style={{ padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>Caricamento…</div>}>
             <LlmProcessor
               ref={llmProcessorRef}
               sourceText={activeSourceText}
@@ -963,9 +1007,11 @@ export const NewHome: React.FC = () => {
               onProcessingError={handleLlmProcessingError}
               resultType={llmProcessingType}
             />
+            </Suspense>
             </ErrorBoundary>
 
             {/* Tab 3: Chat with the Meeting Session */}
+            <Suspense fallback={<div style={{ padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>Caricamento…</div>}>
             <MeetingChatPanel
               sessionContext={{
                 transcription: activeSourceText,
@@ -980,6 +1026,7 @@ export const NewHome: React.FC = () => {
               onLlmUsage={(stats) => setLlmUsageHistory(prev => [...prev, stats])}
               disabled={isBusy}
             />
+            </Suspense>
           </NeoTabs>
         </div>
       </div>
@@ -1030,6 +1077,7 @@ export const NewHome: React.FC = () => {
         handleAssessCoherence={handleAssessCoherence}
       />
 
+      <Suspense fallback={null}>
       <NeoCalendarDayView
         isOpen={isCalendarOpen}
         onClose={() => setIsCalendarOpen(false)}
@@ -1041,6 +1089,7 @@ export const NewHome: React.FC = () => {
         isBackgroundRefreshing={calRefreshing}
         onRequestRefresh={fetchCalendarData}
       />
+      </Suspense>
 
     </div>
   );

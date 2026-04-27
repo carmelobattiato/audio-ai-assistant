@@ -1,5 +1,8 @@
 
 import { GoogleGenAI, GenerateContentResponse, GenerateContentParameters, Part } from "@google/genai";
+
+// Narrows a raw `Part` from the SDK to one that carries a text field
+const partText = (p: Part): string | undefined => ('text' in p ? (p as { text: string }).text : undefined);
 import { GroundingMetadata, LlmSettings, Emotion, EMOTION_LIST } from '../types';
 import { loggingService } from './loggingService';
 
@@ -55,12 +58,12 @@ const waitForRateLimit = async (settings: LlmSettings) => {
   const now = Date.now();
   const rateLimitWindowMs = rateLimitPeriodSeconds * 1000;
 
-  while (requestTimestamps.length > 0 && requestTimestamps[0] < now - rateLimitWindowMs) {
+  while (requestTimestamps.length > 0 && (requestTimestamps[0] ?? 0) < now - rateLimitWindowMs) {
     requestTimestamps.shift();
   }
 
   if (requestTimestamps.length >= rateLimitRequests) {
-    const oldestRequestTime = requestTimestamps[0];
+    const oldestRequestTime = requestTimestamps[0] ?? now;
     const waitTime = oldestRequestTime + rateLimitWindowMs - now;
     if (waitTime > 0) {
       loggingService.warn('LLM_RATE_LIMIT_WAIT', `Rate limit reached. Waiting for ${Math.ceil(waitTime / 1000)}s.`, { waitTimeMs: waitTime });
@@ -100,7 +103,7 @@ export const llmService = {
 
               const messages = [];
               if (systemInstruction) messages.push({ role: 'system', content: systemInstruction });
-              messages.push({ role: 'user', content: typeof promptOrParts === 'string' ? promptOrParts : promptOrParts.filter(p => 'text' in p).map(p => (p as any).text).join('\n\n') });
+              messages.push({ role: 'user', content: typeof promptOrParts === 'string' ? promptOrParts : promptOrParts.map(partText).filter(Boolean).join('\n\n') });
 
               const response = await promiseWithTimeout(fetch(fullUrl, { method: 'POST', headers, body: JSON.stringify({ model, messages }), signal }), timeout * 1000);
 
@@ -152,10 +155,10 @@ export const llmService = {
                 usageMetadata: response.usageMetadata ? { inputTokens: response.usageMetadata.promptTokenCount ?? 0, outputTokens: response.usageMetadata.candidatesTokenCount ?? 0, totalTokens: response.usageMetadata.totalTokenCount ?? 0 } : undefined
             };
 
-        } catch (error: any) {
-            if (signal?.aborted || error.name === 'AbortError') throw error;
-            
-            const errorMsg = error.message || String(error);
+        } catch (error: unknown) {
+            if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) throw error;
+
+            const errorMsg = error instanceof Error ? error.message : String(error);
             const isQuotaError = errorMsg.toLowerCase().includes('quota') || errorMsg.includes('429');
 
             if (attempt === maxRetries || isQuotaError) {
@@ -207,9 +210,9 @@ export const llmService = {
                 transcription: response.text || "", 
                 usageMetadata: response.usageMetadata ? { inputTokens: response.usageMetadata.promptTokenCount ?? 0, outputTokens: response.usageMetadata.candidatesTokenCount ?? 0, totalTokens: response.usageMetadata.totalTokenCount ?? 0 } : undefined
             };
-        } catch (error: any) {
-            if (signal?.aborted || error.name === 'AbortError') throw error;
-            const errorMsg = error.message || String(error);
+        } catch (error: unknown) {
+            if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) throw error;
+            const errorMsg = error instanceof Error ? error.message : String(error);
             const isQuotaError = errorMsg.toLowerCase().includes('quota') || errorMsg.includes('429');
             if (attempt === maxRetries || isQuotaError) {
                 consecutiveErrors++;

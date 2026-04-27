@@ -113,7 +113,7 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
                       const ref = `IMAGE_REF_B${bIndex}_I${iIndex}`;
                       allParts.push({ text: `[${ref}]` });
                       const [header, data] = src.split(',');
-                      const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
+                      const mimeType = header?.match(/:(.*?);/)?.[1] || 'image/png';
                       allParts.push({ inlineData: { mimeType, data } });
                       imageMap.set(ref, src);
                       iIndex++;

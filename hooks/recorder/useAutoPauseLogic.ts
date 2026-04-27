@@ -44,7 +44,7 @@ export const useAutoPauseLogic = (
       if (hasMic && micDataArray && !micTrack?.muted) {
         micAnalyserNode!.getByteTimeDomainData(micDataArray);
         for (let i = 0; i < micDataArray.length; i++) {
-          const val = Math.abs(micDataArray[i] - 128);
+          const val = Math.abs((micDataArray[i] ?? 128) - 128);
           if (val > maxPeak) maxPeak = val;
         }
       }
@@ -53,7 +53,7 @@ export const useAutoPauseLogic = (
       if (hasApp && appDataArray) {
         appAnalyserNode!.getByteTimeDomainData(appDataArray);
         for (let i = 0; i < appDataArray.length; i++) {
-          const val = Math.abs(appDataArray[i] - 128);
+          const val = Math.abs((appDataArray[i] ?? 128) - 128);
           if (val > maxPeak) maxPeak = val;
         }
       }

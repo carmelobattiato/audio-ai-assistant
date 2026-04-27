@@ -102,10 +102,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const savedModel = settings.transcription.liveModel;
     const liveModel = savedModel && validLiveIds.includes(savedModel)
       ? savedModel
-      : GEMINI_LIVE_MODELS[0].id;
+      : (GEMINI_LIVE_MODELS[0]?.id ?? '');
     return { ...settings, transcription: { ...settings.transcription, liveModel } };
   });
-  const [activeTab, setActiveTab] = useState(TABS[0].id);
+  const [activeTab, setActiveTab] = useState(TABS[0]?.id ?? '');
 
   // Live model fetch + test state
   const [fetchedLiveModels, setFetchedLiveModels] = useState<{ id: string; label: string }[]>([]);
@@ -122,7 +122,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${liveApiKey}&pageSize=200`);
       const data = await res.json();
-      const all: any[] = data.models ?? [];
+      interface GeminiApiModel { name: string; displayName?: string; supportedGenerationMethods?: string[] }
+      const all: GeminiApiModel[] = data.models ?? [];
 
       // Log all models + their methods for debugging
       loggingService.debug('LIVE_MODELS_FETCH', `Total models from API: ${all.length}`);
@@ -130,18 +131,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       // Filter: name contains 'live' OR any method contains 'bidi'/'bidirectional'
       const models: { id: string; label: string }[] = all
-        .filter((m: any) => {
+        .filter((m) => {
           const name: string = (m.name ?? '').toLowerCase();
           const methods: string[] = m.supportedGenerationMethods ?? [];
           return name.includes('live') || methods.some((mt: string) => mt.toLowerCase().includes('bidi'));
         })
-        .map((m: any) => ({ id: (m.name as string).replace('models/', ''), label: m.displayName ?? m.name }));
+        .map((m) => ({ id: m.name.replace('models/', ''), label: m.displayName ?? m.name }));
 
       loggingService.debug('LIVE_MODELS_FETCH', `Live-compatible models: ${models.length}`, { ids: models.map(m => m.id) });
       setFetchedLiveModels(models);
       setFetchStatus('done');
       if (models.length > 0 && !models.find(m => m.id === localSettings.transcription.liveModel)) {
-        setLocalSettings(prev => ({ ...prev, transcription: { ...prev.transcription, liveModel: models[0].id } }));
+        setLocalSettings(prev => ({ ...prev, transcription: { ...prev.transcription, liveModel: models[0]!.id } }));
       }
     } catch (err) {
       loggingService.warn('LIVE_MODELS_FETCH', `Error: ${err}`);

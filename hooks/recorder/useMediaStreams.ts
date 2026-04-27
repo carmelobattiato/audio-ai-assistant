@@ -2,6 +2,18 @@
 import { useState, useRef, useCallback } from 'react';
 import { AudioSettings } from '../../types';
 
+// Chrome-proprietary constraints not in the standard MediaTrackConstraints spec
+interface ChromeMediaTrackConstraints extends MediaTrackConstraints {
+  googEchoCancellation?: boolean;
+  googAutoGainControl?: boolean;
+  googNoiseSuppression?: boolean;
+  googHighpassFilter?: boolean;
+  googAudioMirroring?: boolean;
+}
+
+type AudioContextConstructor = typeof AudioContext;
+declare global { interface Window { webkitAudioContext?: AudioContextConstructor } }
+
 export const useMediaStreams = (settings: AudioSettings) => {
   const [displayStream, setDisplayStream] = useState<MediaStream | null>(null);
   const [isAppAudioActive, setIsAppAudioActive] = useState(false);
@@ -27,7 +39,8 @@ export const useMediaStreams = (settings: AudioSettings) => {
 
   const setupAudioContext = useCallback((sampleRate?: number) => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate });
+      const Ctx = window.AudioContext || window.webkitAudioContext!;
+      audioContextRef.current = new Ctx({ sampleRate });
     }
     destinationNodeRef.current = audioContextRef.current.createMediaStreamDestination();
     return { context: audioContextRef.current, destination: destinationNodeRef.current };
@@ -44,17 +57,17 @@ export const useMediaStreams = (settings: AudioSettings) => {
 
       console.log(`MediaStreams: Updating Echo Cancellation. Auto-manage: ${settings.autoManageEchoCancellation}, Should Enable: ${shouldEnableAEC}`);
       
-      const constraints: MediaTrackConstraints = {
+      const constraints: ChromeMediaTrackConstraints = {
         echoCancellation: shouldEnableAEC,
         noiseSuppression: shouldEnableAEC ? true : settings.noiseSuppression,
         autoGainControl: shouldEnableAEC ? true : settings.autoGainControl,
       };
 
       if (shouldEnableAEC) {
-          (constraints as any).googEchoCancellation = true;
-          (constraints as any).googAutoGainControl = true;
-          (constraints as any).googNoiseSuppression = true;
-          (constraints as any).googHighpassFilter = true;
+          constraints.googEchoCancellation = true;
+          constraints.googAutoGainControl = true;
+          constraints.googNoiseSuppression = true;
+          constraints.googHighpassFilter = true;
       }
 
       try {
@@ -74,7 +87,7 @@ export const useMediaStreams = (settings: AudioSettings) => {
 
     console.log("MediaStreams: Requesting mic. Auto-manage:", settings.autoManageEchoCancellation, "Forced AEC:", settings.echoCancellation, "Final AEC decision:", useAEC);
     
-    const constraints: MediaTrackConstraints = {
+    const constraints: ChromeMediaTrackConstraints = {
         channelCount: settings.channels === 'stereo' ? 2 : 1,
         echoCancellation: useAEC,
         noiseSuppression: useAEC ? true : settings.noiseSuppression,
@@ -82,16 +95,16 @@ export const useMediaStreams = (settings: AudioSettings) => {
     };
 
     if (useAEC) {
-        (constraints as any).googEchoCancellation = true;
-        (constraints as any).googAutoGainControl = true;
-        (constraints as any).googNoiseSuppression = true;
-        (constraints as any).googHighpassFilter = true;
-        (constraints as any).googAudioMirroring = false;
+        constraints.googEchoCancellation = true;
+        constraints.googAutoGainControl = true;
+        constraints.googNoiseSuppression = true;
+        constraints.googHighpassFilter = true;
+        constraints.googAudioMirroring = false;
     }
 
     const micStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
     allStreamsRef.current.push(micStream);
-    const micTrack = micStream.getAudioTracks()[0];
+    const micTrack = micStream.getAudioTracks()[0] ?? null;
     micAudioTrackRef.current = micTrack;
     
     const micSource = context.createMediaStreamSource(micStream);

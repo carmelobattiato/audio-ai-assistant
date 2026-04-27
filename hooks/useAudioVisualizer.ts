@@ -70,7 +70,7 @@ export const useAudioVisualizer = (
       const amplitudeScalar = 0.8;
 
       for (let i = 0; i < dataArray.length; i++) {
-        const v = dataArray[i] / 128.0;
+        const v = (dataArray[i] ?? 128) / 128.0;
         const y = centerY - ((v - 1) * (height / 2) * amplitudeScalar);
         if (i === 0) context.moveTo(x, y);
         else context.lineTo(x, y);

@@ -50,7 +50,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
 
   const handleProceedToMerge = () => {
     if (selectedToMerge.length === 2) {
-      onStartMerge([selectedToMerge[0], selectedToMerge[1]]);
+      onStartMerge([selectedToMerge[0]!, selectedToMerge[1]!]);
       setIsMergeMode(false);
       setSelectedToMerge([]);
     }

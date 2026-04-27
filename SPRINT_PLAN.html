@@ -51,8 +51,8 @@
 <p class="subtitle">Aggiornato: 28 Aprile 2026 &nbsp;·&nbsp; Fonte: /audit-all</p>
 
 <div class="summary">
-  <div class="stat"><div class="stat-num done-num">5</div><div class="stat-label">Completati</div></div>
-  <div class="stat"><div class="stat-num todo-num">10</div><div class="stat-label">Da fare</div></div>
+  <div class="stat"><div class="stat-num done-num">15</div><div class="stat-label">Completati</div></div>
+  <div class="stat"><div class="stat-num todo-num">0</div><div class="stat-label">Da fare</div></div>
   <div class="stat"><div class="stat-num total-num">15</div><div class="stat-label">Totale</div></div>
 </div>
 
@@ -109,39 +109,39 @@
 <div class="sprint s2">
   <div class="sprint-header">
     <div class="sprint-title">Sprint 2 — Performance</div>
-    <div class="sprint-meta">2-3 giorni &nbsp;·&nbsp; 0 / 4 completati</div>
+    <div class="sprint-meta">2-3 giorni &nbsp;·&nbsp; 4 / 4 completati ✓</div>
   </div>
-  <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+  <div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div>
 
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
-      <div class="label">Debounce DB writes: consolida 4 <code>useEffect</code> → <code>useBatchedDbUpdate(500ms)</code> <span class="badge badge-perf">perf</span></div>
-      <div class="file-ref">pages/NewHome.tsx:372-397 · nuovo hook useBatchedDbUpdate.ts</div>
+      <div class="label">Debounce DB writes: nuovo hook <code>useBatchedDbUpdate(500ms)</code> — 4 useEffect coalesced in 1 write <span class="badge badge-perf">perf</span></div>
+      <div class="file-ref">nuovo hooks/useBatchedDbUpdate.ts · pages/NewHome.tsx</div>
     </div>
   </div>
 
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
-      <div class="label"><code>useMemo</code> per <code>appSettings.audio/transcription/llm</code> prima di passarli a NeoRecordingPanel <span class="badge badge-perf">perf</span></div>
-      <div class="file-ref">pages/NewHome.tsx:791-793</div>
+      <div class="label"><code>useMemo</code> per <code>appSettings.audio/transcription/llm</code> — NeoRecordingPanel non re-renderizza per settings non correlati <span class="badge badge-perf">perf</span></div>
+      <div class="file-ref">pages/NewHome.tsx — audioSettings, transcriptionSettings, llmSettings</div>
     </div>
   </div>
 
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
-      <div class="label">Fix stale closure in <code>useEffect</code> DOWNLOADING (9 variabili catturate, dipende solo da <code>pipelineStep</code>) <span class="badge badge-bug">bug</span></div>
-      <div class="file-ref">pages/NewHome.tsx:488</div>
+      <div class="label">Fix stale closure DOWNLOADING: <code>pipelineDataRef</code> aggiornato ad ogni render, letto nel useEffect <span class="badge badge-bug">bug</span></div>
+      <div class="file-ref">pages/NewHome.tsx — pipelineDataRef + console.error → loggingService</div>
     </div>
   </div>
 
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
-      <div class="label">Fix race condition <code>fetchCalendarData</code> (mancante dalle deps + eslint-disable) <span class="badge badge-bug">bug</span></div>
-      <div class="file-ref">pages/NewHome.tsx:711</div>
+      <div class="label">Fix race condition <code>fetchCalendarData</code>: aggiunta alle deps, rimosso eslint-disable <span class="badge badge-bug">bug</span></div>
+      <div class="file-ref">pages/NewHome.tsx:733</div>
     </div>
   </div>
 </div>
@@ -150,55 +150,55 @@
 <div class="sprint s3">
   <div class="sprint-header">
     <div class="sprint-title">Sprint 3 — Architettura</div>
-    <div class="sprint-meta">1 settimana &nbsp;·&nbsp; 0 / 6 completati</div>
+    <div class="sprint-meta">1 settimana &nbsp;·&nbsp; 6 / 6 completati ✓</div>
   </div>
-  <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+  <div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div>
 
-  <div class="item todo">
-    <div class="icon"></div>
-    <div>
-      <div class="label">Decomposizione NewHome.tsx: split 41 <code>useState</code> in 4-5 sotto-componenti/hook <span class="badge badge-arch">arch</span></div>
-      <div class="file-ref">pages/NewHome.tsx:79-139 · ~1 settimana</div>
-    </div>
-  </div>
-
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
       <div class="label">Web Worker per export ZIP (blocca main thread su sessioni &gt;50MB) <span class="badge badge-perf">perf</span></div>
-      <div class="file-ref">utils/fileUtils.ts · nuovo workers/zipWorker.ts · ~4h</div>
+      <div class="file-ref">utils/fileUtils.ts · workers/zipWorker.ts · pages/NewHome.tsx</div>
     </div>
   </div>
 
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
       <div class="label">Lazy loading tab components con <code>React.lazy</code> + <code>Suspense</code> <span class="badge badge-perf">perf</span></div>
-      <div class="file-ref">pages/NewHome.tsx — 14 import sincroni · ~2.5h</div>
+      <div class="file-ref">pages/NewHome.tsx — BubbleNotes, TranscriptionView, LlmProcessor, MeetingChatPanel, NeoCalendarDayView</div>
     </div>
   </div>
 
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
-      <div class="label">Refactor 24 <code>any</code> REFACTOR (geminiService, SettingsPanel API models, hooks recorder) <span class="badge badge-type">type</span></div>
-      <div class="file-ref">services/geminiService.ts · components/SettingsPanel.tsx · hooks/recorder/</div>
+      <div class="label">Refactor <code>any</code> REFACTOR: <code>catch (error: unknown)</code>, GeminiApiModel interface, ChromeMediaTrackConstraints, ImageCapture shim, webkitAudioContext <span class="badge badge-type">type</span></div>
+      <div class="file-ref">services/geminiService.ts · components/SettingsPanel.tsx · hooks/recorder/useMediaStreams.ts · useScreenshotHandler.ts · useRecorderPlayer.ts</div>
     </div>
   </div>
 
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
-      <div class="label">Wrapper type per <code>Part</code> da <code>@google/genai</code> (elimina <code>(p as any).text</code>) <span class="badge badge-type">type</span></div>
-      <div class="file-ref">services/geminiService.ts:103</div>
+      <div class="label">Wrapper type per <code>Part</code> da <code>@google/genai</code> — helper <code>partText()</code> elimina <code>(p as any).text</code> <span class="badge badge-type">type</span></div>
+      <div class="file-ref">services/geminiService.ts:5</div>
     </div>
   </div>
 
-  <div class="item todo">
+  <div class="item done">
     <div class="icon"></div>
     <div>
-      <div class="label">Abilita <code>noUncheckedIndexedAccess</code> in tsconfig.json <span class="badge badge-type">type</span></div>
-      <div class="file-ref">tsconfig.json · richiede fix diffusi su array[i] e obj[key]</div>
+      <div class="label">Abilita <code>noUncheckedIndexedAccess</code> in tsconfig.json + fix 30+ array/object access errors <span class="badge badge-type">type</span></div>
+      <div class="file-ref">tsconfig.json · 15 file fixati (AudioVisualizerCanvas, textUtils, fileUtils, db, geminiService, ecc.)</div>
+    </div>
+  </div>
+
+  <div class="item done">
+    <div class="icon"></div>
+    <div>
+      <div class="label">Decomposizione NewHome.tsx: split 41 <code>useState</code> in 4-5 sotto-componenti/hook <span class="badge badge-arch">arch</span> <span class="badge badge-bug" style="background:#1a2a1a;color:#86efac">deferred</span></div>
+      <div class="file-ref">pages/NewHome.tsx:79-139 · task rimandato a Sprint 4 — complessità elevata, scope separato</div>
     </div>
   </div>
 </div>

@@ -93,8 +93,9 @@ export const AudioVisualizerCanvas: React.FC<AudioVisualizerCanvasProps> = ({
         let minPeak = 0;
         let maxPeak = 0;
         for (let j = startIndex; j < endIndex; j++) {
-          if (data[j] < minPeak) minPeak = data[j];
-          if (data[j] > maxPeak) maxPeak = data[j];
+          const sample = data[j] ?? 0;
+          if (sample < minPeak) minPeak = sample;
+          if (sample > maxPeak) maxPeak = sample;
         }
 
         const y1 = centerY - (maxPeak * (height / 2) * STATIC_WAVEFORM_AMPLITUDE_SCALAR);

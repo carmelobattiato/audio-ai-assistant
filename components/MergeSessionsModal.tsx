@@ -23,9 +23,9 @@ export const MergeSessionsModal: React.FC<MergeSessionsModalProps> = ({
 
   useEffect(() => {
     if (isOpen && sessionsToMerge.length === 2) {
-      setPart1(sessionsToMerge[0]);
-      setPart2(sessionsToMerge[1]);
-      setNewSessionName(`Merged: ${sessionsToMerge[0].name} & ${sessionsToMerge[1].name}`);
+      setPart1(sessionsToMerge[0] ?? null);
+      setPart2(sessionsToMerge[1] ?? null);
+      setNewSessionName(`Merged: ${sessionsToMerge[0]?.name} & ${sessionsToMerge[1]?.name}`);
     } else {
       setPart1(null);
       setPart2(null);

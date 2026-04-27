@@ -145,9 +145,9 @@ function downsampleToMono(buffer: AudioBuffer): Float32Array {
   const result = new Float32Array(length);
   for (let c = 0; c < channels; c++) {
     const data = buffer.getChannelData(c);
-    for (let i = 0; i < length; i++) result[i] += data[i];
+    for (let i = 0; i < length; i++) result[i] = (result[i] ?? 0) + (data[i] ?? 0);
   }
-  for (let i = 0; i < length; i++) result[i] /= channels;
+  for (let i = 0; i < length; i++) result[i] = (result[i] ?? 0) / channels;
   return result;
 }
 

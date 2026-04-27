@@ -2,6 +2,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { loggingService } from '../../services/loggingService';
 
+type AudioContextConstructor = typeof AudioContext;
+declare global { interface Window { webkitAudioContext?: AudioContextConstructor } }
+
 interface UseRecorderPlayerProps {
   finalAudioUrl: string | null;
   audioDuration: number | undefined;
@@ -22,7 +25,8 @@ export const useRecorderPlayer = ({ finalAudioUrl, audioDuration, onAudioDuratio
 
   useEffect(() => {
     if (!playerAudioContextRef.current) {
-      playerAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const Ctx = window.AudioContext || window.webkitAudioContext!;
+      playerAudioContextRef.current = new Ctx();
       loggingService.debug('PLAYER', `AudioContext created, state=${playerAudioContextRef.current.state}`);
     }
   }, []);

@@ -66,7 +66,7 @@ function renderChartSvg(jsonStr: string): string {
     const totalW = labels.length * (barW + gap) + padL + padR;
 
     const bars = labels.map((label, i) => {
-      const barH = Math.max(4, Math.round((values[i] / max) * chartH));
+      const barH = Math.max(4, Math.round(((values[i] ?? 0) / max) * chartH));
       const x = padL + i * (barW + gap);
       const y = padTop + chartH - barH;
       const val = `${values[i]}${chart.unit || ''}`;
@@ -98,8 +98,8 @@ function renderMessageContent(content: string): string {
   return segments.map(seg => {
     const m = seg.match(/^```([\w-]*)\n([\s\S]*?)```$/);
     if (m) {
-      const lang = m[1].trim().toLowerCase();
-      const code = m[2];
+      const lang = (m[1] ?? '').trim().toLowerCase();
+      const code = m[2] ?? '';
       if (lang === 'chart') return renderChartSvg(code.trim());
       const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return `<pre class="text-sm rounded-lg p-3 overflow-x-auto my-2" style="background:rgba(17,24,39,0.9);color:#d1d5db;border:1px solid rgba(55,65,81,0.5)"><code>${escaped}</code></pre>`;
