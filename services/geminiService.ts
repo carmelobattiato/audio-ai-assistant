@@ -200,7 +200,7 @@ export const llmService = {
             let diarization = attemptDiarization ? `\nFormat as script with labels (e.g. Speaker 1:). ${approximateSpeakerCount ? `Approx ${approximateSpeakerCount} speakers.` : 'Auto-detect speakers.'}` : "";
             const response: GenerateContentResponse = await promiseWithTimeout(ai.models.generateContent({
                 model,
-                contents: { parts: [{ inlineData: { mimeType, data: audioBase64 } }, { text: `Transcribe accurately in ${language}.${diarization} ${customInstruction || ''}` }] },
+                contents: { parts: [{ inlineData: { mimeType, data: audioBase64 } }, { text: `Transcribe accurately in ${language}.${diarization} IMPORTANT: if the audio contains no recognizable human speech — silence, noise, background sounds, music, or unintelligible audio — you MUST respond with only the literal string: [chunk senza audio riconoscibile]. Never invent, guess, or hallucinate words. Only transcribe words you can clearly hear. ${customInstruction || ''}` }] },
             }), timeout * 1000, signal);
             consecutiveErrors = 0;
             return { 

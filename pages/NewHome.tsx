@@ -118,6 +118,7 @@ export const NewHome: React.FC = () => {
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isInitialLoadingRef = useRef(false);
   const recordingChunksRef = useRef<Blob[]>([]);
+  const finalEffectiveTitleRef = useRef<string>('Session');
   const audioRecorderRef = useRef<AudioRecorderRef>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const llmProcessorRef = useRef<LlmProcessorRef>(null);
@@ -142,7 +143,9 @@ export const NewHome: React.FC = () => {
   // ── Derived ───────────────────────────────────────────────────────────────
   const finalEffectiveTitle = useMemo(() => {
     const base = recordingTitle.trim() || 'Session';
-    return `${base}_${recordingTimestampSuffix}`;
+    const title = `${base}_${recordingTimestampSuffix}`;
+    finalEffectiveTitleRef.current = title;
+    return title;
   }, [recordingTitle, recordingTimestampSuffix]);
 
   const appStatistics = useMemo<AppStatistics>(() => ({
@@ -282,6 +285,14 @@ export const NewHome: React.FC = () => {
     transcribedText, setTranscribedText, addLlmUsageStat, setAppUserMessage,
   );
 
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!transLogic.playbackFile) { setPlaybackUrl(null); return; }
+    const url = URL.createObjectURL(transLogic.playbackFile.file);
+    setPlaybackUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [transLogic.playbackFile]);
+
   const sessLogic = useSessionLogic(
     audioBlob, audioFileName, finalEffectiveTitle, activeSourceText, bubbleNotes,
     llmResultsHistory, llmProcessedText, llmProcessingType, llmUsageHistory,
@@ -390,24 +401,40 @@ export const NewHome: React.FC = () => {
   }, [pipelineStep]);
 
   useEffect(() => {
-    if (transLogic.isTranscribing) wasTranscribingRef.current = true;
+    if (transLogic.isTranscribing) {
+      wasTranscribingRef.current = true;
+      loggingService.debug('PIPELINE', `isTranscribing→true (step=${pipelineStep})`);
+    } else {
+      loggingService.debug('PIPELINE', `isTranscribing→false (step=${pipelineStep}, wasTranscribing=${wasTranscribingRef.current})`);
+    }
   }, [transLogic.isTranscribing]);
+
+  useEffect(() => {
+    loggingService.info('PIPELINE', `Step changed → ${pipelineStep}`, {
+      autoPipeline: appSettings.transcription.enableAutoPipeline,
+      chunked: appSettings.transcription.enableChunkedRecording,
+      autoTranscribeChunks: appSettings.transcription.autoTranscribeChunks,
+    });
+  }, [pipelineStep]);
 
   useEffect(() => {
     if (pipelineStep === PipelineStep.TRANSCRIBING && !transLogic.isTranscribing && wasTranscribingRef.current) {
       const timer = setTimeout(() => {
         wasTranscribingRef.current = false;
+        loggingService.debug('PIPELINE', `Transcription done check: error=${transLogic.transcriptionError}, textLen=${transcribedText?.length ?? 0}`);
         if (transLogic.transcriptionError) {
           loggingService.error('PIPELINE_ERROR', `Transcription failed: ${transLogic.transcriptionError}`);
           setPipelineStep(PipelineStep.ERROR);
           if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Failed' });
           setAppUserMessage(`Pipeline failed: ${transLogic.transcriptionError}`);
         } else if (transcribedText && transcribedText.trim().length > 0) {
+          loggingService.info('PIPELINE', 'Transcription OK → starting ANALYZING');
           setLlmProcessedText('');
           setPipelineStep(PipelineStep.ANALYZING);
           setLlmAutoTrigger(prev => prev + 1);
-          setActiveRightTab('analysis'); // Auto-switch to analysis tab
+          setActiveRightTab('analysis');
         } else {
+          loggingService.warn('PIPELINE', 'Transcription done but no text found → IDLE');
           setPipelineStep(PipelineStep.IDLE);
           setAppUserMessage('Transcription completed but no text was found.');
         }
@@ -418,11 +445,14 @@ export const NewHome: React.FC = () => {
 
   useEffect(() => {
     if (pipelineStep === PipelineStep.ANALYZING && llmProcessedText && llmProcessedText.trim().length > 0) {
+      loggingService.debug('PIPELINE', `LLM output received (len=${llmProcessedText.length}), checking for errors`);
       if (llmProcessedText.toLowerCase().includes('error from') || llmProcessedText.toLowerCase().includes('failed')) {
+        loggingService.error('PIPELINE_ERROR', 'LLM analysis returned error string');
         setPipelineStep(PipelineStep.ERROR);
         if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Failed' });
         setAppUserMessage('Pipeline failed at AI Analysis step.');
       } else {
+        loggingService.info('PIPELINE', 'LLM analysis OK → DOWNLOADING');
         setPipelineStep(PipelineStep.DOWNLOADING);
         setAppUserMessage('AI Analysis completed. Preparing session download...');
       }
@@ -431,6 +461,7 @@ export const NewHome: React.FC = () => {
 
   useEffect(() => {
     if (pipelineStep !== PipelineStep.DOWNLOADING) return;
+    loggingService.info('PIPELINE', 'Creating session ZIP and downloading');
     try {
       const meta = generateStandardMetadataHeader(audioRecordingStartTime, audioFileName, {
         transcriptionLanguage: appSettings.transcription.language,
@@ -537,27 +568,41 @@ export const NewHome: React.FC = () => {
     const updates: any = { audioBlob: blob, audioFileName: name };
     if (start) updates.audioRecordingStartTime = start;
     if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, updates);
+    loggingService.info('PIPELINE', 'handleRecordingComplete', {
+      name, autoPipeline: appSettings.transcription.enableAutoPipeline,
+      chunked: appSettings.transcription.enableChunkedRecording, realtime: appSettings.transcription.enableRealtimeTranscription,
+    });
     if (appSettings.transcription.enableRealtimeTranscription) {
-      // Live transcript already populated via handleRealtimeTranscriptionChange; skip audio re-transcription
+      loggingService.info('PIPELINE', 'Realtime mode → skipping transcription, IDLE');
       setPipelineStep(PipelineStep.IDLE);
     } else if (appSettings.transcription.enableAutoPipeline && !appSettings.transcription.enableChunkedRecording) {
+      loggingService.info('PIPELINE', 'Non-chunked + autoPipeline → TRANSCRIBING');
       setTranscribedText(''); setLlmProcessedText('');
       setPipelineStep(PipelineStep.TRANSCRIBING);
       transLogic.handleAutoStartTranscription(undefined, blob, name);
       setActiveRightTab('transcript');
+    } else {
+      loggingService.info('PIPELINE', 'No pipeline action in handleRecordingComplete (chunked or pipeline off)');
     }
   }, [appSettings.transcription, transLogic]);
 
   const handleChunkComplete = useCallback((chunk: Blob) => {
     recordingChunksRef.current.push(chunk);
-    setRecordingChunks(p => {
-      const next = [...p, chunk];
-      if (activeSessionIdRef.current) {
-        db.updateSessionIncremental(activeSessionIdRef.current, { chunks: next });
-      }
-      return next;
-    });
-  }, []);
+    const chunkIndex = recordingChunksRef.current.length;
+    const ext = chunk.type.split('/')[1]?.split(';')[0] || 'webm';
+    const chunkName = `${finalEffectiveTitleRef.current}_segment_${chunkIndex.toString().padStart(3, '0')}.${ext}`;
+
+    if (activeSessionIdRef.current) {
+      db.updateSessionIncremental(activeSessionIdRef.current, { chunks: recordingChunksRef.current });
+    }
+    setRecordingChunks(p => [...p, chunk]);
+
+    loggingService.debug('PIPELINE', `Chunk saved: ${chunkName}`, { autoTranscribe: appSettings.transcription.autoTranscribeChunks !== false });
+    transLogic.addChunkToQueue(chunk, chunkName);
+    if (appSettings.transcription.autoTranscribeChunks !== false) {
+      transLogic.handleTranscribeChunkDirect(chunk, chunkName);
+    }
+  }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks]);
 
   const handleRecordingStop = useCallback(async (id: string, wasChunked: boolean, transcript: string | null, emo: EmotionEvent[]) => {
     let finalTranscript = transcribedText;
@@ -574,20 +619,19 @@ export const NewHome: React.FC = () => {
     };
 
     if (wasChunked) {
+      setRecordingChunks([]);
+      recordingChunksRef.current = [];
+      if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, finalUpdates);
+      setShowLoadChunksModal(false);
+      loggingService.info('PIPELINE', 'handleRecordingStop: chunked', {
+        autoPipeline: appSettings.transcription.enableAutoPipeline,
+        autoTranscribeChunks: appSettings.transcription.autoTranscribeChunks,
+        queueLen: transLogic.transcriptionQueue.length,
+      });
       if (appSettings.transcription.enableAutoPipeline) {
-        setTranscribedText(''); setLlmProcessedText('');
-        setPipelineStep(PipelineStep.TRANSCRIBING);
+        loggingService.info('PIPELINE', 'Chunked + autoPipeline → TRANSCRIBING (draining auto-queue)');
         setActiveRightTab('transcript');
-        const chunksToProcess = [...recordingChunksRef.current];
-        handleLoadChunksToQueue(chunksToProcess).then(loadedItems => {
-          if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, finalUpdates);
-          if (loadedItems && loadedItems.length > 0) transLogic.handleAutoStartTranscription(loadedItems);
-          else setPipelineStep(PipelineStep.IDLE);
-        });
-      } else {
-        if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, finalUpdates);
-        handleLoadChunksToQueue([...recordingChunksRef.current]);
-        setPipelineStep(PipelineStep.IDLE);
+        setPipelineStep(PipelineStep.TRANSCRIBING);
       }
     } else if (appSettings.transcription.enableAutoPipeline) {
       if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, finalUpdates);
@@ -595,7 +639,7 @@ export const NewHome: React.FC = () => {
       if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, finalUpdates);
       setPipelineStep(PipelineStep.IDLE);
     }
-  }, [transcribedText, bubbleNotes, emotionHistory, llmUsageHistory, appSettings.transcription, transLogic, handleLoadChunksToQueue]);
+  }, [transcribedText, bubbleNotes, emotionHistory, llmUsageHistory, appSettings.transcription, transLogic, finalEffectiveTitle]);
 
   const handleRecordingSessionStart = useCallback(async () => {
     hasLiveTranscriptRef.current = false;
@@ -755,7 +799,8 @@ export const NewHome: React.FC = () => {
             onOpenBubbleNote={setViewingBubbleNoteId}
             pendingNoteHtml={pendingNoteHtml}
             onPendingNoteHtmlChange={setPendingNoteHtml}
-            externalAudioUrl={null}
+            externalAudioUrl={playbackUrl}
+            onStopPlayback={() => transLogic.setPlaybackFile(null)}
             emotionHistory={emotionHistory}
             viewingBubbleNoteId={viewingBubbleNoteId}
             recordingTitle={recordingTitle}
@@ -863,6 +908,7 @@ export const NewHome: React.FC = () => {
               transcriptionQueue={transLogic.transcriptionQueue}
               onReorderQueue={transLogic.handleReorderQueue}
               onRemoveFromQueue={transLogic.handleRemoveFromQueue}
+              onTranscribeChunk={transLogic.handleTranscribeSingleChunk}
               transcriptionProgress={transLogic.transcriptionProgress}
               onSelectPlaybackFile={transLogic.setPlaybackFile}
               currentlyPlayingFile={transLogic.playbackFile?.file ?? null}

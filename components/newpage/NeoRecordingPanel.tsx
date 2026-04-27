@@ -11,6 +11,7 @@ import {
 } from '../../types';
 import { formatTime } from '../../utils/textUtils';
 import { saveBlobToFile } from '../../utils/fileUtils';
+import { loggingService } from '../../services/loggingService';
 
 // ─── Extended props (same as AudioRecorder.tsx) ───────────────────────────────
 interface NeoRecordingPanelProps extends AudioRecorderProps {
@@ -507,6 +508,50 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
               </div>
             )}
           </div>
+
+          {/* ── PLAYER CONTROLS (when external audio loaded, not recording) ── */}
+          {!isRecording && finalAudioUrl && (
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-xl"
+              style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(139,92,246,0.3)' }}
+            >
+              <button
+                onClick={player.handleRewind}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-xs transition-all hover:scale-110"
+                style={{ background: 'rgba(139,92,246,0.2)', color: '#A78BFA' }}
+                title="Indietro 10s"
+              >⏮</button>
+              <button
+                onClick={player.handlePlayPause}
+                disabled={player.isPlayerPlaying}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-all hover:scale-110 disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #C026D3)', color: 'white', boxShadow: '0 0 10px rgba(124,58,237,0.4)' }}
+                title="Play"
+              >▶</button>
+              <button
+                onClick={() => { player.audioPlayerRef.current?.pause(); loggingService.info('PLAYER', 'pause button clicked'); }}
+                disabled={!player.isPlayerPlaying}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-all hover:scale-110 disabled:opacity-40"
+                style={{ background: 'rgba(139,92,246,0.25)', color: '#A78BFA', border: '1px solid rgba(139,92,246,0.4)' }}
+                title="Pausa"
+              >⏸</button>
+              <button
+                onClick={props.onStopPlayback}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-sm transition-all hover:scale-110"
+                style={{ background: 'rgba(239,68,68,0.2)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.35)' }}
+                title="Stop"
+              >⏹</button>
+              <button
+                onClick={player.handleForward}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-xs transition-all hover:scale-110"
+                style={{ background: 'rgba(139,92,246,0.2)', color: '#A78BFA' }}
+                title="Avanti 10s"
+              >⏭</button>
+              <span className="font-mono text-xs ml-1" style={{ color: '#C4B5FD' }}>
+                {formatTime(player.currentPlayTime)} / {formatTime(props.audioDuration || 0)}
+              </span>
+            </div>
+          )}
 
           {/* ── PRIMARY CONTROLS ──────────────────────────────────────────── */}
           <div>

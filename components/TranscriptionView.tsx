@@ -11,6 +11,7 @@ import { RichTextEditorModal } from './RichTextEditorModal';
 interface QueuedFile {
     file: File;
     duration: number | null;
+    transcribed?: boolean;
 }
 
 interface TranscriptionViewProps {
@@ -39,6 +40,7 @@ interface TranscriptionViewProps {
   onSelectPlaybackFile: (item: QueuedFile | null) => void;
   currentlyPlayingFile: File | null;
   isRealtimeTranscriptAvailable: boolean;
+  onTranscribeChunk: (index: number) => void;
 }
 
 export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
@@ -67,6 +69,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
   onSelectPlaybackFile,
   currentlyPlayingFile,
   isRealtimeTranscriptAvailable,
+  onTranscribeChunk,
 }) => {
   const [isEditorModalOpen, setIsEditorModalOpen] = useState<boolean>(false);
   const textFileInputRef = useRef<HTMLInputElement>(null);
@@ -223,7 +226,9 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
       
       {transcriptionQueue.length > 0 && (
         <div className="my-4">
-          <h4 className="text-md font-semibold text-gray-300 mb-2">Transcription Order</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-md font-semibold text-gray-300">Transcription Order</h4>
+          </div>
           <ul className="space-y-2 bg-gray-700 p-3 rounded-md max-h-48 overflow-y-auto">
             {transcriptionQueue.map((item, index) => {
               const isPlaying = currentlyPlayingFile === item.file;
@@ -239,7 +244,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
                       {isPlaying ? <StopIcon className="w-5 h-5 text-red-400" /> : <PlayIcon className="w-5 h-5" />}
                     </Button>
                   <span className="font-mono text-gray-400 flex-shrink-0">{index + 1}.</span>
-                  <span className="text-gray-200 text-sm truncate" title={item.file.name}>
+                  <span className={`text-sm truncate ${item.transcribed ? 'text-green-400 line-through opacity-60' : 'text-gray-200'}`} title={item.file.name}>
                     {item.file.name}
                   </span>
                   {item.duration !== null && (
@@ -251,6 +256,9 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
                 <div className="flex gap-1 flex-shrink-0">
                   <Button variant="ghost" size="sm" onClick={() => saveBlobToFile(item.file, item.file.name)} title="Download this chunk">
                     <DownloadIcon className="w-5 h-5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => onTranscribeChunk(index)} disabled={isTranscribing || item.transcribed} title={item.transcribed ? 'Already transcribed' : 'Transcribe this chunk'}>
+                    <span className={`text-xs font-bold ${item.transcribed ? 'text-green-400' : 'text-sky-400'}`}>T</span>
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => onReorderQueue(index, index - 1)} disabled={index === 0} title="Move up">
                     <ArrowUpIcon className="w-5 h-5" />

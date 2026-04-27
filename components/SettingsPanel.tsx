@@ -741,6 +741,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 className="w-full sm:w-1/2"
                 disabled={!(localSettings.transcription.enableChunkedRecording ?? false)}
               />
+              <Checkbox
+                label="Trascrivi automaticamente ogni chunk salvato"
+                id="transcriptionAutoTranscribeChunks"
+                checked={localSettings.transcription.autoTranscribeChunks ?? true}
+                onChange={(e) => handleLocalGenericChange('transcription', 'autoTranscribeChunks', e.target.checked)}
+                disabled={!(localSettings.transcription.enableChunkedRecording ?? false)}
+              />
               <div className="pt-4 mt-4 border-t border-gray-600">
                 <h4 className="text-md font-semibold text-gray-200 mb-2">Auto-Pause on Silence</h4>
                 <Checkbox

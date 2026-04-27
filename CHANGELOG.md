@@ -8,6 +8,23 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.81] — 2026-04-28
+
+- Tips panel: altezza fissa (196px, body testo limitato a 4 righe) — non sposta più il pannello di registrazione
+- Player audio: fix play non partiva (AudioContext suspended → resume prima di play()); controlli separati ▶ ⏸ ⏹ con logging PLAYER
+- Player audio: caricamento traccia da coda Transcribe (externalAudioUrl collegato a playbackFile)
+- Chunk recording: ogni chunk salvato su DB appare automaticamente nella coda Transcribe con nome sessione corretto
+- Chunk recording: tasto T per trascrivere singolo chunk (verde se già trascritto, barrato il nome)
+- Chunk recording: coda auto-trascrizione sequenziale (nessun chunk droppato se arriva durante trascrizione precedente)
+- Chunk recording: opzione Settings "Trascrivi automaticamente ogni chunk salvato" (default ON)
+- Chunk recording: allo stop, trascrizione continua automaticamente sui chunk rimanenti
+- Chunk recording: fix doppia trascrizione (side effect fuori dallo state updater; dedup per nome nella coda)
+- Prompt trascrizione: istruzione esplicita per restituire `[chunk senza audio riconoscibile]` in assenza di parlato
+- Smart Pipeline: fix mancata attivazione in modalità chunked (pipelineStep→TRANSCRIBING allo stop)
+- Smart Pipeline: logging dettagliato di ogni fase (PIPELINE) con flag attivi e transizioni di stato
+- Live transcription: ripristino approccio SDK `@google/genai` (WebSocket raw rimosso); API key da settings con fallback env
+
+
 ## [1.80] — 2026-04-27
 
 - Live Transcript: area di testo persistente e scorrevole (max 200px) che accumula tutto il testo riconosciuto senza perdere le parole precedenti

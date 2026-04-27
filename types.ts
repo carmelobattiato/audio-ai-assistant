@@ -64,6 +64,7 @@ export interface AudioRecorderProps {
   pendingNoteHtml: string;
   onPendingNoteHtmlChange: (html: string) => void;
   externalAudioUrl: string | null;
+  onStopPlayback?: () => void;
   emotionHistory: EmotionEvent[];
   viewingBubbleNoteId?: string | null;
   recordingTitle: string;
@@ -176,6 +177,7 @@ export interface TranscriptionSettings {
   transcriptionEngine?: 'gemini' | 'whisper';
   whisperModel?: string;
   liveModel?: string;
+  autoTranscribeChunks?: boolean;
 }
 
 export interface BubbleNote {
