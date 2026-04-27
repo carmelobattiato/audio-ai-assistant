@@ -32,6 +32,7 @@ export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
   enableAutoPipeline: true,
   transcriptionEngine: 'gemini' as const,
   whisperModel: 'Xenova/whisper-tiny',
+  liveModel: 'gemini-2.5-flash-native-audio-latest',
 };
 
 export const DEFAULT_LLM_SETTINGS: AppSettings['llm'] = {

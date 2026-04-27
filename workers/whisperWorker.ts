@@ -41,13 +41,16 @@ self.onmessage = async (event: MessageEvent) => {
     }
     try {
       const audio = new Float32Array(audioData);
-      const result = await asr(audio, {
+      const { initialPrompt } = event.data;
+      const genOptions: Record<string, unknown> = {
         language: language ?? 'italian',
         task: 'transcribe',
         chunk_length_s: 30,
         stride_length_s: 5,
         return_timestamps: false,
-      });
+      };
+      if (initialPrompt) genOptions.initial_prompt = initialPrompt;
+      const result = await asr(audio, genOptions as any);
       const text = Array.isArray(result)
         ? result.map((r: { text: string }) => r.text).join(' ')
         : (result as { text: string }).text;

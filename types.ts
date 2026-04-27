@@ -88,6 +88,10 @@ export interface UseAudioRecorderOptions {
   enableChunkedRecording?: boolean;
   chunkIntervalSeconds?: number;
   enableRealtimeTranscription?: boolean;
+  transcriptionEngine?: 'gemini' | 'whisper';
+  liveModel?: string;
+  whisperModel?: string;
+  realtimeLanguage?: string;
   onLlmUsage?: (stats: LlmUsageStats) => void;
   onAutoSave?: (recorderState: any, componentState: { includeAppAudio: boolean }) => void;
   initialState?: any;
@@ -171,6 +175,7 @@ export interface TranscriptionSettings {
   enableAutoPipeline?: boolean;
   transcriptionEngine?: 'gemini' | 'whisper';
   whisperModel?: string;
+  liveModel?: string;
 }
 
 export interface BubbleNote {

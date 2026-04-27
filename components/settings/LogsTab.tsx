@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { loggingService } from '../../services/loggingService';
 import { LogEntry, LogLevel } from '../../types';
 import { Button } from '../common/Button';
@@ -54,6 +54,20 @@ export const LogsTab: React.FC = () => {
     }
   };
 
+  const [copied, setCopied] = useState(false);
+
+  const copyLogs = useCallback(() => {
+    const text = filteredLogs.map(log => {
+      const time = new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const ctx = log.context ? '\n' + JSON.stringify(log.context, null, 2) : '';
+      return `${time}\t${log.level}\t${log.event}\t${log.message}${ctx}`;
+    }).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [filteredLogs]);
+
   const downloadLogs = () => {
     const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -93,6 +107,7 @@ export const LogsTab: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={() => loggingService.clearLogs()}>Clear</Button>
+          <Button variant="ghost" size="sm" onClick={copyLogs}>{copied ? '✓ Copied' : 'Copy'}</Button>
           <Button variant="secondary" size="sm" onClick={downloadLogs}>Export JSON</Button>
         </div>
       </div>

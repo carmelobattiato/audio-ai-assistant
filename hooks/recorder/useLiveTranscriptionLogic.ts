@@ -2,11 +2,19 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { encode } from '../../utils/audioUtils';
+import { loggingService } from '../../services/loggingService';
 
-export const useLiveTranscriptionLogic = (onTranscriptionUpdate: (text: string) => void) => {
+const DEFAULT_LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
+
+export const useLiveTranscriptionLogic = (
+  onTranscriptionUpdate: (text: string) => void,
+  options?: { liveModel?: string; apiKey?: string },
+) => {
   const [realtimeTranscription, setRealtimeTranscription] = useState('');
   const realtimeTranscriptAccumulatorRef = useRef('');
   const liveSessionPromiseRef = useRef<Promise<any> | null>(null);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const micStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
@@ -19,41 +27,60 @@ export const useLiveTranscriptionLogic = (onTranscriptionUpdate: (text: string) 
     micStreamSourceRef.current = null;
   }, []);
 
-  // Fix: Added React to parameters for typing and updated model name
-  const connectLiveSession = useCallback(async (context: AudioContext, micStream: MediaStream, isPausedRef: React.RefObject<boolean>) => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) throw new Error("API_KEY not configured.");
-    
+  const connectLiveSession = useCallback(async (
+    context: AudioContext,
+    micStream: MediaStream,
+    isPausedRef: React.RefObject<boolean>,
+  ) => {
+    const apiKey = optionsRef.current?.apiKey?.trim() || process.env.API_KEY;
+    if (!apiKey) throw new Error('API key not configured. Set it in Settings → LLM Configuration.');
+
+    const model = optionsRef.current?.liveModel ?? DEFAULT_LIVE_MODEL;
+    loggingService.info('LIVE_TRANS', `Connecting with model=${model}`);
+
     const ai = new GoogleGenAI({ apiKey });
     realtimeTranscriptAccumulatorRef.current = '';
     setRealtimeTranscription('');
 
     liveSessionPromiseRef.current = ai.live.connect({
-      // Fix: Updated to recommended native audio model version
-      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+      model,
       callbacks: {
         onopen: () => {
+          loggingService.info('LIVE_TRANS', 'Session opened — wiring audio pipeline');
           micStreamSourceRef.current = context.createMediaStreamSource(micStream);
           scriptProcessorRef.current = context.createScriptProcessor(4096, 1, 1);
+
+          let chunksSent = 0;
           scriptProcessorRef.current.onaudioprocess = (e) => {
+            if (isPausedRef.current) return;
             const inputData = e.inputBuffer.getChannelData(0);
             const int16 = new Int16Array(inputData.length);
             for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
-            
+
             const pcmBlob = {
               data: encode(new Uint8Array(int16.buffer)),
               mimeType: 'audio/pcm;rate=16000',
             };
             liveSessionPromiseRef.current?.then(session => {
-              if (session && !isPausedRef.current) session.sendRealtimeInput({ media: pcmBlob });
+              if (session && !isPausedRef.current) {
+                session.sendRealtimeInput({ media: pcmBlob });
+                chunksSent++;
+                if (chunksSent === 1 || chunksSent % 50 === 0) {
+                  loggingService.debug('LIVE_TRANS_AUDIO', `Sent ${chunksSent} audio chunks`);
+                }
+              }
             });
           };
+
           micStreamSourceRef.current.connect(scriptProcessorRef.current);
           scriptProcessorRef.current.connect(context.destination);
         },
         onmessage: (msg: LiveServerMessage) => {
+          loggingService.debug('LIVE_TRANS_MSG', 'Message received', { keys: Object.keys(msg) });
+
           const chunk = msg.serverContent?.inputTranscription;
           if (chunk) {
+            loggingService.debug('LIVE_TRANS_TOKEN', `token="${chunk.text}" isFinal=${(chunk as any).isFinal}`);
             if ((chunk as any).isFinal) {
               realtimeTranscriptAccumulatorRef.current += chunk.text + ' ';
               setRealtimeTranscription(realtimeTranscriptAccumulatorRef.current);
@@ -63,11 +90,27 @@ export const useLiveTranscriptionLogic = (onTranscriptionUpdate: (text: string) 
             }
           }
         },
-        onerror: (e) => console.error('Live error:', e),
+        onerror: (e: unknown) => {
+          loggingService.error('LIVE_TRANS_ERROR', `SDK error: ${JSON.stringify(e)}`);
+        },
+        onclose: (e: unknown) => {
+          loggingService.warn('LIVE_TRANS_CLOSE', `Session closed [model=${model}]: ${JSON.stringify(e)}`);
+        },
       },
-      config: { responseModalities: [Modality.AUDIO], inputAudioTranscription: {} },
+      config: {
+        responseModalities: [Modality.AUDIO],
+        inputAudioTranscription: {},
+      },
     });
+
+    await liveSessionPromiseRef.current;
   }, [onTranscriptionUpdate]);
 
-  return { realtimeTranscription, setRealtimeTranscription, realtimeTranscriptAccumulatorRef, cleanupLiveSession, connectLiveSession };
+  return {
+    realtimeTranscription,
+    setRealtimeTranscription,
+    realtimeTranscriptAccumulatorRef,
+    cleanupLiveSession,
+    connectLiveSession,
+  };
 };

@@ -5,6 +5,7 @@ import { useRecorderTimer } from './recorder/useRecorderTimer';
 import { useMediaStreams } from './recorder/useMediaStreams';
 import { useAutoPauseLogic, AutoPauseState } from './recorder/useAutoPauseLogic';
 import { useLiveTranscriptionLogic } from './recorder/useLiveTranscriptionLogic';
+import { useWhisperLiveLogic } from './recorder/useWhisperLiveLogic';
 import { useEmotionAnalysisLogic } from './recorder/useEmotionAnalysisLogic';
 
 export type { AutoPauseState };
@@ -19,7 +20,12 @@ function selectSupportedMimeType(): string {
 }
 
 export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioRecorderResult => {
-  const { settings, llmSettings, onChunkComplete, onRecordingStop, enableChunkedRecording, chunkIntervalSeconds, enableRealtimeTranscription, onLlmUsage } = options;
+  const {
+    settings, llmSettings, onChunkComplete, onRecordingStop,
+    enableChunkedRecording, chunkIntervalSeconds, enableRealtimeTranscription,
+    transcriptionEngine, liveModel, whisperModel, realtimeLanguage,
+    onLlmUsage,
+  } = options;
 
   const optionsRef = useRef(options);
   useEffect(() => {
@@ -70,7 +76,10 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     handlePauseAction, handleResumeAction
   );
 
-  const liveTrans = useLiveTranscriptionLogic((text) => {});
+  const geminiApiKey = llmSettings?.googleApiKey?.trim() || process.env.API_KEY;
+  const geminiLiveTrans = useLiveTranscriptionLogic((text) => {}, { liveModel, apiKey: geminiApiKey });
+  const whisperLiveTrans = useWhisperLiveLogic((text) => {}, { whisperModel, language: realtimeLanguage });
+  const liveTrans = transcriptionEngine === 'whisper' ? whisperLiveTrans : geminiLiveTrans;
   const emotions = useEmotionAnalysisLogic(llmSettings, onLlmUsage);
 
   const cleanupAll = useCallback(() => {

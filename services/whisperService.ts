@@ -66,7 +66,7 @@ class WhisperService {
     }
   }
 
-  async transcribe(audioBlob: Blob, language: string, signal?: AbortSignal): Promise<string> {
+  async transcribe(audioBlob: Blob, language: string, signal?: AbortSignal, initialPrompt?: string): Promise<string> {
     const worker = this.getWorker();
 
     const arrayBuffer = await audioBlob.arrayBuffer();
@@ -98,7 +98,7 @@ class WhisperService {
         reject,
       });
       worker.postMessage(
-        { type: 'transcribe', audioData: float32.buffer, language: toWhisperLanguage(language) },
+        { type: 'transcribe', audioData: float32.buffer, language: toWhisperLanguage(language), initialPrompt },
         [float32.buffer]
       );
     });

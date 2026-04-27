@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.80] — 2026-04-27
+
+- Live Transcript: area di testo persistente e scorrevole (max 200px) che accumula tutto il testo riconosciuto senza perdere le parole precedenti
+- Live Transcript: testo visibile anche dopo lo stop della registrazione
+- Live Transcript: aggiornamento in tempo reale di `activeSourceText` → il chatbot può interrogare il testo già durante la registrazione
+- Live Transcript: skip automatico della trascrizione audio post-registrazione quando il motore live è attivo
+
+
 ## [1.79] — 2026-04-27
 
 - Trascrizione locale offline via Whisper (Transformers.js, WebAssembly): scelta modello, download con progress bar, cache browser, eliminazione modello

@@ -17,6 +17,7 @@ interface NeoRecordingPanelProps extends AudioRecorderProps {
   recordingTimestampSuffix: string;
   onRecordingTimestampSuffixChange: (t: string) => void;
   onElapsedTimeChange?: (t: number) => void;
+  onRealtimeTranscriptionChange?: (text: string) => void;
 }
 
 // ─── Inline SVG icons ────────────────────────────────────────────────────────
@@ -244,6 +245,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
     const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const elapsedTimeRef = useRef(0);
+    const liveScrollRef = useRef<HTMLDivElement>(null);
 
     const {
       recordingState, startRecording, stopRecording, pauseRecording, resumeRecording,
@@ -260,6 +262,10 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       enableChunkedRecording: props.transcriptionSettings.enableChunkedRecording,
       chunkIntervalSeconds: props.transcriptionSettings.chunkRecordingIntervalSeconds,
       enableRealtimeTranscription: props.transcriptionSettings.enableRealtimeTranscription,
+      transcriptionEngine: props.transcriptionSettings.transcriptionEngine,
+      liveModel: props.transcriptionSettings.liveModel,
+      whisperModel: props.transcriptionSettings.whisperModel,
+      realtimeLanguage: props.transcriptionSettings.language,
       onLlmUsage: props.onLlmUsage,
     });
 
@@ -267,6 +273,16 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       elapsedTimeRef.current = elapsedTime;
       props.onElapsedTimeChange?.(elapsedTime);
     }, [elapsedTime]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+      props.onRealtimeTranscriptionChange?.(realtimeTranscription);
+    }, [realtimeTranscription]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+      if (liveScrollRef.current) {
+        liveScrollRef.current.scrollTop = liveScrollRef.current.scrollHeight;
+      }
+    }, [realtimeTranscription]);
 
     const finalAudioUrl = props.externalAudioUrl || localAudioUrl;
     const player = useRecorderPlayer({
@@ -680,21 +696,15 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
             )}
           </div>
 
-          {/* ── LIVE TRANSCRIPTION STRIP ─────────────────────────────────── */}
-          {props.transcriptionSettings.enableRealtimeTranscription && isRecording && realtimeTranscription && (
+
+          {/* ── WHISPER LIVE DISCLAIMER ──────────────────────────────────── */}
+          {props.transcriptionSettings.enableRealtimeTranscription &&
+           props.transcriptionSettings.transcriptionEngine === 'whisper' && isRecording && (
             <div
-              className="px-3 py-2 rounded-xl text-xs leading-relaxed max-h-20 overflow-y-auto"
-              style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(139,92,246,0.15)',
-                color: '#C4B5FD',
-              }}
+              className="px-3 py-2 rounded-xl text-xs leading-relaxed"
+              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', color: '#FCD34D' }}
             >
-              <span className="font-bold uppercase tracking-wider text-[10px] block mb-1" style={{ color: 'var(--neo-muted)' }}>
-                Live Transcript
-              </span>
-              <span>{realtimeTranscription}</span>
-              {!isPaused && <span className="inline-block w-0.5 h-3 bg-violet-400 ml-0.5 animate-pulse" />}
+              <span className="font-bold">⚠ Local Whisper live mode</span> — transcription arrives in 5-second chunks with a delay. For best real-time results, use a Gemini Live model.
             </div>
           )}
 

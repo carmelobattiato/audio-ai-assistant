@@ -121,6 +121,7 @@ export const NewHome: React.FC = () => {
   const audioRecorderRef = useRef<AudioRecorderRef>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const llmProcessorRef = useRef<LlmProcessorRef>(null);
+  const hasLiveTranscriptRef = useRef(false);
 
   // ── New UI state ──────────────────────────────────────────────────────────
   const [activeRightTab, setActiveRightTab] = useState<string>('notes');
@@ -183,6 +184,15 @@ export const NewHome: React.FC = () => {
       const jobId = crypto.randomUUID();
       loggingService.setCorrelationId(jobId);
       loggingService.info('PIPELINE_START', 'Recording started', { jobId });
+    }
+  }, []);
+
+  const handleRealtimeTranscriptionChange = useCallback((text: string) => {
+    if (!text) return;
+    setTranscribedText(text.replace(/\n/g, '<br />'));
+    if (!hasLiveTranscriptRef.current) {
+      hasLiveTranscriptRef.current = true;
+      setActiveRightTab('transcript');
     }
   }, []);
 
@@ -527,11 +537,14 @@ export const NewHome: React.FC = () => {
     const updates: any = { audioBlob: blob, audioFileName: name };
     if (start) updates.audioRecordingStartTime = start;
     if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, updates);
-    if (appSettings.transcription.enableAutoPipeline && !appSettings.transcription.enableChunkedRecording) {
+    if (appSettings.transcription.enableRealtimeTranscription) {
+      // Live transcript already populated via handleRealtimeTranscriptionChange; skip audio re-transcription
+      setPipelineStep(PipelineStep.IDLE);
+    } else if (appSettings.transcription.enableAutoPipeline && !appSettings.transcription.enableChunkedRecording) {
       setTranscribedText(''); setLlmProcessedText('');
       setPipelineStep(PipelineStep.TRANSCRIBING);
       transLogic.handleAutoStartTranscription(undefined, blob, name);
-      setActiveRightTab('transcript'); // Auto-switch to transcript tab
+      setActiveRightTab('transcript');
     }
   }, [appSettings.transcription, transLogic]);
 
@@ -585,6 +598,7 @@ export const NewHome: React.FC = () => {
   }, [transcribedText, bubbleNotes, emotionHistory, llmUsageHistory, appSettings.transcription, transLogic, handleLoadChunksToQueue]);
 
   const handleRecordingSessionStart = useCallback(async () => {
+    hasLiveTranscriptRef.current = false;
     await resetAllDataStates({ preserveBubbleNotes: true });
     setPipelineStep(PipelineStep.RECORDING);
     const newSessionId = `s_${Date.now()}`;
@@ -759,6 +773,7 @@ export const NewHome: React.FC = () => {
             onToggleAutoPipeline={(val: boolean) => setAppSettings(p => ({ ...p, transcription: { ...p.transcription, enableAutoPipeline: val } }))}
             chunksCount={recordingChunks.length}
             onElapsedTimeChange={setRecordingElapsedTime}
+            onRealtimeTranscriptionChange={handleRealtimeTranscriptionChange}
           />
             </div>
           </div>

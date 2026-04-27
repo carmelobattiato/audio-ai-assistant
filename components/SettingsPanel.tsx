@@ -8,12 +8,20 @@ import { Checkbox } from './common/Checkbox';
 import { AppSettings, CustomInstruction, TranscriptionQuality, SupportedLanguage, TranscriptionOutputFormat, ModelInfo, Theme } from '../types';
 import { DEFAULT_SETTINGS, LLM_PROVIDERS } from '../constants';
 import { whisperService, ProgressInfo } from '../services/whisperService';
+import { loggingService } from '../services/loggingService';
 
 const WHISPER_MODELS = [
   { id: 'Xenova/whisper-tiny',   label: 'Tiny (~200 MB, più veloce)' },
   { id: 'Xenova/whisper-base',   label: 'Base (~400 MB)' },
   { id: 'Xenova/whisper-small',  label: 'Small (~1.2 GB)' },
   { id: 'Xenova/whisper-medium', label: 'Medium (~3 GB, migliore accuratezza)' },
+];
+
+const GEMINI_LIVE_MODELS = [
+  { id: 'gemini-2.5-flash-native-audio-latest',        label: 'Gemini 2.5 Flash Native Audio (latest)' },
+  { id: 'gemini-2.5-flash-native-audio-preview-12-2025', label: 'Gemini 2.5 Flash Native Audio Preview Dec' },
+  { id: 'gemini-2.5-flash-native-audio-preview-09-2025', label: 'Gemini 2.5 Flash Native Audio Preview Sep' },
+  { id: 'gemini-3.1-flash-live-preview',               label: 'Gemini 3.1 Flash Live Preview' },
 ];
 
 import { LogsTab } from './settings/LogsTab';
@@ -89,8 +97,105 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen, onClose, settings, onSettingsChange,
   hasCustomApiKey, onSaveCustomApiKey, onDeleteCustomApiKey,
 }) => {
-  const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
+  const [localSettings, setLocalSettings] = useState<AppSettings>(() => {
+    const validLiveIds = GEMINI_LIVE_MODELS.map(m => m.id);
+    const savedModel = settings.transcription.liveModel;
+    const liveModel = savedModel && validLiveIds.includes(savedModel)
+      ? savedModel
+      : GEMINI_LIVE_MODELS[0].id;
+    return { ...settings, transcription: { ...settings.transcription, liveModel } };
+  });
   const [activeTab, setActiveTab] = useState(TABS[0].id);
+
+  // Live model fetch + test state
+  const [fetchedLiveModels, setFetchedLiveModels] = useState<{ id: string; label: string }[]>([]);
+  const [fetchStatus, setFetchStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [testResults, setTestResults] = useState<Record<string, 'testing' | 'ok' | 'fail' | 'timeout'>>({});
+  const [isTesting, setIsTesting] = useState(false);
+
+  const liveApiKey = localSettings.llm.googleApiKey?.trim() || process.env.API_KEY || '';
+  const displayedLiveModels = fetchedLiveModels.length > 0 ? fetchedLiveModels : GEMINI_LIVE_MODELS;
+
+  const fetchLiveModels = useCallback(async () => {
+    if (!liveApiKey) { loggingService.warn('LIVE_MODELS_FETCH', 'No API key'); return; }
+    setFetchStatus('loading');
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${liveApiKey}&pageSize=200`);
+      const data = await res.json();
+      const all: any[] = data.models ?? [];
+
+      // Log all models + their methods for debugging
+      loggingService.debug('LIVE_MODELS_FETCH', `Total models from API: ${all.length}`);
+      all.forEach(m => loggingService.debug('LIVE_MODELS_FETCH', `  ${m.name}`, { methods: m.supportedGenerationMethods }));
+
+      // Filter: name contains 'live' OR any method contains 'bidi'/'bidirectional'
+      const models: { id: string; label: string }[] = all
+        .filter((m: any) => {
+          const name: string = (m.name ?? '').toLowerCase();
+          const methods: string[] = m.supportedGenerationMethods ?? [];
+          return name.includes('live') || methods.some((mt: string) => mt.toLowerCase().includes('bidi'));
+        })
+        .map((m: any) => ({ id: (m.name as string).replace('models/', ''), label: m.displayName ?? m.name }));
+
+      loggingService.debug('LIVE_MODELS_FETCH', `Live-compatible models: ${models.length}`, { ids: models.map(m => m.id) });
+      setFetchedLiveModels(models);
+      setFetchStatus('done');
+      if (models.length > 0 && !models.find(m => m.id === localSettings.transcription.liveModel)) {
+        setLocalSettings(prev => ({ ...prev, transcription: { ...prev.transcription, liveModel: models[0].id } }));
+      }
+    } catch (err) {
+      loggingService.warn('LIVE_MODELS_FETCH', `Error: ${err}`);
+      setFetchStatus('error');
+    }
+  }, [liveApiKey, localSettings.transcription.liveModel]);
+
+  const testSingleModel = (modelId: string, apiKey: string): Promise<'ok' | 'fail' | 'timeout'> =>
+    new Promise((resolve) => {
+      const WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+      let settled = false;
+      const settle = (r: 'ok' | 'fail' | 'timeout') => { if (!settled) { settled = true; resolve(r); } };
+      const timer = window.setTimeout(() => { try { ws.close(); } catch {} settle('timeout'); }, 4000);
+      const ws = new WebSocket(WS_URL);
+      ws.onopen = () => {
+        loggingService.debug('LIVE_MODEL_TEST', `${modelId}: connected, sending setup`);
+        ws.send(JSON.stringify({ setup: { model: `models/${modelId}`, generation_config: { response_modalities: ['audio', 'text'] } } }));
+      };
+      ws.onmessage = async (e) => {
+        try {
+          const txt = e.data instanceof Blob ? await e.data.text() : e.data;
+          const parsed = JSON.parse(txt);
+          loggingService.debug('LIVE_MODEL_TEST', `${modelId}: message received`, { keys: Object.keys(parsed) });
+          if (parsed?.setupComplete) { clearTimeout(timer); try { ws.close(); } catch {} settle('ok'); }
+        } catch {}
+      };
+      ws.onclose = (e) => {
+        clearTimeout(timer);
+        loggingService.debug('LIVE_MODEL_TEST', `${modelId}: closed code=${e.code} reason="${e.reason}"`);
+        settle(e.code === 1000 || e.code === 1001 ? 'ok' : 'fail');
+      };
+      ws.onerror = (e) => {
+        clearTimeout(timer);
+        loggingService.warn('LIVE_MODEL_TEST', `${modelId}: onerror`);
+        settle('fail');
+      };
+    });
+
+  const testAllLiveModels = useCallback(async () => {
+    if (!liveApiKey || isTesting) return;
+    const models = displayedLiveModels;
+    setIsTesting(true);
+    setTestResults({});
+    loggingService.debug('LIVE_MODEL_TEST', `Testing ${models.length} models...`);
+    for (const m of models) {
+      setTestResults(prev => ({ ...prev, [m.id]: 'testing' }));
+      loggingService.debug('LIVE_MODEL_TEST', `Testing ${m.id}...`);
+      const result = await testSingleModel(m.id, liveApiKey);
+      setTestResults(prev => ({ ...prev, [m.id]: result }));
+      loggingService.debug('LIVE_MODEL_TEST', `${m.id} → ${result}`);
+    }
+    setIsTesting(false);
+    loggingService.debug('LIVE_MODEL_TEST', 'Test complete', { results: Object.fromEntries(models.map(m => [m.id, '?'])) });
+  }, [liveApiKey, isTesting, displayedLiveModels]);
 
   // Whisper download state
   const [whisperStatus, setWhisperStatus] = useState<'idle' | 'checking' | 'downloading' | 'loaded' | 'error'>(() =>
@@ -784,6 +889,68 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 checked={localSettings.transcription.enableRealtimeTranscription ?? false}
                 onChange={(e) => handleLocalGenericChange('transcription', 'enableRealtimeTranscription', e.target.checked)}
               />
+
+              {/* Live model selector — only for Gemini engine */}
+              {(localSettings.transcription.enableRealtimeTranscription ?? false) &&
+               (localSettings.transcription.transcriptionEngine ?? 'gemini') === 'gemini' && (
+                <div className="space-y-2">
+                  <Select
+                    label="Live Transcription Model:"
+                    id="liveModel"
+                    options={displayedLiveModels.map(m => ({
+                      value: m.id,
+                      label: m.id + (testResults[m.id] === 'ok' ? ' ✓' : testResults[m.id] === 'fail' ? ' ✗' : testResults[m.id] === 'testing' ? ' …' : testResults[m.id] === 'timeout' ? ' ?' : ''),
+                    }))}
+                    value={localSettings.transcription.liveModel ?? displayedLiveModels[0]?.id ?? ''}
+                    onChange={(e) => handleLocalGenericChange('transcription', 'liveModel', e.target.value)}
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={fetchLiveModels}
+                      disabled={!liveApiKey || fetchStatus === 'loading'}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                      style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.4)', color: '#C4B5FD' }}
+                    >
+                      {fetchStatus === 'loading' ? 'Fetching…' : fetchStatus === 'done' ? `✓ ${fetchedLiveModels.length} models found` : fetchStatus === 'error' ? '✗ Fetch error' : 'Fetch models from API'}
+                    </button>
+                    <button
+                      onClick={testAllLiveModels}
+                      disabled={!liveApiKey || isTesting}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                      style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)', color: '#6EE7B7' }}
+                    >
+                      {isTesting ? 'Testing…' : 'Test all models'}
+                    </button>
+                  </div>
+                  {Object.keys(testResults).length > 0 && (
+                    <div className="rounded-lg p-2 text-xs space-y-1" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--neo-border)' }}>
+                      {displayedLiveModels.map(m => {
+                        const r = testResults[m.id];
+                        if (!r) return null;
+                        const color = r === 'ok' ? '#6EE7B7' : r === 'fail' ? '#F87171' : r === 'testing' ? '#FCD34D' : '#94A3B8';
+                        const icon = r === 'ok' ? '✓' : r === 'fail' ? '✗' : r === 'testing' ? '…' : '?';
+                        return (
+                          <div key={m.id} className="flex justify-between items-center">
+                            <span style={{ color: 'var(--neo-muted)' }} className="truncate mr-2">{m.id}</span>
+                            <span style={{ color, flexShrink: 0 }}>{icon} {r}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Whisper live disclaimer */}
+              {(localSettings.transcription.enableRealtimeTranscription ?? false) &&
+               (localSettings.transcription.transcriptionEngine ?? 'gemini') === 'whisper' && (
+                <div className="p-3 rounded-lg text-xs leading-relaxed"
+                  style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#FCD34D' }}>
+                  <p className="font-bold mb-1">⚠ Local Whisper live transcription has limitations</p>
+                  <p>Whisper processes audio in 5-second chunks — text appears with a delay and words at chunk boundaries may be cut. For accurate real-time transcription, use a Gemini Live model (requires Google API key).</p>
+                </div>
+              )}
+
               <Select
                 label="Language:"
                 id="transcriptionLanguage"

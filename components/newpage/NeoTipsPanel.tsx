@@ -154,6 +154,8 @@ export const NeoTipsPanel: React.FC = () => {
         flexDirection: 'column',
         gap: '8px',
         userSelect: 'none',
+        height: '196px',
+        overflow: 'hidden',
       }}
     >
       {/* Header row */}
@@ -185,15 +187,16 @@ export const NeoTipsPanel: React.FC = () => {
           opacity: fading ? 0 : 1,
           transition: 'opacity 0.22s ease',
           flex: 1,
+          overflow: 'hidden',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
           <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, marginTop: '1px' }}>{tip.icon}</span>
-          <div>
+          <div style={{ overflow: 'hidden' }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--neo-text)', marginBottom: '4px', lineHeight: 1.3 }}>
               {tip.title}
             </div>
-            <div style={{ fontSize: 13.5, color: 'var(--neo-muted)', lineHeight: 1.55 }}>
+            <div style={{ fontSize: 13.5, color: 'var(--neo-muted)', lineHeight: 1.55, height: '84px', overflow: 'hidden' }}>
               {tip.body}
             </div>
           </div>
