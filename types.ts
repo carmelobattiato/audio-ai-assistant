@@ -2,6 +2,8 @@
 // types.ts
 import React from 'react';
 
+export type AutoPauseState = 'inactive' | 'listening' | 'warning' | 'auto-paused';
+
 export interface ProcessedResult {
   id: string;
   type: string;
@@ -52,7 +54,7 @@ export interface AudioRecorderProps {
   onRecordingStateChange: (state: RecordingState) => void;
   onRecordingComplete: (blob: Blob, filename: string, startTime: Date | null, emotionHistory?: EmotionEvent[]) => void;
   onChunkComplete?: (chunk: Blob, chunkIndex: number) => void;
-  onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string, emotionHistory?: EmotionEvent[]) => void;
+  onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string | null, emotionHistory?: EmotionEvent[]) => void | Promise<void>;
   onFilesSelected: (files: File[]) => void;
   onRecordingSessionStart: () => void;
   disabled?: boolean;
@@ -85,7 +87,7 @@ export interface UseAudioRecorderOptions {
   settings: AudioSettings;
   llmSettings: LlmSettings;
   onChunkComplete?: (chunk: Blob, chunkIndex: number) => void;
-  onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string, emotionHistory?: EmotionEvent[]) => void;
+  onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string | null, emotionHistory?: EmotionEvent[]) => void | Promise<void>;
   enableChunkedRecording?: boolean;
   chunkIntervalSeconds?: number;
   enableRealtimeTranscription?: boolean;
@@ -94,8 +96,8 @@ export interface UseAudioRecorderOptions {
   whisperModel?: string;
   realtimeLanguage?: string;
   onLlmUsage?: (stats: LlmUsageStats) => void;
-  onAutoSave?: (recorderState: any, componentState: { includeAppAudio: boolean }) => void;
-  initialState?: any;
+  onAutoSave?: (recorderState: Readonly<UseAudioRecorderResult>, componentState: { includeAppAudio: boolean }) => void;
+  initialState?: Partial<UseAudioRecorderResult>;
 }
 
 export interface UseAudioRecorderResult {
@@ -115,7 +117,7 @@ export interface UseAudioRecorderResult {
   getAudioSnapshot: () => Promise<{ mixedBlob: Blob | null; micBlob: Blob | null; appBlob: Blob | null; elapsedTime: number }>;
   getRecordingSessionId: () => string | null;
   isAutoPaused: boolean;
-  autoPauseState: any; 
+  autoPauseState: AutoPauseState;
   autoPauseCountdown: number;
   realtimeTranscription: string;
   currentEmotion: Emotion;
@@ -252,7 +254,7 @@ export interface LogEntry {
     online: boolean;
     effectiveType?: string;
   };
-  context?: any;
+  context?: Record<string, unknown>;
 }
 
 export interface AppearanceSettings {

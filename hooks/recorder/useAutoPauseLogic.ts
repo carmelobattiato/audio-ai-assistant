@@ -1,8 +1,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { RecordingState, AudioSettings } from '../../types';
+import { RecordingState, AudioSettings, AutoPauseState } from '../../types';
 
-export type AutoPauseState = 'inactive' | 'listening' | 'warning' | 'auto-paused';
+export type { AutoPauseState };
 
 export const useAutoPauseLogic = (
   settings: AudioSettings,

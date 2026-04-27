@@ -149,7 +149,7 @@ export const llmService = {
             return { 
                 text: response.text || "", 
                 groundingMetadata: response.candidates?.[0]?.groundingMetadata,
-                usageMetadata: response.usageMetadata ? { inputTokens: response.usageMetadata.promptTokenCount, outputTokens: response.usageMetadata.candidatesTokenCount, totalTokens: response.usageMetadata.totalTokenCount } : undefined
+                usageMetadata: response.usageMetadata ? { inputTokens: response.usageMetadata.promptTokenCount ?? 0, outputTokens: response.usageMetadata.candidatesTokenCount ?? 0, totalTokens: response.usageMetadata.totalTokenCount ?? 0 } : undefined
             };
 
         } catch (error: any) {
@@ -205,7 +205,7 @@ export const llmService = {
             consecutiveErrors = 0;
             return { 
                 transcription: response.text || "", 
-                usageMetadata: response.usageMetadata ? { inputTokens: response.usageMetadata.promptTokenCount, outputTokens: response.usageMetadata.candidatesTokenCount, totalTokens: response.usageMetadata.totalTokenCount } : undefined 
+                usageMetadata: response.usageMetadata ? { inputTokens: response.usageMetadata.promptTokenCount ?? 0, outputTokens: response.usageMetadata.candidatesTokenCount ?? 0, totalTokens: response.usageMetadata.totalTokenCount ?? 0 } : undefined
             };
         } catch (error: any) {
             if (signal?.aborted || error.name === 'AbortError') throw error;

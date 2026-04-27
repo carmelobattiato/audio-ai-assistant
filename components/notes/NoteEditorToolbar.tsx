@@ -51,6 +51,6 @@ export const NoteEditorToolbar: React.FC<NoteEditorToolbarProps> = (props) => (
   </div>
 );
 
-const ToolbarBtn = ({ icon, onClick, active, disabled }: any) => (
+const ToolbarBtn = ({ icon, onClick, active, disabled }: { icon: React.ReactNode; onClick: () => void; active?: boolean; disabled?: boolean }) => (
   <button onClick={onClick} disabled={disabled} className={`p-1.5 rounded transition-colors ${active ? 'bg-blue-600 text-white' : 'hover:bg-gray-600 text-gray-300'}`}>{icon}</button>
 );

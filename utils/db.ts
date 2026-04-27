@@ -1,5 +1,5 @@
 
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import { SavedSession, InProgressSessionData } from '../types';
 import { MAX_SESSIONS } from '../constants';
 import type { EncryptedBlob } from './crypto';
@@ -32,7 +32,7 @@ interface AppDB extends DBSchema {
 }
 
 const dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
-  upgrade(db: IDBPDatabase<AppDB>, oldVersion: number, _newVersion: number | null, tx: any) {
+  upgrade(db: IDBPDatabase<AppDB>, oldVersion: number, _newVersion: number | null, tx: IDBPTransaction<AppDB, ('sessions' | 'inProgressSessions' | 'appSecrets')[], 'versionchange'>) {
     console.log(`Upgrading database from version ${oldVersion} to ${DB_VERSION}`);
     if (!db.objectStoreNames.contains(SESSIONS_STORE_NAME)) {
       const store = db.createObjectStore(SESSIONS_STORE_NAME, { keyPath: 'id' });
@@ -96,16 +96,17 @@ export const db = {
     const dbInstance = await dbPromise;
     const session = await dbInstance.get(SESSIONS_STORE_NAME, sessionId);
     if (session) {
-        if ('status' in updates) {
-            session.status = (updates as any).status;
-            delete (updates as any).status;
+        const mutableUpdates = updates as { status?: SavedSession['status']; name?: string } & Partial<SavedSession['data']>;
+        if ('status' in mutableUpdates && mutableUpdates.status !== undefined) {
+            session.status = mutableUpdates.status;
+            delete mutableUpdates.status;
         }
-        if ('name' in updates) {
-            session.name = (updates as any).name;
-            delete (updates as any).name;
+        if ('name' in mutableUpdates && mutableUpdates.name !== undefined) {
+            session.name = mutableUpdates.name;
+            delete mutableUpdates.name;
         }
-        
-        session.data = { ...session.data, ...updates };
+
+        session.data = { ...session.data, ...mutableUpdates };
         session.timestamp = Date.now();
         
         let totalBytes = 0;

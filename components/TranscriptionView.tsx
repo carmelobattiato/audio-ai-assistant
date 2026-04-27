@@ -158,7 +158,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
   const handleConfirmAppend = () => {
     if (pendingTextFile?.textContent && activeSourceText) {
       const newName = `Combined: (${uploadedTextFileContentForDisplay?.name || audioFileName || 'Previous Source'}) and ${pendingTextFile.name}`;
-      const combinedText = `${activeSourceText}\n\n---\n[Appended Content from ${pendingTextFile.name} on ${new Date(pendingTextFile.uploadTime).toLocaleString()}]\n---\n\n${pendingTextFile.textContent}`;
+      const combinedText = `${activeSourceText}\n\n---\n[Appended Content from ${pendingTextFile.name} on ${new Date(pendingTextFile.uploadTime ?? Date.now()).toLocaleString()}]\n---\n\n${pendingTextFile.textContent}`;
       
       const appendedContent: TextFileContent = {
         ...pendingTextFile,

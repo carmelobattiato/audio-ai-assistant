@@ -29,6 +29,7 @@ import {
   AudioRecorderRef,
   EmotionEvent,
   LlmUsageStats,
+  SavedSessionData,
   ProcessedResult,
   PipelineStep,
   MeetingChatMessage,
@@ -199,7 +200,7 @@ export const NewHome: React.FC = () => {
     }
   }, []);
 
-  const resetAllDataStates = useCallback(async (opts?: any) => {
+  const resetAllDataStates = useCallback(async (opts?: { preserveBubbleNotes?: boolean }) => {
     setAudioBlob(null); setAudioFileName(''); setAudioDuration(0); setAudioRecordingStartTime(null);
     setUploadedTextFileContent(null); setTranscribedText(''); setActiveSourceText('');
     if (!opts?.preserveBubbleNotes) {
@@ -262,7 +263,7 @@ export const NewHome: React.FC = () => {
     } catch { setCoherenceStatus(CoherenceAssessmentStatus.ERROR); }
   }, [activeSourceText, appSettings.llm, addLlmUsageStat]);
 
-  const handleLlmProcessingComplete = useCallback((text: string, type: string, usage?: any) => {
+  const handleLlmProcessingComplete = useCallback((text: string, type: string, usage?: Pick<LlmUsageStats, 'inputTokens' | 'outputTokens' | 'timestamp'>) => {
     setLlmProcessedText(text); setLlmProcessingType(type);
     setLlmResultsHistory(prev => [...prev, { id: Date.now().toString(), type, contentHtml: text, timestamp: Date.now() }]);
     if (usage) addLlmUsageStat({ ...usage, functionName: type, model: appSettings.llm.model, provider: appSettings.llm.provider });
@@ -561,11 +562,11 @@ export const NewHome: React.FC = () => {
   }, [pipelineStep, transLogic]);
 
   // ── Shared AudioRecorder callbacks ────────────────────────────────────────
-  const handleRecordingComplete = useCallback((blob: Blob, name: string, start: Date | null, emo: EmotionEvent[]) => {
+  const handleRecordingComplete = useCallback((blob: Blob, name: string, start: Date | null, emo?: EmotionEvent[]) => {
     setAudioBlob(blob); setAudioFileName(name);
     if (start) setAudioRecordingStartTime(start);
     setEmotionHistory(emo || []);
-    const updates: any = { audioBlob: blob, audioFileName: name };
+    const updates: Partial<SavedSessionData> = { audioBlob: blob, audioFileName: name };
     if (start) updates.audioRecordingStartTime = start;
     if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, updates);
     loggingService.info('PIPELINE', 'handleRecordingComplete', {
@@ -604,7 +605,7 @@ export const NewHome: React.FC = () => {
     }
   }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks]);
 
-  const handleRecordingStop = useCallback(async (id: string, wasChunked: boolean, transcript: string | null, emo: EmotionEvent[]) => {
+  const handleRecordingStop = useCallback(async (id: string, wasChunked: boolean, transcript?: string | null, emo?: EmotionEvent[]) => {
     let finalTranscript = transcribedText;
     if (transcript) { finalTranscript = transcript.replace(/\n/g, '<br />'); setTranscribedText(finalTranscript); }
     if (emo) setEmotionHistory(emo);

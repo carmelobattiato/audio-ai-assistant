@@ -12,7 +12,7 @@ const BATCH_INTERVAL_MS = 5000;
 class LoggingService {
   private logs: LogEntry[] = [];
   private buffer: LogEntry[] = [];
-  private flushTimer: any = null;
+  private flushTimer: ReturnType<typeof setInterval> | null = null;
   private listeners: ((logs: LogEntry[]) => void)[] = [];
 
   constructor() {
@@ -66,7 +66,7 @@ class LoggingService {
     }
   }
 
-  private log(level: LogLevel, event: string, message: string, context?: any) {
+  private log(level: LogLevel, event: string, message: string, context?: Record<string, unknown>) {
     const entry: LogEntry = {
       timestamp: Date.now(),
       level,
@@ -124,11 +124,11 @@ class LoggingService {
     }
   }
 
-  trace(event: string, message: string, context?: any) { this.log(LogLevel.TRACE, event, message, context); }
-  debug(event: string, message: string, context?: any) { this.log(LogLevel.DEBUG, event, message, context); }
-  info(event: string, message: string, context?: any) { this.log(LogLevel.INFO, event, message, context); }
-  warn(event: string, message: string, context?: any) { this.log(LogLevel.WARN, event, message, context); }
-  error(event: string, message: string, context?: any) { this.log(LogLevel.ERROR, event, message, context); }
+  trace(event: string, message: string, context?: Record<string, unknown>) { this.log(LogLevel.TRACE, event, message, context); }
+  debug(event: string, message: string, context?: Record<string, unknown>) { this.log(LogLevel.DEBUG, event, message, context); }
+  info(event: string, message: string, context?: Record<string, unknown>) { this.log(LogLevel.INFO, event, message, context); }
+  warn(event: string, message: string, context?: Record<string, unknown>) { this.log(LogLevel.WARN, event, message, context); }
+  error(event: string, message: string, context?: Record<string, unknown>) { this.log(LogLevel.ERROR, event, message, context); }
 
   getLogs() {
     return this.logs;

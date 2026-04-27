@@ -15,7 +15,7 @@ const PROGRESS_BAR_COLOR_LIVE = 'rgb(239, 68, 68)'; // red-500
 export const useAudioVisualizer = (
   micAnalyserNode: AnalyserNode | null,
   appAnalyserNode: AnalyserNode | null,
-  canvasRef: React.RefObject<HTMLCanvasElement>,
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
   isActive: boolean,
   currentTimeForLive?: number,
   durationForLive?: number,

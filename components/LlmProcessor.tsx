@@ -392,7 +392,7 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
         const typeSuffix = activeProcessingDisplayTitle ? activeProcessingDisplayTitle.replace(/\s+/g, '_').toLowerCase() : 'llm_result';
         const baseFileName = audioFileName ? `${audioFileName.split('.')[0]}_${typeSuffix}` : typeSuffix;
         const metadata = generateStandardMetadataHeader(
-            audioRecordingStartTime,
+            audioRecordingStartTime ?? null,
             audioFileName,
             { llmProcessingType: activeProcessingDisplayTitle || 'Unknown', transcriptionLanguage }
         );
