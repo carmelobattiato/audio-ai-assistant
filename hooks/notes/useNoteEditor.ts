@@ -148,8 +148,7 @@ export const useNoteEditor = (
                 throw new Error("PDF parser library loaded but GlobalWorkerOptions is missing. Cannot parse PDF.");
             }
 
-            // Using cdnjs for the worker to avoid 'importScripts' failures often seen with esm.sh workers in browser
-            pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
             
             const arrayBuffer = await file.arrayBuffer();
             const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
