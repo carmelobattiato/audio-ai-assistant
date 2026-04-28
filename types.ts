@@ -46,6 +46,7 @@ export interface AudioRecorderRef {
   handleTakeScreenshot: (isAutomatic: boolean) => void;
   getIsScreenSharing: () => boolean;
   startMicOnly: () => void;
+  continueRecording: () => void;
 }
 
 export interface AudioRecorderProps {

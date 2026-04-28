@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.88] — 2026-04-28
+
+- LoadSessionModal: "Load & Rec" rinominato "Continue" — carica sessione e riprende la registrazione senza reset (continueRecording via ref, status→In Progress, pipelineStep→RECORDING)
+- Fix BubbleNotes non salvate: rimosso guard recordingState===RECORDING dal useEffect scheduleDbUpdate — le note vengono ora scritte su DB in qualsiasi stato
+
+
 ## [1.87] — 2026-04-28
 
 - Fix reload pagina durante github_push.sh: NeoTopbar legge APP_VERSION da appConfig (elimina stringa hardcoded); github_push.sh non tocca più NeoTopbar.tsx

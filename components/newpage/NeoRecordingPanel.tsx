@@ -308,6 +308,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
 
     // ── Expose AudioRecorderRef ──────────────────────────────────────────────
     const startMicOnlyRef = useRef<() => void>(() => {});
+    const continueRecordingRef = useRef<() => void>(() => {});
 
     useImperativeHandle(ref, () => ({
       getAudioSnapshot,
@@ -317,6 +318,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       handleTakeScreenshot: screenshots.handleTakeScreenshot,
       getIsScreenSharing: () => !!(displayStream || screenshots.screenshotStream),
       startMicOnly: () => startMicOnlyRef.current(),
+      continueRecording: () => continueRecordingRef.current(),
     }), [getAudioSnapshot, resetRecording, getRecordingSessionId, screenshots.handleTakeScreenshot, displayStream, screenshots.screenshotStream]);
 
     useEffect(() => {
@@ -346,6 +348,8 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
     }, [props.onRecordingSessionStart, startRecording]);
 
     startMicOnlyRef.current = handleStartMicOnly;
+    // continueRecording: start mic without session reset (used by Load & Continue flow)
+    continueRecordingRef.current = () => startRecording(false);
 
     const handleStartWithHeadphones = useCallback(() => setShowGuide(true), []);
 

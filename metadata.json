@@ -1,9 +1,0 @@
-{
-  "name": "Audio AI Assistant 1.69",
-  "description": "Fix HTML Export",
-  "requestFramePermissions": [
-    "microphone",
-    "display-capture"
-  ],
-  "prompt": ""
-}

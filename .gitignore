@@ -54,3 +54,9 @@ desktop.ini
 *.local
 *.tmp
 *.bak
+
+# ── Runtime / machine-specific ─────────────────────────────────
+.app_service.json
+metadata.json
+SPRINT_PLAN.html
+.claude/

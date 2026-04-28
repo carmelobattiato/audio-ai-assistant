@@ -138,8 +138,8 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
                               Load
                           </Button>
                           {onLoadAndRecord && (
-                            <Button onClick={(e) => { e.stopPropagation(); onLoadAndRecord(session.id); }} variant="secondary" size="sm" disabled={isMergeMode} title="Carica sessione e avvia subito la registrazione">
-                              Load & Rec
+                            <Button onClick={(e) => { e.stopPropagation(); onLoadAndRecord(session.id); }} variant="secondary" size="sm" disabled={isMergeMode} title="Riprendi la sessione e avvia la registrazione senza resettare i dati">
+                              Continue
                             </Button>
                           )}
                           <Button onClick={(e) => { e.stopPropagation(); setSessionToDelete(session); }} variant="ghost" size="sm" disabled={isMergeMode}>
@@ -174,7 +174,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
                 <Button onClick={() => { onDeleteSession(session.id); setViewingSession(null); }} variant="danger" size="sm" leftIcon={<TrashIcon className="w-4 h-4"/>}>Delete</Button>
                 <Button onClick={() => onLoadSession(session.id)} variant="primary" size="sm">Load Session</Button>
                 {onLoadAndRecord && (
-                  <Button onClick={() => onLoadAndRecord(session.id)} variant="secondary" size="sm" title="Carica sessione e avvia subito la registrazione">Load & Rec</Button>
+                  <Button onClick={() => onLoadAndRecord(session.id)} variant="secondary" size="sm" title="Riprendi la sessione e avvia la registrazione senza resettare i dati">Continue</Button>
                 )}
             </div>
         </div>

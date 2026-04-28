@@ -406,8 +406,12 @@ export const NewHome: React.FC = () => {
 
   const handleLoadAndRecord = useCallback(async (sessionId: string) => {
     await handleLoadSession(sessionId);
-    // Wait one tick for state to flush, then start mic recording
-    setTimeout(() => { audioRecorderRef.current?.startMicOnly(); }, 150);
+    // Mark existing session In Progress and start recording without resetting any data
+    if (activeSessionIdRef.current) {
+      await db.updateSessionIncremental(activeSessionIdRef.current, { status: 'In Progress' });
+    }
+    setPipelineStep(PipelineStep.RECORDING);
+    setTimeout(() => { audioRecorderRef.current?.continueRecording(); }, 150);
   }, [handleLoadSession]);
 
   // ── Effects ───────────────────────────────────────────────────────────────
@@ -430,10 +434,8 @@ export const NewHome: React.FC = () => {
   useEffect(() => { scheduleDbUpdate({ name: finalEffectiveTitle }); }, [finalEffectiveTitle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (recordingState === RecordingState.RECORDING) {
-      scheduleDbUpdate({ bubbleNotes, emotionHistory, llmUsageHistory });
-    }
-  }, [bubbleNotes, emotionHistory, llmUsageHistory, recordingState]); // eslint-disable-line react-hooks/exhaustive-deps
+    scheduleDbUpdate({ bubbleNotes, emotionHistory, llmUsageHistory });
+  }, [bubbleNotes, emotionHistory, llmUsageHistory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     scheduleDbUpdate({ transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory });
