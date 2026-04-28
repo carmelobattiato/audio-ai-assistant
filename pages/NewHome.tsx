@@ -404,6 +404,12 @@ export const NewHome: React.FC = () => {
     }
   }, [resetAllDataStates, transLogic]);
 
+  const handleLoadAndRecord = useCallback(async (sessionId: string) => {
+    await handleLoadSession(sessionId);
+    // Wait one tick for state to flush, then start mic recording
+    setTimeout(() => { audioRecorderRef.current?.startMicOnly(); }, 150);
+  }, [handleLoadSession]);
+
   // ── Effects ───────────────────────────────────────────────────────────────
 
   // Keep pipelineDataRef in sync so the DOWNLOADING effect always reads fresh values
@@ -1064,6 +1070,7 @@ export const NewHome: React.FC = () => {
         showLoadSessionModal={showLoadSessionModal} setShowLoadSessionModal={setShowLoadSessionModal}
         savedSessions={savedSessions}
         handleLoadSession={handleLoadSession}
+        handleLoadAndRecord={handleLoadAndRecord}
         handleDeleteSession={sessLogic.handleDeleteSession}
         handleExportSessionJson={sessLogic.handleExportSessionJson}
         handleImportSessionJson={sessLogic.handleImportSessionJson}

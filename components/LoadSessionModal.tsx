@@ -12,6 +12,7 @@ interface LoadSessionModalProps {
   onClose: () => void;
   sessions: SavedSession[];
   onLoadSession: (sessionId: string) => void;
+  onLoadAndRecord?: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
   onStartMerge: (sessionIds: [string, string]) => void;
   onExportSessionJson: (sessionId: string) => void;
@@ -37,6 +38,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
   onClose,
   sessions,
   onLoadSession,
+  onLoadAndRecord,
   onDeleteSession,
   onStartMerge,
   onExportSessionJson,
@@ -135,6 +137,11 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
                           <Button onClick={(e) => { e.stopPropagation(); onLoadSession(session.id); }} variant="primary" size="sm" disabled={isMergeMode}>
                               Load
                           </Button>
+                          {onLoadAndRecord && (
+                            <Button onClick={(e) => { e.stopPropagation(); onLoadAndRecord(session.id); }} variant="secondary" size="sm" disabled={isMergeMode} title="Carica sessione e avvia subito la registrazione">
+                              Load & Rec
+                            </Button>
+                          )}
                           <Button onClick={(e) => { e.stopPropagation(); setSessionToDelete(session); }} variant="ghost" size="sm" disabled={isMergeMode}>
                               <TrashIcon className="w-4 h-4 text-red-500" />
                           </Button>
@@ -166,6 +173,9 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
                 <Button onClick={() => onExportSessionJson(session.id)} variant="ghost" size="sm" leftIcon={<ArrowUpIcon className="w-4 h-4"/>}>JSON</Button>
                 <Button onClick={() => { onDeleteSession(session.id); setViewingSession(null); }} variant="danger" size="sm" leftIcon={<TrashIcon className="w-4 h-4"/>}>Delete</Button>
                 <Button onClick={() => onLoadSession(session.id)} variant="primary" size="sm">Load Session</Button>
+                {onLoadAndRecord && (
+                  <Button onClick={() => onLoadAndRecord(session.id)} variant="secondary" size="sm" title="Carica sessione e avvia subito la registrazione">Load & Rec</Button>
+                )}
             </div>
         </div>
 
@@ -230,7 +240,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title={viewingSession ? "Session Details" : "Session History (IndexedDB)"}>
+      <Modal isOpen={isOpen} onClose={onClose} title={viewingSession ? "Session Details" : "Session History (IndexedDB)"} maxWidth={viewingSession ? 'max-w-[90vw]' : 'max-w-4xl'}>
         {viewingSession ? (
             <div>
                 <Button onClick={() => setViewingSession(null)} variant="ghost" size="sm" className="mb-2 text-gray-400 hover:text-white">

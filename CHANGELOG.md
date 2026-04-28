@@ -8,6 +8,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.86] — 2026-04-28
+
+- LoadSessionModal: pulsante "Load & Rec" — carica sessione e avvia immediatamente la registrazione microfono
+- AudioRecorderRef: esposto startMicOnly() via useImperativeHandle per avvio registrazione programmatico
+- NewHome: handleLoadAndRecord — attende il caricamento sessione poi invoca startMicOnly() con delay 150ms
+
+
 ## [1.85] — 2026-04-28
 
 - MeetingChatPanel: contesto esteso alle BubbleNote (testo con timestamp incluso nel system prompt)

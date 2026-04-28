@@ -24,6 +24,7 @@ interface AppModalsProps {
   setShowLoadSessionModal: (v: boolean) => void;
   savedSessions: SavedSession[];
   handleLoadSession: (id: string) => void;
+  handleLoadAndRecord: (id: string) => void;
   handleDeleteSession: (id: string) => void;
   handleExportSessionJson: (id: string) => void;
   handleImportSessionJson: (file: File) => void;
@@ -65,6 +66,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       onClose={() => props.setShowLoadSessionModal(false)}
       sessions={props.savedSessions}
       onLoadSession={props.handleLoadSession}
+      onLoadAndRecord={props.handleLoadAndRecord}
       onDeleteSession={props.handleDeleteSession}
       onExportSessionJson={props.handleExportSessionJson}
       onImportSessionJson={props.handleImportSessionJson}
