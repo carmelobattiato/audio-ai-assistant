@@ -128,6 +128,8 @@ export interface UseAudioRecorderResult {
   isAppAudioActive: boolean;
   isMicEnabled: boolean;
   toggleMic: () => void;
+  forceNewChunk: () => void;
+  chunkStartElapsedTime: number;
 }
 
 export enum TranscriptionQuality {

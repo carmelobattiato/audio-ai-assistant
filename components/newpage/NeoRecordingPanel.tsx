@@ -255,6 +255,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       isAutoPaused, autoPauseState, autoPauseCountdown, realtimeTranscription,
       currentEmotion, emotionHistory: recorderEmotionHistory,
       addAppAudio, isAppAudioActive, isMicEnabled, toggleMic,
+      forceNewChunk, chunkStartElapsedTime,
     } = useAudioRecorder({
       settings: props.audioSettings,
       llmSettings: props.llmSettings,
@@ -379,7 +380,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       props.pipelineStep !== PipelineStep.COMPLETED;
 
     const chunkInterval = props.transcriptionSettings.chunkRecordingIntervalSeconds || 1800;
-    const chunkCountdown = chunkInterval - (elapsedTime % chunkInterval);
+    const chunkCountdown = Math.max(1, chunkInterval - (elapsedTime - chunkStartElapsedTime));
 
     // ── Recording state visuals ──────────────────────────────────────────────
     const vizGlow = isRecording && !isPaused
@@ -730,12 +731,17 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
               <span style={{ color: 'var(--neo-muted)' }}>Smart Pipeline</span>
             </div>
 
-            {/* DB-Sync countdown */}
+            {/* DB-Sync countdown — click to force an immediate chunk save */}
             {isRecording && props.transcriptionSettings.enableChunkedRecording && (
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
-                style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}
-                title="Time until current audio chunk is persisted to IndexedDB"
+              <button
+                onClick={forceNewChunk}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:scale-105 active:scale-95"
+                style={{
+                  background: 'rgba(124,58,237,0.12)',
+                  border: '1px solid rgba(139,92,246,0.25)',
+                  cursor: 'pointer',
+                }}
+                title="Forza il salvataggio del chunk corrente ora"
               >
                 <span className="font-mono" style={{ color: '#A78BFA' }}>DB {formatTime(chunkCountdown)}</span>
                 {props.chunksCount > 0 && (
@@ -746,7 +752,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
                     {props.chunksCount} saved
                   </span>
                 )}
-              </div>
+              </button>
             )}
           </div>
 

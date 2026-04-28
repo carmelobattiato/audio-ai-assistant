@@ -8,6 +8,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.89] — 2026-04-28
+
+- DB countdown trasformato in button: clic forza il salvataggio immediato del chunk corrente e resetta il timer al nuovo intervallo
+- Fix chunk interval: cambiare "Chunk Interval (seconds)" durante la registrazione ora aggiorna il timer reale (non solo il countdown visivo) e forza un nuovo chunk
+- Countdown calcolato da chunkStartElapsedTime invece di elapsedTime % interval — sincronizzato con il timer effettivo
+
+
 ## [1.88] — 2026-04-28
 
 - LoadSessionModal: "Load & Rec" rinominato "Continue" — carica sessione e riprende la registrazione senza reset (continueRecording via ref, status→In Progress, pipelineStep→RECORDING)

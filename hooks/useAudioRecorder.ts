@@ -46,10 +46,15 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
   const selectedMimeTypeRef = useRef<string>('');
   const chunkIndexRef = useRef(1);
   const chunkIntervalTimerRef = useRef<number | null>(null);
+  const chunkIntervalSecondsRef = useRef<number>(chunkIntervalSeconds ?? 60);
+  const elapsedTimeRef = useRef(0);
+  const [chunkStartElapsedTime, setChunkStartElapsedTime] = useState(0);
+  const chunkStartElapsedTimeRef = useRef(0);
 
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
 
   const { elapsedTime, setElapsedTime, startTimer, stopTimer, resetTimer } = useRecorderTimer();
+  useEffect(() => { elapsedTimeRef.current = elapsedTime; }, [elapsedTime]);
   const streams = useMediaStreams(settings);
   
   const handlePauseAction = useCallback(() => {
@@ -90,6 +95,22 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     emotions.stopEmotionAnalysis();
   }, [stopTimer, streams, liveTrans, emotions]);
 
+  const restartChunkTimer = useCallback((intervalSeconds: number) => {
+    if (chunkIntervalTimerRef.current) clearInterval(chunkIntervalTimerRef.current);
+    chunkIntervalTimerRef.current = window.setInterval(() => {
+      if (mediaRecorderRef.current?.state === 'recording' && !isPausedRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+    }, intervalSeconds * 1000);
+  }, []);
+
+  const forceNewChunk = useCallback(() => {
+    if (mediaRecorderRef.current?.state === 'recording' && !isPausedRef.current) {
+      restartChunkTimer(chunkIntervalSecondsRef.current);
+      mediaRecorderRef.current.stop();
+    }
+  }, [restartChunkTimer]);
+
   const createNewRecorder = useCallback((stream: MediaStream) => {
     const recorder = new MediaRecorder(stream, { 
       mimeType: selectedMimeTypeRef.current, 
@@ -127,12 +148,26 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
           );
         }
       } else if (currentOptions.enableChunkedRecording) {
+        chunkStartElapsedTimeRef.current = elapsedTimeRef.current;
+        setChunkStartElapsedTime(elapsedTimeRef.current);
         createNewRecorder(stream);
       }
     };
     recorder.start();
     mediaRecorderRef.current = recorder;
   }, [settings.bitrate, cleanupAll, liveTrans, emotions]);
+
+  useEffect(() => {
+    chunkIntervalSecondsRef.current = chunkIntervalSeconds ?? 60;
+    if (recordingState === RecordingState.RECORDING && enableChunkedRecording && chunkIntervalTimerRef.current !== null) {
+      restartChunkTimer(chunkIntervalSecondsRef.current);
+      if (mediaRecorderRef.current?.state === 'recording' && !isPausedRef.current) {
+        chunkStartElapsedTimeRef.current = elapsedTimeRef.current;
+        setChunkStartElapsedTime(elapsedTimeRef.current);
+        mediaRecorderRef.current.stop();
+      }
+    }
+  }, [chunkIntervalSeconds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startRecording = useCallback(async (includeAppAudio: boolean) => {
     cleanupAll();
@@ -184,12 +219,13 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
       selectedMimeTypeRef.current = selectSupportedMimeType();
       recordingSessionIdRef.current = `${Date.now()}`;
       chunkIndexRef.current = 1;
+      chunkStartElapsedTimeRef.current = 0;
+      setChunkStartElapsedTime(0);
       createNewRecorder(destination.stream);
 
       if (enableChunkedRecording) {
-        chunkIntervalTimerRef.current = window.setInterval(() => {
-          if (mediaRecorderRef.current?.state === 'recording' && !isPausedRef.current) mediaRecorderRef.current.stop();
-        }, (chunkIntervalSeconds || 60) * 1000);
+        chunkIntervalSecondsRef.current = chunkIntervalSeconds ?? 60;
+        restartChunkTimer(chunkIntervalSecondsRef.current);
       }
 
       setRecordingState(RecordingState.RECORDING);
@@ -199,7 +235,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
       setError(`Start failed: ${err}`);
       cleanupAll();
     }
-  }, [streams, emotions, liveTrans, settings, enableRealtimeTranscription, enableChunkedRecording, chunkIntervalSeconds, startTimer, createNewRecorder, cleanupAll, setElapsedTime]);
+  }, [streams, emotions, liveTrans, settings, enableRealtimeTranscription, enableChunkedRecording, chunkIntervalSeconds, startTimer, createNewRecorder, cleanupAll, setElapsedTime, restartChunkTimer]);
 
   const stopRecording = useCallback(() => {
     isStoppingRef.current = true;
@@ -269,6 +305,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     realtimeTranscription: liveTrans.realtimeTranscription,
     currentEmotion: emotions.currentEmotion, emotionHistory: emotions.emotionHistoryRef.current,
     addAppAudio,
-    isAppAudioActive: streams.isAppAudioActive, isMicEnabled, toggleMic
+    isAppAudioActive: streams.isAppAudioActive, isMicEnabled, toggleMic,
+    forceNewChunk, chunkStartElapsedTime,
   };
 };
