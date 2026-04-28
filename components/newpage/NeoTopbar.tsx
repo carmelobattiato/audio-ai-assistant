@@ -1,6 +1,6 @@
 import React from 'react';
 import { NeoTooltip } from './NeoTooltip';
-import { APP_TITLE } from '../../constants';
+import { APP_TITLE, APP_VERSION } from '../../constants';
 import appIcon from '../../img/AiRecordIco.png';
 
 interface NeoNavButtonProps {
@@ -112,7 +112,7 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
         >
           {APP_TITLE}
         </h1>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Developed by Carmelo Battiato · v1.86</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Developed by Carmelo Battiato · v{APP_VERSION}</p>
         <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)', opacity: 0.75 }}>
           {transcriptionLabel === analysisLabel
             ? <>Transcription &amp; Analysis: <span style={{ color: 'var(--neo-primary-l)' }}>{analysisLabel}</span></>

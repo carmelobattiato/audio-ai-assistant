@@ -159,6 +159,15 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 8090,
       host: '0.0.0.0',
+      watch: {
+        // These files are modified by github_push.sh during version bump.
+        // Ignoring them prevents Vite from triggering a hot reload mid-session.
+        ignored: [
+          '**/constants/appConfig.ts',
+          '**/CHANGELOG.md',
+          '**/README.md',
+        ],
+      },
     },
     plugins: [react(), outlookPlugin()],
     define: {

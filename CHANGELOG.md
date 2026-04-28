@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.87] — 2026-04-28
+
+- Fix reload pagina durante github_push.sh: NeoTopbar legge APP_VERSION da appConfig (elimina stringa hardcoded); github_push.sh non tocca più NeoTopbar.tsx
+- vite.config.ts: server.watch.ignored per constants/appConfig.ts, CHANGELOG.md, README.md — i file modificati dallo script non triggerano hot reload
+
+
 ## [1.86] — 2026-04-28
 
 - LoadSessionModal: pulsante "Load & Rec" — carica sessione e avvia immediatamente la registrazione microfono

@@ -159,7 +159,6 @@ get_latest_changelog() {
 bump_version() {
     local commit_msg="$1"
     local config_file="constants/appConfig.ts"
-    local topbar_file="components/newpage/NeoTopbar.tsx"
     local readme_file="README.md"
     local changelog_file="CHANGELOG.md"
 
@@ -183,12 +182,7 @@ bump_version() {
     sedi "s/APP_VERSION = \"$current_version\"/APP_VERSION = \"$new_version\"/" \
         "$config_file"
 
-    # 2. NeoTopbar.tsx (stringa hardcoded)
-    if [[ -f "$topbar_file" ]]; then
-        sedi "s/v${current_version}/v${new_version}/g" "$topbar_file"
-    fi
-
-    # 3. README.md — aggiorna solo l'header di versione
+    # 2. README.md — aggiorna solo l'header di versione
     if [[ -f "$readme_file" ]]; then
         sedi "s/— v${current_version}/— v${new_version}/" "$readme_file"
     fi
