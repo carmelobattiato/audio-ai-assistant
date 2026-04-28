@@ -1,9 +1,10 @@
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from './common/Button';
-import { MeetingChatMessage, AppSettings, LlmUsageStats } from '../types';
+import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote } from '../types';
 import { llmService } from '../services/geminiService';
 import { htmlToPlainText, markdownToHtmlSimple, formatTime } from '../utils/textUtils';
+import type { Part } from '@google/genai';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,31 @@ function renderMessageContent(content: string): string {
   }).join('');
 }
 
+// ── BubbleNote helpers ─────────────────────────────────────────────────────
+
+function bubbleNotesToText(notes: BubbleNote[]): string {
+  return notes
+    .map((n, i) => {
+      const text = htmlToPlainText(n.contentHtml).trim();
+      return text ? `Nota ${i + 1} [${formatTime(n.recordingElapsedTime)}]: ${text}` : null;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function extractNoteImages(notes: BubbleNote[]): Array<{ mimeType: string; data: string }> {
+  const result: Array<{ mimeType: string; data: string }> = [];
+  const regex = /src="data:([^;]+);base64,([^"]+)"/g;
+  for (const note of notes) {
+    let m: RegExpExecArray | null;
+    const rx = new RegExp(regex.source, 'g');
+    while ((m = rx.exec(note.contentHtml)) !== null) {
+      result.push({ mimeType: m[1] ?? 'image/png', data: m[2] ?? '' });
+    }
+  }
+  return result;
+}
+
 // ── Quick suggestions ──────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
@@ -128,6 +154,7 @@ interface MeetingChatPanelProps {
     sessionTitle: string;
     audioDuration?: number;
     audioRecordingStartTime?: Date | null;
+    bubbleNotes?: BubbleNote[];
   };
   llmSettings: AppSettings['llm'];
   history: MeetingChatMessage[];
@@ -149,11 +176,22 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [imageDecision, setImageDecision] = useState<'with-images' | 'text-only' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const hasContext = !!(sessionContext.transcription || sessionContext.llmResult);
+  const hasContext = !!(
+    sessionContext.transcription ||
+    sessionContext.llmResult ||
+    sessionContext.bubbleNotes?.length
+  );
+
+  const noteImages = useMemo(
+    () => extractNoteImages(sessionContext.bubbleNotes ?? []),
+    [sessionContext.bubbleNotes],
+  );
+  const hasNoteImages = noteImages.length > 0;
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -165,15 +203,16 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
   // ── System prompt builder ────────────────────────────────────────────────
 
   const buildSystemPrompt = useCallback((): string => {
-    const { transcription, llmResult, sessionTitle, audioDuration, audioRecordingStartTime } = sessionContext;
+    const { transcription, llmResult, sessionTitle, audioDuration, audioRecordingStartTime, bubbleNotes } = sessionContext;
     const plainTranscript = htmlToPlainText(transcription);
     const plainAnalysis = htmlToPlainText(llmResult);
+    const notesText = bubbleNotes?.length ? bubbleNotesToText(bubbleNotes) : '';
     const dateStr = audioRecordingStartTime
       ? new Date(audioRecordingStartTime).toLocaleString()
       : new Date().toLocaleDateString();
     const durationStr = audioDuration ? formatTime(audioDuration) : 'N/A';
 
-    return `You are a meeting intelligence assistant with full access to the transcript and AI analysis of a recorded session.
+    return `You are a meeting intelligence assistant with full access to the transcript, AI analysis, and notes of a recorded session.
 
 MEETING METADATA:
 - Title: ${sessionTitle}
@@ -185,8 +224,11 @@ ${plainTranscript || '(no transcript available)'}
 
 ${plainAnalysis ? `AI ANALYSIS:\n${plainAnalysis}` : ''}
 
+${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${notesText}` : ''}
+
 INSTRUCTIONS:
 - Answer questions directly and concisely, referencing actual content from the meeting
+- The Bubble Notes are first-person notes taken by the user during the session; treat them as high-priority context
 - Use markdown for formatting (headings, bold, lists, tables)
 - For tabular data always use markdown tables
 - For data visualizations use a chart code block with this exact JSON format:
@@ -231,10 +273,18 @@ INSTRUCTIONS:
 
     try {
       const systemPrompt = buildSystemPrompt();
-      const prompt = buildPrompt(text);
+      const promptText = buildPrompt(text);
+
+      const promptOrParts: string | Part[] =
+        imageDecision === 'with-images' && noteImages.length > 0
+          ? [
+              { text: promptText },
+              ...noteImages.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+            ]
+          : promptText;
 
       const { text: responseText, usageMetadata } = await llmService.generateText(
-        prompt,
+        promptOrParts,
         llmSettings,
         systemPrompt,
         abortRef.current.signal,
@@ -370,8 +420,48 @@ INSTRUCTIONS:
           </div>
         )}
 
+        {/* Image analysis decision banner */}
+        {hasContext && hasNoteImages && imageDecision === null && (
+          <div
+            className="rounded-xl px-4 py-3 flex-shrink-0"
+            style={{
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.25)',
+            }}
+          >
+            <p className="text-xs font-medium mb-2" style={{ color: '#fbbf24' }}>
+              Le Bubble Notes contengono {noteImages.length} immagine{noteImages.length !== 1 ? 'i' : ''}.
+              Vuoi che vengano analizzate insieme al testo?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setImageDecision('with-images')}
+                className="text-xs px-3 py-1.5 rounded-full transition-all hover:opacity-90 active:scale-95 font-medium"
+                style={{
+                  background: 'rgba(251,191,36,0.18)',
+                  border: '1px solid rgba(251,191,36,0.4)',
+                  color: '#fbbf24',
+                }}
+              >
+                Sì, analizza immagini
+              </button>
+              <button
+                onClick={() => setImageDecision('text-only')}
+                className="text-xs px-3 py-1.5 rounded-full transition-all hover:opacity-90 active:scale-95"
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'var(--neo-muted)',
+                }}
+              >
+                No, solo testo
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Empty state — context available but no messages yet */}
-        {hasContext && history.length === 0 && !isTyping && (
+        {hasContext && history.length === 0 && !isTyping && (imageDecision !== null || !hasNoteImages) && (
           <div className="py-2">
             <p className="text-xs text-center mb-3" style={{ color: 'var(--neo-muted)' }}>
               Inizia con una domanda o scegli un suggerimento:

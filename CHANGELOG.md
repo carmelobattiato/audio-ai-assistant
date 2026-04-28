@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.85] — 2026-04-28
+
+- MeetingChatPanel: contesto esteso alle BubbleNote (testo con timestamp incluso nel system prompt)
+- MeetingChatPanel: rilevamento immagini nelle BubbleNote con banner di scelta "analizza immagini / solo testo"
+- MeetingChatPanel: invio immagini come Part[] multimodale a Gemini se l'utente acconsente
+- MeetingChatPanel: hasContext aggiornato — presenza di BubbleNote abilita il chat anche senza trascrizione
+
+
 ## [1.84] — 2026-04-28
 
 - Web Worker per export ZIP: createSessionZipBlob eseguito in workers/zipWorker.ts via Vite new URL pattern; main thread non si blocca su sessioni grandi

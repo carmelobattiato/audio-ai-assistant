@@ -1019,6 +1019,7 @@ export const NewHome: React.FC = () => {
                 sessionTitle: finalEffectiveTitle,
                 audioDuration: audioBlob ? audioDuration : undefined,
                 audioRecordingStartTime: audioRecordingStartTime,
+                bubbleNotes: bubbleNotes,
               }}
               llmSettings={appSettings.llm}
               history={meetingChatHistory}
