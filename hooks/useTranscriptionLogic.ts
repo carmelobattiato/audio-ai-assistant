@@ -3,6 +3,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { transcriptionService } from '../services/transcriptionService';
 import { getAudioBlobDuration } from '../utils/audioUtils';
 import { AppSettings, RecordingState, LlmUsageStats } from '../types';
+import { getPromptText } from '../utils/promptUtils';
 
 interface QueuedFile {
   file: File;
@@ -80,7 +81,8 @@ export const useTranscriptionLogic = (
         setTranscriptionProgress({ current: i + 1, total: pending.length, filename: file.name });
         try {
           const tSettings = { ...appSettings.transcription, fileName: file.name };
-          const { transcription: result, usageMetadata } = await transcriptionService.transcribe(file, tSettings, appSettings.llm, abortControllerRef.current?.signal);
+          const txPromptTpl = getPromptText(appSettings.systemPrompts ?? [], 'transcription-main') || undefined;
+          const { transcription: result, usageMetadata } = await transcriptionService.transcribe(file, tSettings, appSettings.llm, abortControllerRef.current?.signal, txPromptTpl);
           
           if (usageMetadata) {
             addLlmUsageStat({
@@ -124,7 +126,8 @@ export const useTranscriptionLogic = (
     
     try {
       const tSettings = { ...appSettings.transcription, fileName: fileName };
-      const { transcription: result, usageMetadata } = await transcriptionService.transcribe(blob, tSettings, appSettings.llm, abortControllerRef.current?.signal);
+      const txPromptTpl = getPromptText(appSettings.systemPrompts ?? [], 'transcription-main') || undefined;
+      const { transcription: result, usageMetadata } = await transcriptionService.transcribe(blob, tSettings, appSettings.llm, abortControllerRef.current?.signal, txPromptTpl);
       
       if (usageMetadata) {
         addLlmUsageStat({
@@ -195,8 +198,9 @@ export const useTranscriptionLogic = (
       try {
         const cfg = appSettingsRef.current;
         const tSettings = { ...cfg.transcription, fileName: item.name };
+        const txTpl = getPromptText(cfg.systemPrompts ?? [], 'transcription-main') || undefined;
         const { transcription: result, usageMetadata } = await transcriptionService.transcribe(
-          item.blob, tSettings, cfg.llm
+          item.blob, tSettings, cfg.llm, undefined, txTpl
         );
         if (usageMetadata) {
           addLlmUsageStat({
@@ -243,8 +247,9 @@ export const useTranscriptionLogic = (
     abortControllerRef.current = new AbortController();
     try {
       const tSettings = { ...appSettings.transcription, fileName: item.file.name };
+      const txTpl = getPromptText(appSettings.systemPrompts ?? [], 'transcription-main') || undefined;
       const { transcription: result, usageMetadata } = await transcriptionService.transcribe(
-        item.file, tSettings, appSettings.llm, abortControllerRef.current?.signal
+        item.file, tSettings, appSettings.llm, abortControllerRef.current?.signal, txTpl
       );
       if (usageMetadata) {
         addLlmUsageStat({

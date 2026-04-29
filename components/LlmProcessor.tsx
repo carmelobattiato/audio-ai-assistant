@@ -6,7 +6,8 @@ import { Button } from './common/Button';
 import { Select } from './common/Select'; 
 import { TextArea } from './common/TextArea'; 
 import { LoadingModal } from './common/LoadingModal';
-import { AppSettings, CustomInstruction, GroundingChunk, SupportedLanguage, TranscriptionOutputFormat, BubbleNote } from '../types';
+import { AppSettings, CustomInstruction, SystemPrompt, GroundingChunk, SupportedLanguage, TranscriptionOutputFormat, BubbleNote } from '../types';
+import { resolvePrompt, getPromptText } from '../utils/promptUtils';
 import { RichTextEditorModal } from './RichTextEditorModal';
 import { EditIcon as EditPencilIcon, SaveIcon as CopyIcon, DownloadIcon } from '../constants'; 
 import { formatTime, htmlToPlainText, parseHtmlForGeminiParts, markdownToHtmlSimple } from '../utils/textUtils';
@@ -22,6 +23,7 @@ interface LlmProcessorProps {
   transcriptionSettings: AppSettings['transcription'];
   transcriptionLanguage: SupportedLanguage;
   customInstructions?: CustomInstruction[];
+  systemPrompts?: SystemPrompt[];
   meetingTitle?: string;
   meetingAttendees?: { name: string; email: string; type?: string }[];
   disabled?: boolean;
@@ -70,6 +72,7 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
   onProcessingError,
   resultType,
   customInstructions,
+  systemPrompts,
   meetingTitle,
   meetingAttendees,
 }, ref) => {
@@ -188,12 +191,16 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
     if (audioRecordingStartTime) contextualInfo += `- Data: ${audioRecordingStartTime.toLocaleString()}\n`;
     contextualInfo += "---\n\n";
 
-    let systemInstruction = `Sei un assistente esperto in verbali di riunione. Usa sempre la lingua ${transcriptionLanguage}. Presta particolare attenzione ai nomi dei partecipanti che possono essere indicati sia nella trascrizione che nelle "Bubble Notes" supplementari.`;
+    const sysPromptTemplate = getPromptText(systemPrompts ?? [], 'llm-system');
+    let systemInstruction = sysPromptTemplate
+      ? resolvePrompt(sysPromptTemplate, { LANGUAGE: transcriptionLanguage })
+      : `Sei un assistente esperto in verbali di riunione. Usa sempre la lingua ${transcriptionLanguage}. Presta particolare attenzione ai nomi dei partecipanti che possono essere indicati sia nella trascrizione che nelle "Bubble Notes" supplementari.`;
     const activeCustomInstructions = (customInstructions ?? []).filter(r => r.enabled);
     if (activeCustomInstructions.length > 0) {
       systemInstruction += `\n\nRegole personalizzate da applicare sempre:\n${activeCustomInstructions.map(r => `- ${r.text}`).join('\n')}`;
     }
-    const defaultCustomContextAddition = customContext ? `\n\nIstruzioni aggiuntive: "${customContext}"` : "";
+    const extraCtx = customContext ? `\n\nIstruzioni aggiuntive: "${customContext}"` : "";
+    const defaultCustomContextAddition = extraCtx;
     
     const formattedDate = audioRecordingStartTime 
       ? audioRecordingStartTime.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -205,10 +212,16 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
     if (plainSourceText) allParts.push({ text: `Trascrizione principale:\n"${plainSourceText}"\n\n` });
     if (bubbleParts.length > 0) allParts.push(...bubbleParts);
     
+    const resolveAnalysis = (id: string, fallback: string) => {
+      const tpl = getPromptText(systemPrompts ?? [], id);
+      return tpl ? resolvePrompt(tpl, { DATE: formattedDate, EXTRA: defaultCustomContextAddition }) : fallback;
+    };
+
     let prompt = "";
     switch (selectedProcessingActionKey) {
       case 'default-minutes-concise':
-        prompt = `Crea un verbale di riunione CONCISO e PROFESSIONALE.
+        prompt = resolveAnalysis('analysis-minutes-concise',
+          `Crea un verbale di riunione CONCISO e PROFESSIONALE.
         FORMATO: Deve essere pronto per essere incollato in una MAIL.
         - Inizia ESATTAMENTE con: "Salve a tutti,\n\na voi la minuta dell'incontro Oggetto: [Inserisci Oggetto] avuto in Data: ${formattedDate},"
         - Poi scrivi: "Partecipanti: [Elenca i partecipanti trovati nella trascrizione o nelle bubble notes]"
@@ -216,10 +229,11 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
         - Sezioni (usa ###): Obiettivo della Riunione, Punti Trattati e Dati Emersi, Decisioni Prese.
         - Fondamentale: Per "Punti Trattati", usa elenchi puntati nidificati per mostrare la gerarchia dei concetti.
         - Fondamentale: Crea una sezione "### Azioni e Prossimi Passi (To-Do List)" formattata come una TABELLA MARKDOWN con colonne: | Azione | Responsabile | Scadenza |.
-        - Chiudi con: "Saluti"${defaultCustomContextAddition}`;
+        - Chiudi con: "Saluti"${defaultCustomContextAddition}`);
         break;
       case 'default-minutes-detailed':
-        prompt = `Crea un verbale di riunione DETTAGLIATO e COMPLETO.
+        prompt = resolveAnalysis('analysis-minutes-detailed',
+          `Crea un verbale di riunione DETTAGLIATO e COMPLETO.
         FORMATO: Deve essere pronto per essere incollato in una MAIL o DOCUMENTO.
         - Inizia ESATTAMENTE con: "Salve a tutti,\n\na voi la minuta dell'incontro Oggetto: [Inserisci Oggetto] avuto in Data: ${formattedDate},"
         - Poi scrivi: "Partecipanti: [Elenca i partecipanti trovati nella trascrizione o nelle bubble notes]"
@@ -227,36 +241,37 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
         - Sezioni (usa ###): Obiettivo della Riunione, Punti Trattati e Dati Emersi, Decisioni Prese.
         - Fondamentale: Per "Punti Trattati", cattura ogni sfumatura e dettaglio tecnico, usando elenchi puntati nidificati in modo molto chiaro.
         - Fondamentale: Crea una sezione "### Azioni e Prossimi Passi (To-Do List)" formattata come una TABELLA MARKDOWN con colonne: | Azione | Responsabile | Scadenza |.
-        - Chiudi con: "Saluti"${defaultCustomContextAddition}`;
+        - Chiudi con: "Saluti"${defaultCustomContextAddition}`);
         break;
       case 'default-summary':
-        prompt = `Riassumi il contenuto in modo coinciso.${defaultCustomContextAddition}`;
+        prompt = resolveAnalysis('analysis-summary', `Riassumi il contenuto in modo coinciso.${defaultCustomContextAddition}`);
         break;
       case 'default-10points':
-        prompt = `Estrai esattamente 10 punti chiave numerati.${defaultCustomContextAddition}`;
+        prompt = resolveAnalysis('analysis-10points', `Estrai esattamente 10 punti chiave numerati.${defaultCustomContextAddition}`);
         break;
       case 'default-timeline':
-        prompt = `Crea un report HTML timeline professionale e dettagliato.
+        prompt = resolveAnalysis('analysis-timeline',
+          `Crea un report HTML timeline professionale e dettagliato.
         REQUISITI DI STILE:
         - Usa CSS inline. Tema scuro (background: #111827; color: #f3f4f6;).
         - Font sans-serif moderno (Inter, system-ui).
         - Timeline con linea verticale accentata (border-left: 2px solid #3b82f6).
         - Ogni evento della timeline deve avere: Orario, Speaker (se rilevabile), Contenuto.
-        
+
         REQUISITI DI CONTENUTO:
         - Analizza la trascrizione e dividila in blocchi logici o temporali (es. ogni 2-3 minuti o per cambio argomento).
         - Identifica i vari interlocutori (Diarization) e usa etichette chiare (es. "Speaker A", "Intervistatore", o nomi se citati).
         - INTEGRAZIONE BUBBLE NOTES: Inserisci le Bubble Notes nei punti temporali corretti della timeline.
         - Per ogni Bubble Note, scrivi una versione RIVISTA, CHIARA e PROFESSIONALE del suo contenuto.
         - IMMAGINI: Se una Bubble Note contiene un'immagine (riferita come [IMAGE_REF_B#_I#]), inserisci ESATTAMENTE questo tag HTML: <img src="[IMAGE_REF_B#_I#]" style="max-width:100%; border-radius:12px; margin:15px 0; border: 1px solid #374151; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">.
-        
+
         FORMATO OUTPUT:
         - Restituisci SOLO il codice HTML contenuto in un div con classe "timeline-report".
         - Non includere blocchi di codice markdown (\`\`\`html).
-        - Assicurati che l'HTML sia ben strutturato e leggibile.${defaultCustomContextAddition}`;
+        - Assicurati che l'HTML sia ben strutturato e leggibile.${defaultCustomContextAddition}`);
         break;
       case 'default-interview':
-        prompt = `Formatta come intervista/dialogo.${defaultCustomContextAddition}`;
+        prompt = resolveAnalysis('analysis-interview', `Formatta come intervista/dialogo.${defaultCustomContextAddition}`);
         break;
       default:
         prompt = `Segui queste istruzioni: ${customContext}`;

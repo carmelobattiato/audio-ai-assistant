@@ -187,7 +187,7 @@ export const llmService = {
     } catch { return { emotion: 'Unknown' }; }
   },
 
-  transcribeAudio: async (audioBase64: string, mimeType: string, language: string, llmSettings: LlmSettings, customInstruction?: string, attemptDiarization?: boolean, approximateSpeakerCount?: number, signal?: AbortSignal): Promise<{ transcription: string, usageMetadata?: UsageMetadata }> => {
+  transcribeAudio: async (audioBase64: string, mimeType: string, language: string, llmSettings: LlmSettings, customInstruction?: string, attemptDiarization?: boolean, approximateSpeakerCount?: number, signal?: AbortSignal, promptTemplate?: string): Promise<{ transcription: string, usageMetadata?: UsageMetadata }> => {
     if (Date.now() < circuitBreakerTrippedUntil) return { transcription: "Error: Circuit breaker active." };
     const { provider, model, maxRetries = 3, timeout = 600 } = llmSettings;
     await waitForRateLimit(llmSettings);
@@ -201,9 +201,19 @@ export const llmService = {
               ...(llmSettings.apiBaseUrl?.trim() && { httpOptions: { baseUrl: llmSettings.apiBaseUrl.trim() } }),
             });
             let diarization = attemptDiarization ? `\nFormat as script with labels (e.g. Speaker 1:). ${approximateSpeakerCount ? `Approx ${approximateSpeakerCount} speakers.` : 'Auto-detect speakers.'}` : "";
+            let transcribePrompt: string;
+            if (promptTemplate) {
+              // resolve {{LANGUAGE}}, {{DIARIZATION}}, {{EXTRA}} in user-edited template
+              transcribePrompt = promptTemplate
+                .split('{{LANGUAGE}}').join(language)
+                .split('{{DIARIZATION}}').join(diarization)
+                .split('{{EXTRA}}').join(customInstruction || '');
+            } else {
+              transcribePrompt = `Transcribe accurately in ${language}.${diarization} IMPORTANT: if the audio contains no recognizable human speech — silence, noise, background sounds, music, or unintelligible audio — you MUST respond with only the literal string: [chunk senza audio riconoscibile]. Never invent, guess, or hallucinate words. Only transcribe words you can clearly hear. ${customInstruction || ''}`;
+            }
             const response: GenerateContentResponse = await promiseWithTimeout(ai.models.generateContent({
                 model,
-                contents: { parts: [{ inlineData: { mimeType, data: audioBase64 } }, { text: `Transcribe accurately in ${language}.${diarization} IMPORTANT: if the audio contains no recognizable human speech — silence, noise, background sounds, music, or unintelligible audio — you MUST respond with only the literal string: [chunk senza audio riconoscibile]. Never invent, guess, or hallucinate words. Only transcribe words you can clearly hear. ${customInstruction || ''}` }] },
+                contents: { parts: [{ inlineData: { mimeType, data: audioBase64 } }, { text: transcribePrompt }] },
             }), timeout * 1000, signal);
             consecutiveErrors = 0;
             return { 

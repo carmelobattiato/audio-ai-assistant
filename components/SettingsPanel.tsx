@@ -26,6 +26,7 @@ const GEMINI_LIVE_MODELS = [
 
 import { LogsTab } from './settings/LogsTab';
 import { CustomInstructionsTab } from './settings/CustomInstructionsTab';
+import { SystemPromptsTab } from './settings/SystemPromptsTab';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -106,6 +107,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     return { ...settings, transcription: { ...settings.transcription, liveModel } };
   });
   const [activeTab, setActiveTab] = useState(TABS[0]?.id ?? '');
+  const [aiRulesSubTab, setAiRulesSubTab] = useState<'user' | 'system'>('user');
 
   // Live model fetch + test state
   const [fetchedLiveModels, setFetchedLiveModels] = useState<{ id: string; label: string }[]>([]);
@@ -1005,15 +1007,44 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         )}
 
         {activeTab === 'custom-instructions' && (
-          <section>
-            <div className="p-3 bg-gray-700 rounded-md">
-              <CustomInstructionsTab
-                instructions={localSettings.customInstructions ?? []}
-                onChange={(instructions: CustomInstruction[]) =>
-                  setLocalSettings(prev => ({ ...prev, customInstructions: instructions }))
-                }
-              />
+          <section className="space-y-4">
+            {/* Sub-tab switcher */}
+            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--neo-border)' }}>
+              {(['user', 'system'] as const).map(sub => (
+                <button
+                  key={sub}
+                  onClick={() => setAiRulesSubTab(sub)}
+                  className="flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all"
+                  style={aiRulesSubTab === sub ? {
+                    background: 'linear-gradient(135deg, rgba(124,58,237,0.5), rgba(192,38,211,0.3))',
+                    color: '#fff',
+                    boxShadow: '0 0 12px rgba(124,58,237,0.2)',
+                  } : { color: 'var(--neo-muted)' }}
+                >
+                  {sub === 'user' ? '👤 User Rules' : '⚙️ System Prompts'}
+                </button>
+              ))}
             </div>
+
+            {aiRulesSubTab === 'user' && (
+              <div className="p-3 bg-gray-700 rounded-md">
+                <CustomInstructionsTab
+                  instructions={localSettings.customInstructions ?? []}
+                  onChange={(instructions: CustomInstruction[]) =>
+                    setLocalSettings(prev => ({ ...prev, customInstructions: instructions }))
+                  }
+                />
+              </div>
+            )}
+
+            {aiRulesSubTab === 'system' && (
+              <div className="p-3 rounded-md" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                <SystemPromptsTab
+                  prompts={localSettings.systemPrompts ?? []}
+                  onChange={(prompts) => setLocalSettings(prev => ({ ...prev, systemPrompts: prompts }))}
+                />
+              </div>
+            )}
           </section>
         )}
 

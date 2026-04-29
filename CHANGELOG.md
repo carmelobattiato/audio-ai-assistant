@@ -8,6 +8,24 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.91] — 2026-04-29
+
+- Settings → AI Rules: sub-tab switcher "👤 User Rules" / "⚙️ System Prompts"
+- SystemPromptsTab: elenco prompt di sistema raggruppati per categoria (Transcription, System Role, AI Analysis)
+- Ogni prompt: collapse/expand, textarea mono editabile, badge "modified" se diverso dal default
+- Pulsante "↺ Restore Default" per ripristinare il prompt originale (defaultText immutabile)
+- Disclaimer rosso in testa al pannello — editing può compromettere il funzionamento
+- Riferimento placeholder: {{LANGUAGE}}, {{DATE}}, {{DIARIZATION}}, {{EXTRA}} con descrizione
+- SystemPrompt type in types.ts con campi id, name, description, category, text, defaultText
+- DEFAULT_SYSTEM_PROMPTS in constants/defaultSettings.ts: 8 prompt (transcription-main, llm-system, 6 analysis)
+- resolvePrompt / getPromptText in utils/promptUtils.ts
+- LlmProcessor: prop systemPrompts, risolve system role e tutti i prompt analysis via resolvePrompt con {{DATE}} e {{EXTRA}}
+- geminiService.transcribeAudio: param opzionale promptTemplate, sostituisce {{LANGUAGE}} {{DIARIZATION}} {{EXTRA}}
+- transcriptionService.transcribe: param opzionale transcriptionPromptTemplate passato a geminiService
+- useTranscriptionLogic: legge 'transcription-main' da appSettings.systemPrompts e lo passa a tutti i call transcribe
+- NewHome init: migrazione automatica — se systemPrompts mancanti nelle settings salvate, aggiunge i default; merge di nuovi prompt aggiunti in versioni future
+
+
 ## [1.90] — 2026-04-29
 
 - Tab Transcript: badge con contatore chunk trascritti/caricati (es. "2/3"), visibile solo quando la coda non è vuota

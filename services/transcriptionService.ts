@@ -12,6 +12,7 @@ export const transcriptionService = {
     settings: TranscriptionSettings, // Pass full TranscriptionSettings
     llmSettings: AppSettings['llm'], // Pass LLM settings for provider/key info
     signal?: AbortSignal,
+    transcriptionPromptTemplate?: string,
   ): Promise<{ transcription: string, usageMetadata?: { inputTokens: number, outputTokens: number, totalTokens: number } }> => {
     if (settings.transcriptionEngine === 'whisper') {
       const model = (settings.whisperModel ?? 'Xenova/whisper-tiny')
@@ -79,14 +80,15 @@ export const transcriptionService = {
       }
       
       const { transcription, usageMetadata } = await llmService.transcribeAudio(
-        audioBase64, 
-        mimeTypeForApi, // Use the potentially overridden MIME type
+        audioBase64,
+        mimeTypeForApi,
         language,
-        llmSettings, // Pass LLM settings through
+        llmSettings,
         customInstruction,
         attemptSpeakerDiarization,
         approximateSpeakerCount,
         signal,
+        transcriptionPromptTemplate,
       );
       console.log("transcriptionService: Transcription received, length:", transcription.length);
       return { transcription, usageMetadata };

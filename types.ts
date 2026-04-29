@@ -272,12 +272,22 @@ export interface CustomInstruction {
   enabled: boolean;
 }
 
+export interface SystemPrompt {
+  id: string;
+  name: string;
+  description: string;
+  category: 'transcription' | 'analysis' | 'system';
+  text: string;
+  defaultText: string;
+}
+
 export interface AppSettings {
   appearance: AppearanceSettings;
   audio: AudioSettings;
   transcription: TranscriptionSettings;
   llm: LlmSettings;
   customInstructions: CustomInstruction[];
+  systemPrompts: SystemPrompt[];
 }
 
 export interface GroundingChunkWeb {

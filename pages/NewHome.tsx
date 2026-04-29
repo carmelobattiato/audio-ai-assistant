@@ -41,7 +41,7 @@ import {
   MeetingChatMessage,
 } from '../types';
 
-import { DEFAULT_SETTINGS, APP_VERSION } from '../constants';
+import { DEFAULT_SETTINGS, DEFAULT_SYSTEM_PROMPTS, APP_VERSION } from '../constants';
 import {
   countCharacters, countWords, estimateTokens,
   htmlToPlainText, getCurrentTimestampSuffix,
@@ -560,6 +560,18 @@ export const NewHome: React.FC = () => {
       const stored = localStorage.getItem(APP_SETTINGS_KEY);
       let settings: AppSettings = stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
 
+      // Migrate: add systemPrompts if missing from old saved settings
+      if (!settings.systemPrompts || settings.systemPrompts.length === 0) {
+        settings = { ...settings, systemPrompts: DEFAULT_SYSTEM_PROMPTS };
+      } else {
+        // Merge: add any new prompts that didn't exist in the saved settings
+        const savedIds = new Set(settings.systemPrompts.map((p) => p.id));
+        const newDefaults = DEFAULT_SYSTEM_PROMPTS.filter((p) => !savedIds.has(p.id));
+        if (newDefaults.length > 0) {
+          settings = { ...settings, systemPrompts: [...settings.systemPrompts, ...newDefaults] };
+        }
+      }
+
       // Resolve encrypted API key from IndexedDB
       const encrypted = await db.getEncryptedApiKey();
       setHasCustomApiKey(!!encrypted);
@@ -1035,6 +1047,7 @@ export const NewHome: React.FC = () => {
               transcriptionSettings={appSettings.transcription}
               transcriptionLanguage={appSettings.transcription.language}
               customInstructions={appSettings.customInstructions ?? []}
+              systemPrompts={appSettings.systemPrompts ?? []}
               meetingTitle={recordingTitle}
               meetingAttendees={meetingAttendees}
               disabled={isBusy}
