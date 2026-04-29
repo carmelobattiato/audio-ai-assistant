@@ -678,12 +678,14 @@ export const NewHome: React.FC = () => {
     }
     setRecordingChunks(p => [...p, chunk]);
 
-    loggingService.debug('PIPELINE', `Chunk saved: ${chunkName}`, { autoTranscribe: appSettings.transcription.autoTranscribeChunks !== false });
+    const smartPipelineActive = appSettings.transcription.enableAutoPipeline ?? true;
+    const shouldAutoTranscribe = smartPipelineActive && appSettings.transcription.autoTranscribeChunks !== false;
+    loggingService.debug('PIPELINE', `Chunk saved: ${chunkName}`, { autoTranscribe: shouldAutoTranscribe, smartPipeline: smartPipelineActive });
     transLogic.addChunkToQueue(chunk, chunkName);
-    if (appSettings.transcription.autoTranscribeChunks !== false) {
+    if (shouldAutoTranscribe) {
       transLogic.handleTranscribeChunkDirect(chunk, chunkName);
     }
-  }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks]);
+  }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks, appSettings.transcription.enableAutoPipeline]);
 
   const handleRecordingStop = useCallback(async (id: string, wasChunked: boolean, transcript?: string | null, emo?: EmotionEvent[]) => {
     let finalTranscript = transcribedText;

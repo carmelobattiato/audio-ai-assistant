@@ -1,4 +1,4 @@
-# Audio AI Assistant — v1.92
+# Audio AI Assistant — v1.93
 
 A **client-side-only** web app for audio recording, automatic transcription via Google Gemini, and LLM-powered analysis. Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.
 
@@ -278,17 +278,19 @@ Click **"Rec without headphones"** in the dialog footer to skip screen share and
 
 ### Transcription
 
-Powered by Google Gemini multimodal speech-to-text.
+Powered by Google Gemini multimodal speech-to-text or local Whisper (offline).
 
 | Setting | Options |
 |---------|---------|
 | Language | Italian (default), English |
 | Quality | 5 levels — Fast/Basic → Best/Slow |
 | Output format | TXT, SRT, CSV, HTML |
+| Engine | Gemini (cloud) / Whisper (local, offline) |
 
 - Transcription queue with multi-file sequencing
-- **Smart Pipeline**: auto-starts transcription → LLM analysis on recording stop
+- **Smart Pipeline**: when active, auto-starts transcription → LLM analysis on recording stop; when disabled, chunks appear in the queue but are never auto-transcribed
 - Transcript is fully editable inline before analysis
+- **Editable system prompts**: Settings → AI Rules → System Prompts to customise the transcription prompt template with `{{LANGUAGE}}`, `{{DIARIZATION}}`, `{{EXTRA}}` placeholders
 
 ---
 
@@ -317,8 +319,10 @@ Processes the transcript with Google Gemini.
 | Custom OpenAI-compatible endpoint | Any URL + model name |
 
 - **Web search** (Google models only): grounds analysis with live search results and citations
+- **Editable system prompts**: Settings → AI Rules → System Prompts to customise each analysis prompt
 - Rich-text result editor
 - Copy result as rich HTML (preserves formatting in Outlook / Gmail)
+- Spinner indicator on "Process Text" and "Transcribe Audio" buttons during active processing
 
 ---
 
@@ -327,6 +331,8 @@ Processes the transcript with Google Gemini.
 Interactive multi-turn chat tab (next to AI Analysis) with full meeting context.
 
 - Full transcript + AI analysis injected as system context on every call
+- **Bubble Notes context**: note text (with timestamps) and embedded images included in the system prompt — chat works even without a transcript
+- **Multimodal image support**: if notes contain screenshots, a banner lets the user choose whether to send images to Gemini or text only
 - Multi-turn conversation — history of last 12 exchanges passed to the model
 - **Response formats**: markdown text, tables, code blocks, inline SVG bar charts
   - Charts rendered from a `chart` code block: `{"type":"bar","title":"...","labels":[...],"values":[...],"unit":""}`
@@ -334,6 +340,7 @@ Interactive multi-turn chat tab (next to AI Analysis) with full meeting context.
 - Per-message copy button (hover to reveal)
 - **Export chat as Markdown** (`.md` download)
 - Chat history **persisted in IndexedDB** and saved to session JSON — fully restored on session load
+- **Resizable input textarea**: double-height default, draggable vertically up to 300 px
 
 ---
 
@@ -382,10 +389,11 @@ The **Calendar** button in the topbar opens a modal with two switchable views:
 ### Session Management
 
 - Up to **15 sessions** stored in IndexedDB (browser local storage, no server)
-- Each session: audio chunks, transcript, LLM results, notes, statistics
-- Operations: save, load, merge, overwrite
+- Each session: audio chunks, transcript, LLM results, notes, chat history, statistics
+- Operations: save, load, **continue** (load + resume recording), merge, overwrite
 - Automatic recovery of sessions interrupted by browser crash
 - Max 50 MB per session
+- Import / export session as JSON for cross-device transfer
 
 ---
 
@@ -472,7 +480,38 @@ audio-ai-assistant/
 
 ---
 
+## Deployment scripts
+
+| Script | Platform | Usage |
+|--------|----------|-------|
+| `github.sh` | macOS / Linux | Push changes to GitHub; `--pull-force` overwrites local with remote (asks confirmation) |
+| `setup_and_run.ps1` | Windows | Full lifecycle: start / stop / status / reinstall |
+| `setup_and_run.sh` | macOS / Linux | Same as above for Unix systems |
+| `backup.sh` | macOS / Linux | Local backup with size reporting |
+
+---
+
 ## Changelog
+
+### v1.93 — 2026-04-29
+
+- Chat input textarea: double height (4 rows, min 80 px), vertically resizable up to 300 px
+- Transcribe Audio button: replaced glow animation with inline spinner (animate-spin) during transcription
+- Process Text button: same inline spinner replacing the pulsing dot animation
+- Smart Pipeline: auto-transcription of chunks disabled when pipeline is off — chunks appear in queue but are not transcribed automatically
+- github_push.sh renamed to github.sh; added `--pull-force` parameter to overwrite local with remote after confirmation
+
+---
+
+### v1.91 — 2026-04-29
+
+- Settings → AI Rules: sub-tab "User Rules" / "System Prompts"
+- SystemPromptsTab: 8 editable system prompts grouped by category (Transcription, System Role, AI Analysis)
+- Each prompt: collapse/expand, badge "modified", restore-to-default button
+- Placeholders: `{{LANGUAGE}}`, `{{DATE}}`, `{{DIARIZATION}}`, `{{EXTRA}}`
+- LlmProcessor and transcriptionService wired to resolve prompts at call time
+
+---
 
 ### v1.76 — 2026-04-24
 

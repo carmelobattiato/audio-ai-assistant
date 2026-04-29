@@ -1,4 +1,5 @@
 import { TranscriptionOutputFormat, SupportedLanguage } from "../types";
+import { htmlToPlainText } from "./textUtils";
 
 // ── Minimal ZIP creator (STORED method, no external deps) ─────────────────────
 
@@ -302,6 +303,7 @@ export const saveTextToFile = (
       break;
     case TranscriptionOutputFormat.TXT:
     default:
+      blobContent = htmlToPlainText(text);
       effectiveFilename = filename.replace(/\.[^/.]+$/, "") + ".txt";
       break;
   }

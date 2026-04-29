@@ -568,12 +568,13 @@ INSTRUCTIONS:
                 : 'Trascrivi prima una sessione…'
             }
             disabled={disabled || !hasContext || isTyping}
-            rows={2}
-            className="flex-1 bg-transparent text-sm resize-none outline-none py-1 px-1"
+            rows={4}
+            className="flex-1 bg-transparent text-sm outline-none py-1 px-1"
             style={{
               color: 'var(--neo-text)',
-              minHeight: '40px',
-              maxHeight: '120px',
+              minHeight: '80px',
+              maxHeight: '300px',
+              resize: 'vertical',
             }}
           />
           <div className="flex-shrink-0 pb-0.5">

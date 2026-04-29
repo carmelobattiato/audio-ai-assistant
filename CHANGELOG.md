@@ -8,6 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.93] — 2026-04-29
+
+- Aggiornamento
+
+
+## [1.93] — 2026-04-29
+
+- Export TXT: conversione HTML → testo pulito (`<br>`→newline, `<hr>`→`---`, `<h3>`→intestazione, tag rimossi)
+
+---
+
 ## [1.92] — 2026-04-29
 
 - github_push.sh rinominato in github.sh

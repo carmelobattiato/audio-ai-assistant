@@ -161,8 +161,15 @@ export function htmlToPlainText(html: string): string {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
 
+  tempDiv.querySelectorAll('hr').forEach(hr => {
+    hr.replaceWith(document.createTextNode('\n\n---\n\n'));
+  });
+  tempDiv.querySelectorAll('br').forEach(br => {
+    br.replaceWith(document.createTextNode('\n'));
+  });
   tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
-    h.innerHTML = `\n\n${h.innerHTML.toUpperCase()}\n`;
+    const text = h.textContent?.trim() ?? '';
+    h.replaceWith(document.createTextNode(`\n\n${text}\n`));
   });
   tempDiv.querySelectorAll('p').forEach(p => {
     p.innerHTML = `\n${p.innerHTML}\n`;
@@ -177,7 +184,8 @@ export function htmlToPlainText(html: string): string {
     tr.innerHTML = `\n| ${Array.from(tr.querySelectorAll('td, th')).map(c => c.textContent?.trim()).join(' | ')} |`;
   });
 
-  return tempDiv.textContent || tempDiv.innerText || "";
+  const raw = tempDiv.textContent || tempDiv.innerText || "";
+  return raw.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 export const parseHtmlForGeminiParts = (htmlString: string): Part[] => {
