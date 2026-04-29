@@ -128,7 +128,7 @@ function outlookPlugin() {
             if (process.platform !== 'win32') {
               res.statusCode = 503;
               res.end(JSON.stringify({
-                error: 'Outlook non disponibile: questa funzione richiede Windows.',
+                error: `Outlook Bridge is not available on ${process.platform}. This feature requires Windows.`,
               }));
               return;
             }

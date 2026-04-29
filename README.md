@@ -1,4 +1,4 @@
-# Audio AI Assistant — v1.89
+# Audio AI Assistant — v1.90
 
 A **client-side-only** web app for audio recording, automatic transcription via Google Gemini, and LLM-powered analysis. Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.
 

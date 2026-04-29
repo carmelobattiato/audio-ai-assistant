@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Attendee, OutlookAppointment } from '../OutlookCalendarModal';
+import { loggingService } from '@/services/loggingService';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const HOUR_PX    = 80;
@@ -9,6 +10,14 @@ const HOURS      = END_HOUR - START_HOUR;
 const MAX_COLS   = 10;
 const TIME_COL_W = 52;
 const OUTLOOK_API = '/api/outlook';
+
+function clientOSName(): string {
+  const p = navigator.platform.toLowerCase();
+  if (p.startsWith('win')) return 'Windows';
+  if (p.startsWith('mac')) return 'macOS';
+  if (p.startsWith('linux')) return 'Linux';
+  return navigator.platform || 'Unknown OS';
+}
 
 // ─── View type ─────────────────────────────────────────────────────────────────
 type View = 'calendar' | 'list';
@@ -379,21 +388,51 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
   }, [isOpen]);
 
   // Internal fetch
-  const fetchAppts = useCallback(async () => {
+  const fetchAppts = useCallback(async (isRetry = false) => {
     setIntLoading(true); setIntError(null); setIntBridge(null);
+    if (isRetry) {
+      loggingService.info('CALENDAR_RETRY', 'User triggered calendar data retry', {
+        platform: navigator.platform,
+      });
+    }
     try {
       const st = await fetch(`${OUTLOOK_API}/status`, { signal: AbortSignal.timeout(3000) });
-      if (!st.ok) throw new Error('Bridge non risponde');
+      if (!st.ok) {
+        const reason = `Outlook Bridge unreachable (HTTP ${st.status})`;
+        loggingService.warn('CALENDAR_BRIDGE_ERROR', reason, { httpStatus: st.status, isRetry, platform: navigator.platform });
+        loggingService.debug('CALENDAR_BRIDGE_ERROR_DETAIL', 'Status endpoint returned non-OK response', {
+          url: `${OUTLOOK_API}/status`, httpStatus: st.status, isRetry, platform: navigator.platform,
+        });
+        throw new Error(reason);
+      }
       const sd = await st.json();
-      if (sd.status !== 'ok') throw new Error(sd.message ?? 'Outlook non disponibile');
+      if (sd.status !== 'ok') {
+        const serverPlatform: string = sd.platform ?? '';
+        const isNonWindows = serverPlatform !== '' && serverPlatform !== 'win32';
+        const reason = isNonWindows
+          ? `Outlook Bridge is not available on ${clientOSName()}. This feature requires Windows.`
+          : (sd.message ?? 'Outlook Bridge unavailable');
+        loggingService.warn('CALENDAR_BRIDGE_ERROR', reason, { serverPlatform, isNonWindows, isRetry, bridgeStatus: sd.status });
+        loggingService.debug('CALENDAR_BRIDGE_ERROR_DETAIL', 'Bridge status check failed', {
+          statusData: sd, serverPlatform, isNonWindows, isRetry, clientPlatform: navigator.platform,
+        });
+        throw new Error(reason);
+      }
       setIntBridge(true);
       const r = await fetch(`${OUTLOOK_API}/appointments/today`);
       const d = await r.json();
-      if (d.error) throw new Error(d.error);
+      if (d.error) {
+        loggingService.warn('CALENDAR_APPOINTMENTS_ERROR', d.error, { isRetry });
+        loggingService.debug('CALENDAR_APPOINTMENTS_ERROR_DETAIL', 'Appointments endpoint returned error', { data: d, isRetry });
+        throw new Error(d.error);
+      }
       setIntAppts(d.appointments ?? []);
+      loggingService.debug('CALENDAR_LOADED', `Loaded ${d.appointments?.length ?? 0} appointments`, {
+        count: d.appointments?.length ?? 0, isRetry,
+      });
     } catch (e: unknown) {
       setIntBridge(false);
-      setIntError((e as Error).message ?? 'Errore connessione');
+      setIntError((e as Error).message ?? 'Connection error');
     } finally { setIntLoading(false); }
   }, []);
 
@@ -431,7 +470,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
     return s === 'live' || s === 'next';
   })?.id ?? null;
 
-  const refresh = isExternal ? onRequestRefresh : fetchAppts;
+  const refresh = isExternal ? onRequestRefresh : () => fetchAppts(true);
 
   if (!isOpen) return null;
 
@@ -550,12 +589,17 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
             ) : errorMsg || bridgeAvailable === false ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
                 <div className="text-3xl">📅</div>
-                <p className="text-sm font-medium" style={{ color: 'var(--neo-text)' }}>Outlook Bridge non disponibile</p>
-                <p className="text-xs max-w-xs" style={{ color: 'var(--neo-muted)' }}>{errorMsg ?? 'Avvia il bridge Outlook e riprova.'}</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--neo-text)' }}>Outlook Bridge unavailable</p>
+                <p className="text-xs max-w-xs" style={{ color: 'var(--neo-muted)' }}>
+                  {errorMsg ?? 'Start the Outlook bridge and try again.'}
+                </p>
+                <p className="text-[10px]" style={{ color: 'var(--neo-muted)', opacity: 0.6 }}>
+                  OS: {clientOSName()} ({navigator.platform})
+                </p>
                 <button onClick={refresh}
                   className="mt-2 px-4 py-2 text-xs font-medium rounded-lg transition-all hover:scale-105"
                   style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: '#A78BFA' }}>
-                  Riprova
+                  Retry
                 </button>
               </div>
             ) : appointments.length === 0 ? (

@@ -744,7 +744,10 @@ export const NewHome: React.FC = () => {
   const rightTabs = [
     { id: 'notes',      label: 'Notes', icon: <NotesIcon />,
       badge: bubbleNotes.length > 0 ? String(bubbleNotes.length) : undefined },
-    { id: 'transcript', label: 'Transcript', icon: <DocumentIcon /> },
+    { id: 'transcript', label: 'Transcript', icon: <DocumentIcon />,
+      badge: transLogic.transcriptionQueue.length > 0
+        ? `${transLogic.transcriptionQueue.filter(q => q.transcribed).length}/${transLogic.transcriptionQueue.length}`
+        : undefined },
     { id: 'analysis',   label: 'AI Analysis', icon: <SparklesIcon />,
       badge: llmProcessedText ? '✓' : undefined },
     { id: 'chat',       label: 'Chat', icon: <ChatIcon />,
@@ -752,22 +755,52 @@ export const NewHome: React.FC = () => {
   ];
 
   // ── Calendar background sync ──────────────────────────────────────────────
-  const fetchCalendarData = useCallback(async () => {
+  const fetchCalendarData = useCallback(async (isRetry = false) => {
     setCalRefreshing(true);
+    if (isRetry) {
+      loggingService.info('CALENDAR_RETRY', 'User triggered calendar data retry', {
+        platform: navigator.platform,
+      });
+    }
     try {
       const statusRes = await fetch('/api/outlook/status', { signal: AbortSignal.timeout(3000) });
-      if (!statusRes.ok) throw new Error('Bridge non risponde');
+      if (!statusRes.ok) {
+        const reason = `Outlook Bridge unreachable (HTTP ${statusRes.status})`;
+        loggingService.warn('CALENDAR_BRIDGE_ERROR', reason, { httpStatus: statusRes.status, isRetry, platform: navigator.platform });
+        loggingService.debug('CALENDAR_BRIDGE_ERROR_DETAIL', 'Status endpoint returned non-OK response', {
+          url: '/api/outlook/status', httpStatus: statusRes.status, isRetry, platform: navigator.platform,
+        });
+        throw new Error(reason);
+      }
       const statusData = await statusRes.json();
-      if (statusData.status !== 'ok') throw new Error(statusData.message ?? 'Outlook non disponibile');
+      if (statusData.status !== 'ok') {
+        const serverPlatform: string = statusData.platform ?? '';
+        const isNonWindows = serverPlatform !== '' && serverPlatform !== 'win32';
+        const reason = isNonWindows
+          ? `Outlook Bridge is not available on ${serverPlatform}. This feature requires Windows.`
+          : (statusData.message ?? 'Outlook Bridge unavailable');
+        loggingService.warn('CALENDAR_BRIDGE_ERROR', reason, { serverPlatform, isNonWindows, isRetry, bridgeStatus: statusData.status });
+        loggingService.debug('CALENDAR_BRIDGE_ERROR_DETAIL', 'Bridge status check failed', {
+          statusData, serverPlatform, isNonWindows, isRetry, clientPlatform: navigator.platform,
+        });
+        throw new Error(reason);
+      }
       setCalBridgeAvailable(true);
       const res = await fetch('/api/outlook/appointments/today');
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (data.error) {
+        loggingService.warn('CALENDAR_APPOINTMENTS_ERROR', data.error, { isRetry });
+        loggingService.debug('CALENDAR_APPOINTMENTS_ERROR_DETAIL', 'Appointments endpoint returned error', { data, isRetry });
+        throw new Error(data.error);
+      }
       setCalAppointments(data.appointments ?? []);
       setCalError(null);
+      loggingService.debug('CALENDAR_LOADED', `Loaded ${data.appointments?.length ?? 0} appointments`, {
+        count: data.appointments?.length ?? 0, isRetry,
+      });
     } catch (e: unknown) {
       setCalBridgeAvailable(false);
-      setCalError((e as Error).message ?? 'Errore di connessione');
+      setCalError((e as Error).message ?? 'Connection error');
     } finally {
       setCalRefreshing(false);
     }
@@ -1097,7 +1130,7 @@ export const NewHome: React.FC = () => {
         externalBridgeAvailable={calBridgeAvailable}
         externalError={calError}
         isBackgroundRefreshing={calRefreshing}
-        onRequestRefresh={fetchCalendarData}
+        onRequestRefresh={() => fetchCalendarData(true)}
       />
       </Suspense>
 

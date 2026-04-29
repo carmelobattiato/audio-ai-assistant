@@ -8,6 +8,20 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.90] — 2026-04-29
+
+- Tab Transcript: badge con contatore chunk trascritti/caricati (es. "2/3"), visibile solo quando la coda non è vuota
+- Calendar error panel: testo in inglese, mostra il motivo dell'errore e l'OS rilevato (client + server platform)
+- Se OS non è Windows: messaggio esplicito "This feature requires Windows" nell'UI e nell'errore
+- Pulsante "Riprova" rinominato "Retry" e wrappato con isRetry=true per distinguere tentativi manuali
+- loggingService: WARN CALENDAR_BRIDGE_ERROR con motivo + platform a ogni fallimento del bridge
+- loggingService: DEBUG CALENDAR_BRIDGE_ERROR_DETAIL con contesto completo (statusData, piattaforme, isRetry)
+- loggingService: INFO CALENDAR_RETRY tracciato al click su Retry (sia path esterno che interno)
+- loggingService: WARN/DEBUG CALENDAR_APPOINTMENTS_ERROR se l'endpoint appointments restituisce errore
+- loggingService: DEBUG CALENDAR_LOADED con count appointment al successo
+- vite.config.ts: messaggio errore /appointments/today in inglese con platform inclusa
+
+
 ## [1.89] — 2026-04-28
 
 - DB countdown trasformato in button: clic forza il salvataggio immediato del chunk corrente e resetta il timer al nuovo intervallo
