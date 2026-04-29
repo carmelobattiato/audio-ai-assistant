@@ -727,6 +727,37 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   />
                 </div>
               </div>
+              <div className="pt-4 mt-4 border-t border-gray-600">
+                <h4 className="text-md font-semibold text-gray-200 mb-2">Waveform Style</h4>
+                <p className="text-[10px] text-gray-400 mb-3 leading-tight">
+                  Applied to both the main recording screen and the PiP widget.
+                </p>
+                <div className="flex gap-3">
+                  {([
+                    { value: 'spectrum', label: 'Spectrum Analyzer', desc: 'Frequency bars — shows spectral content' },
+                    { value: 'oscilloscope', label: 'Oscilloscope', desc: 'Waveform line — shows audio shape over time' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleLocalGenericChange('audio', 'waveformStyle', opt.value)}
+                      className="flex-1 flex flex-col gap-1 px-3 py-2.5 rounded-xl text-left transition-all"
+                      style={{
+                        background: (localSettings.audio.waveformStyle ?? 'spectrum') === opt.value
+                          ? 'rgba(124,58,237,0.22)'
+                          : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${(localSettings.audio.waveformStyle ?? 'spectrum') === opt.value
+                          ? 'rgba(139,92,246,0.55)'
+                          : 'rgba(255,255,255,0.1)'}`,
+                      }}
+                    >
+                      <span className="text-sm font-semibold" style={{
+                        color: (localSettings.audio.waveformStyle ?? 'spectrum') === opt.value ? '#C4B5FD' : '#9CA3AF',
+                      }}>{opt.label}</span>
+                      <span className="text-[10px] text-gray-500 leading-tight">{opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
                <Checkbox
                 label="Enable Chunked Recording"
                 id="transcriptionEnableChunkedRecording"

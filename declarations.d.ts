@@ -1,3 +1,11 @@
+interface DocumentPictureInPicture {
+  requestWindow(options: { width?: number; height?: number }): Promise<Window>;
+}
+
+interface Window {
+  documentPictureInPicture?: DocumentPictureInPicture;
+}
+
 declare module '*.png' {
   const src: string;
   export default src;

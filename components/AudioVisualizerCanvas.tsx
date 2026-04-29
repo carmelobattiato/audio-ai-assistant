@@ -9,18 +9,19 @@ interface AudioVisualizerCanvasProps {
   micAnalyserNode: AnalyserNode | null;
   appAnalyserNode: AnalyserNode | null;
   isActive: boolean;
-  audioBuffer?: AudioBuffer | null; 
-  micAudioBuffer?: AudioBuffer | null; 
-  appAudioBuffer?: AudioBuffer | null; 
+  audioBuffer?: AudioBuffer | null;
+  micAudioBuffer?: AudioBuffer | null;
+  appAudioBuffer?: AudioBuffer | null;
   currentTime?: number;
   duration?: number;
-  waveformColor?: string; 
+  waveformColor?: string;
   autoPauseEnabled?: boolean;
   autoPauseSensitivityDb?: number;
   autoPauseState?: AutoPauseState;
   onSeek?: (time: number) => void;
   currentEmotion?: Emotion;
   emotionHistory?: EmotionEvent[];
+  hideLegend?: boolean;
 }
 
 const STATIC_WAVEFORM_AMPLITUDE_SCALAR = 1.6;
@@ -48,6 +49,7 @@ export const AudioVisualizerCanvas: React.FC<AudioVisualizerCanvasProps> = ({
   onSeek,
   currentEmotion,
   emotionHistory,
+  hideLegend = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hasStaticWaveform = !!audioBuffer || !!micAudioBuffer || !!appAudioBuffer;
@@ -172,18 +174,20 @@ export const AudioVisualizerCanvas: React.FC<AudioVisualizerCanvasProps> = ({
         onClick={handleCanvasClick}
       />
       {/* Visual Legend */}
-      <div className="absolute top-2 left-2 flex flex-col gap-1 pointer-events-none">
-        <div className="flex items-center gap-2 bg-gray-900/60 px-2 py-0.5 rounded-md backdrop-blur-sm">
-          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-          <span className="text-[10px] font-bold text-blue-100 uppercase tracking-tighter">Microphone</span>
-        </div>
-        {isAppAudioActive && (
-          <div className="flex items-center gap-2 bg-gray-900/60 px-2 py-0.5 rounded-md backdrop-blur-sm animate-pulse">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <span className="text-[10px] font-bold text-red-100 uppercase tracking-tighter">System Audio</span>
+      {!hideLegend && (
+        <div className="absolute top-2 left-2 flex flex-row gap-2 pointer-events-none">
+          <div className="flex items-center gap-1.5 bg-gray-900/60 px-2 py-0.5 rounded-md backdrop-blur-sm">
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#8B5CF6' }}></div>
+            <span className="text-[10px] font-bold uppercase tracking-tighter" style={{ color: '#C4B5FD' }}>Microphone</span>
           </div>
-        )}
-      </div>
+          {isAppAudioActive && (
+            <div className="flex items-center gap-1.5 bg-gray-900/60 px-2 py-0.5 rounded-md backdrop-blur-sm">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0"></div>
+              <span className="text-[10px] font-bold text-red-100 uppercase tracking-tighter">System Audio</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

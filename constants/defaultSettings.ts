@@ -9,11 +9,12 @@ export const DEFAULT_AUDIO_SETTINGS: AppSettings['audio'] = {
   autoPauseTimeoutSeconds: 10,
   autoPauseSensitivityDb: -20,
   enableEmotionAnalysis: false,
-  echoCancellation: false, 
+  echoCancellation: false,
   autoManageEchoCancellation: true,
   echoCancellationStrength: "Standard",
-  noiseSuppression: false, 
+  noiseSuppression: false,
   autoGainControl: true,
+  waveformStyle: 'spectrum',
 };
 
 export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {

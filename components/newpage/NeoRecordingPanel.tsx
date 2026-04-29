@@ -2,10 +2,14 @@
 import React, {
   useState, useRef, useCallback, useEffect, useImperativeHandle, useMemo,
 } from 'react';
+import ReactDOM from 'react-dom';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useRecorderPlayer } from '../../hooks/recorder/useRecorderPlayer';
 import { useScreenshotHandler } from '../../hooks/recorder/useScreenshotHandler';
+import { usePipWindow } from '../../hooks/usePipWindow';
 import { AudioVisualizerCanvas } from '../AudioVisualizerCanvas';
+import { FreqWaveform } from '../FreqWaveform';
+import { PipRecordingWidget } from '../PipRecordingWidget';
 import {
   RecordingState, AudioRecorderRef, AudioRecorderProps, PipelineStep,
 } from '../../types';
@@ -302,6 +306,8 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       elapsedTimeRef,
     );
 
+    const pip = usePipWindow();
+
     const fullTitle = useMemo(() => {
       const base = props.recordingTitle.trim() || 'Session';
       return `${base}_${props.recordingTimestampSuffix}`;
@@ -429,6 +435,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
               >
                 {isRecording ? (isPaused ? '⏸ Paused' : '⏺ Recording') : '🎙 Recording Studio'}
               </div>
+
               {isRecording && !isPaused && (
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -482,20 +489,28 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
               }}
             />
             <div style={{ height: 200 }}>
-              <AudioVisualizerCanvas
-                micAnalyserNode={isRecording ? micAnalyserNodeRef.current : (player.isPlayerPlaying ? player.playerAnalyserNodeRef.current : null)}
-                appAnalyserNode={isRecording ? appAudioAnalyserNodeRef.current : null}
-                isActive={isRecording ? (!isPaused || isAutoPaused) : player.isPlayerPlaying}
-                audioBuffer={player.decodedAudioBuffer}
-                currentTime={isRecording ? undefined : player.currentPlayTime}
-                duration={isRecording ? undefined : (props.audioDuration || 0)}
-                autoPauseEnabled={props.audioSettings.enableAutoPause}
-                autoPauseSensitivityDb={props.audioSettings.autoPauseSensitivityDb}
-                autoPauseState={autoPauseState}
-                onSeek={player.decodedAudioBuffer ? player.handleSeek : undefined}
-                currentEmotion={currentEmotion}
-                emotionHistory={props.emotionHistory}
-              />
+              {(props.audioSettings.waveformStyle ?? 'spectrum') === 'spectrum' && isRecording ? (
+                <FreqWaveform
+                  micAnalyserNode={micAnalyserNodeRef.current}
+                  appAnalyserNode={appAudioAnalyserNodeRef.current}
+                  isActive={!isPaused || isAutoPaused}
+                />
+              ) : (
+                <AudioVisualizerCanvas
+                  micAnalyserNode={isRecording ? micAnalyserNodeRef.current : (player.isPlayerPlaying ? player.playerAnalyserNodeRef.current : null)}
+                  appAnalyserNode={isRecording ? appAudioAnalyserNodeRef.current : null}
+                  isActive={isRecording ? (!isPaused || isAutoPaused) : player.isPlayerPlaying}
+                  audioBuffer={player.decodedAudioBuffer}
+                  currentTime={isRecording ? undefined : player.currentPlayTime}
+                  duration={isRecording ? undefined : (props.audioDuration || 0)}
+                  autoPauseEnabled={props.audioSettings.enableAutoPause}
+                  autoPauseSensitivityDb={props.audioSettings.autoPauseSensitivityDb}
+                  autoPauseState={autoPauseState}
+                  onSeek={player.decodedAudioBuffer ? player.handleSeek : undefined}
+                  currentEmotion={currentEmotion}
+                  emotionHistory={props.emotionHistory}
+                />
+              )}
             </div>
 
             {/* Large timer overlay when recording */}
@@ -566,7 +581,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
           {/* ── PRIMARY CONTROLS ──────────────────────────────────────────── */}
           <div>
             {isStartMode ? (
-              /* Start mode: two buttons */
+              /* Start mode: three buttons */
               <div className="flex gap-3">
                 <button
                   onClick={handleStartMicOnly}
@@ -596,8 +611,30 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
                   title="Opens system audio capture — required for Teams / Zoom / Meet recording"
                 >
                   <HeadphonesIcon />
-                  <span>+ Screen audio</span>
+                  <span>+ System audio</span>
                 </button>
+                {pip.isSupported && (
+                  <button
+                    onClick={() => pip.isOpen ? pip.closePip() : pip.openPip()}
+                    disabled={!!props.disabled || !!isFinalizing}
+                    className="flex-1 flex items-center justify-center gap-2.5 py-3 rounded-xl font-semibold text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                      background: pip.isOpen
+                        ? 'linear-gradient(135deg, rgba(124,58,237,0.5), rgba(139,92,246,0.4))'
+                        : 'linear-gradient(135deg, rgba(109,40,217,0.3), rgba(124,58,237,0.2))',
+                      border: `1px solid ${pip.isOpen ? 'rgba(139,92,246,0.6)' : 'rgba(139,92,246,0.3)'}`,
+                      color: pip.isOpen ? '#C4B5FD' : 'var(--neo-text)',
+                      boxShadow: pip.isOpen ? '0 4px 20px rgba(124,58,237,0.35)' : '0 4px 20px rgba(124,58,237,0.1)',
+                    }}
+                    title={pip.isOpen ? 'Chiudi floating widget' : 'Apri floating widget (sempre in primo piano)'}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="3" width="20" height="15" rx="2" />
+                      <rect x="13" y="10" width="7" height="6" rx="1" fill="currentColor" strokeWidth="0" />
+                    </svg>
+                    <span>{pip.isOpen ? 'PiP ✓' : 'PiP'}</span>
+                  </button>
+                )}
               </div>
             ) : (
               /* Recording mode: mic | big button | headphones */
@@ -648,6 +685,27 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
                 >
                   <HeadphonesIcon />
                 </button>
+
+                {/* PiP toggle — visible during recording */}
+                {pip.isSupported && (
+                  <button
+                    onClick={() => pip.isOpen ? pip.closePip() : pip.openPip()}
+                    disabled={!!props.disabled}
+                    className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                    style={{
+                      background: pip.isOpen ? 'rgba(124,58,237,0.35)' : 'rgba(109,40,217,0.15)',
+                      border: `1px solid ${pip.isOpen ? 'rgba(139,92,246,0.6)' : 'rgba(139,92,246,0.3)'}`,
+                      color: pip.isOpen ? '#C4B5FD' : '#A78BFA',
+                      boxShadow: pip.isOpen ? '0 0 12px rgba(124,58,237,0.4)' : 'none',
+                    }}
+                    title={pip.isOpen ? 'Chiudi floating widget' : 'Apri floating widget (sempre in primo piano)'}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="3" width="20" height="15" rx="2" />
+                      <rect x="13" y="10" width="7" height="6" rx="1" fill="currentColor" strokeWidth="0" />
+                    </svg>
+                  </button>
+                )}
               </div>
             )}
 
@@ -832,6 +890,45 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
             />
           )}
         </div>
+
+        {pip.mountEl && ReactDOM.createPortal(
+          <PipRecordingWidget
+            isRecording={isRecording}
+            isPaused={isPaused}
+            isAutoPaused={isAutoPaused}
+            autoPauseState={autoPauseState}
+            pipelineStep={props.pipelineStep ?? PipelineStep.IDLE}
+            elapsedTime={elapsedTime}
+            sessionTitle={props.recordingTitle}
+            chunksCount={props.chunksCount}
+            micAnalyserNode={isRecording ? micAnalyserNodeRef.current : null}
+            appAnalyserNode={isRecording ? appAudioAnalyserNodeRef.current : null}
+            isMicEnabled={isMicEnabled}
+            isAppAudioActive={isAppAudioActive}
+            waveformStyle={props.audioSettings.waveformStyle ?? 'spectrum'}
+            onAddBubbleNote={(html: string) => {
+              const note = {
+                id: `pip_${Date.now()}`,
+                contentHtml: html,
+                timestamp: Date.now(),
+                recordingElapsedTime: elapsedTime,
+                isEditing: false,
+                isProcessing: false,
+              };
+              props.onBubbleNotesChange([...props.bubbleNotes, note]);
+            }}
+            onStartMicOnly={handleStartMicOnly}
+            onStartWithScreenAudio={handleConfirmGuide}
+            onToggleMic={toggleMic}
+            onAddAppAudio={addAppAudio}
+            onPause={pauseRecording}
+            onResume={resumeRecording}
+            onStop={stopRecording}
+            onScreenshot={() => screenshots.handleTakeScreenshot(true)}
+            onClose={pip.closePip}
+          />,
+          pip.mountEl
+        )}
       </>
     );
   },

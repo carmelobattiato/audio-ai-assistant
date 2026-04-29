@@ -8,14 +8,22 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
-## [1.93] — 2026-04-29
+## [1.94] — 2026-04-30
 
-- Aggiornamento
-
-
-## [1.93] — 2026-04-29
-
+- PiP widget: Document Picture-in-Picture always-on-top (Chrome 116+); bottone nella riga start + bottone circolare durante la registrazione (accanto alle cuffie)
+- PiP widget: controlli Mute, Cuffie (system audio), Pause/Resume, Stop (pulse rosso), Screenshot → BubbleNote
+- PiP widget: textarea "Area Bubble Notes" con supporto paste screenshot → crea BubbleNote direttamente
+- PiP widget: pulsanti "Mic only" / "+ System audio" in idle per avviare registrazione dal widget
+- PiP widget: timer grande sovrimpresso sulla waveform (stile schermata principale), rimossi dot REC e timer dalla status bar
+- PiP widget: Stop button pulsa in rosso durante la registrazione (stesso effetto del pulsante principale)
+- Waveform style: impostazione in Settings → Audio Recording — "Spectrum Analyzer" (barre frequenze, default) e "Oscilloscope" (forma d'onda); applicata a schermata principale e PiP
+- Spectrum Analyzer: legenda Microphone (viola) + System Audio (rosso) orizzontale, stessa grafica dell'oscilloscopio
+- Legenda waveform: layout orizzontale in entrambi gli stili; colore Microphone aggiornato a viola (coerente con le barre); System Audio non lampeggia più
+- `FreqWaveform`: nuovo componente condiviso (`components/FreqWaveform.tsx`) — canvas RAF, `getByteFrequencyData`, split mic/app
+- AudioVisualizerCanvas: prop `hideLegend` per nascondere badge; legenda resa orizzontale
+- "+ Screen audio" rinominato "+ System audio" nei tasti start mode
 - Export TXT: conversione HTML → testo pulito (`<br>`→newline, `<hr>`→`---`, `<h3>`→intestazione, tag rimossi)
+
 
 ---
 

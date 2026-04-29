@@ -151,6 +151,8 @@ export enum TranscriptionOutputFormat {
 
 export type EchoStrength = "Standard" | "Enhanced" | "Aggressive" | "Ultra (Voice Calibrated)";
 
+export type WaveformStyle = 'spectrum' | 'oscilloscope';
+
 export interface AudioSettings {
   bitrate: number;
   channels: "mono" | "stereo";
@@ -160,9 +162,10 @@ export interface AudioSettings {
   enableEmotionAnalysis: boolean;
   echoCancellation: boolean;
   autoManageEchoCancellation: boolean;
-  echoCancellationStrength: EchoStrength; 
+  echoCancellationStrength: EchoStrength;
   noiseSuppression: boolean;
   autoGainControl: boolean;
+  waveformStyle?: WaveformStyle;
 }
 
 export interface TranscriptionSettings {
