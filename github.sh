@@ -1,9 +1,34 @@
 #!/bin/bash
 
-# Script generico per caricare modifiche su GitHub.
+# Uso:
+#   ./github.sh                push delle modifiche locali su GitHub
+#   ./github.sh --pull-force   scarica il remoto e sovrascrive tutto il locale (chiede conferma)
+#
 # Salva URL e token in ~/.github_push_config (mai committato).
 
 set -euo pipefail
+
+# ── Modalità --pull-force ──────────────────────────────────────────────────────
+if [[ "${1:-}" == "--pull-force" ]]; then
+    echo ""
+    echo "⚠️  ATTENZIONE: --pull-force sovrascriverà TUTTE le modifiche locali"
+    echo "   con quanto presente sul branch remoto."
+    echo "   Le modifiche non committate andranno PERSE."
+    echo ""
+    read -r -p "   Sei sicuro? (scrivi 'si' per confermare): " CONFIRM </dev/tty
+    if [[ "$CONFIRM" != "si" ]]; then
+        echo "❌ Operazione annullata."
+        exit 0
+    fi
+    echo ""
+    echo "🔄 Fetch + reset --hard su origin/main..."
+    git fetch origin
+    REMOTE_DEFAULT=$(git remote show origin 2>/dev/null \
+        | grep 'HEAD branch' | sed 's/.*: //' || echo "main")
+    git reset --hard "origin/${REMOTE_DEFAULT}"
+    echo "✅ Progetto locale allineato con origin/${REMOTE_DEFAULT}."
+    exit 0
+fi
 
 CONFIG_FILE="$HOME/.github_push_config"
 
@@ -266,7 +291,7 @@ if ! env GIT_TERMINAL_PROMPT=0 git pull origin "$BRANCH" --rebase 2>&1; then
     echo "    2. Risolvi i conflitti nei file"
     echo "    3. Segna come risolti:             git add <file>"
     echo "    4. Continua il rebase:             git rebase --continue"
-    echo "    5. Poi riesegui:                   ./github_push.sh"
+    echo "    5. Poi riesegui:                   ./github.sh"
     exit 1
 fi
 

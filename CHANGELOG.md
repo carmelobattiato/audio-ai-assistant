@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.92] — 2026-04-29
+
+- github_push.sh rinominato in github.sh
+- github.sh: aggiunto parametro --pull-force — scarica il remoto e sovrascrive il locale con conferma esplicita ("si")
+
+
 ## [1.91] — 2026-04-29
 
 - Settings → AI Rules: sub-tab switcher "👤 User Rules" / "⚙️ System Prompts"
