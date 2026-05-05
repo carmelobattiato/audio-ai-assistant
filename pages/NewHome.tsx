@@ -132,6 +132,7 @@ export const NewHome: React.FC = () => {
   const activeSessionIdRef = useRef<string | null>(null);
   const llmProcessorRef = useRef<LlmProcessorRef>(null);
   const hasLiveTranscriptRef = useRef(false);
+  const clearTranscriptionQueueRef = useRef<() => void>(() => {});
 
   // ── New UI state ──────────────────────────────────────────────────────────
   const [activeRightTab, setActiveRightTab] = useState<string>('notes');
@@ -248,6 +249,7 @@ export const NewHome: React.FC = () => {
     setPipelineStep(PipelineStep.IDLE);
     setRecordingChunks([]);
     recordingChunksRef.current = [];
+    clearTranscriptionQueueRef.current();
     activeSessionIdRef.current = null;
   }, []);
 
@@ -320,6 +322,7 @@ export const NewHome: React.FC = () => {
     appSettings, audioBlob, audioFileName, audioRecordingStartTime,
     transcribedText, setTranscribedText, addLlmUsageStat, setAppUserMessage,
   );
+  clearTranscriptionQueueRef.current = () => transLogic.setTranscriptionQueue([]);
 
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -559,6 +562,11 @@ export const NewHome: React.FC = () => {
       loggingService.info('APP_INIT', 'NewHome initializing', { version: APP_VERSION });
       const stored = localStorage.getItem(APP_SETTINGS_KEY);
       let settings: AppSettings = stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
+
+      // Migrate: ensure transcription language defaults to Italian
+      if (!settings.transcription?.language) {
+        settings = { ...settings, transcription: { ...settings.transcription, language: 'Italian' } };
+      }
 
       // Migrate: add systemPrompts if missing from old saved settings
       if (!settings.systemPrompts || settings.systemPrompts.length === 0) {

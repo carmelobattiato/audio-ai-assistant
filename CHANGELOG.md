@@ -8,9 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
-## [1.95] — 2026-05-05
+## [1.96] — 2026-05-05
 
 - Calendar "Load Info": incluse le note riunione (`body`) nel testo importato nella sessione
+- Reset: svuota anche la coda chunk nel tab Transcript (transcriptionQueue azzerata)
+- Pulsante "New session": apre una nuova scheda del browser sulla stessa URL (sessione pulita)
+- Default language: migrazione imposta "Italian" se non presente nelle settings salvate
+
+
+## [1.95] — 2026-05-05
 
 
 ## [1.94] — 2026-04-30

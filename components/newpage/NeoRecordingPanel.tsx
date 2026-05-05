@@ -862,9 +862,18 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
               </button>
             )}
             <button
+              onClick={() => window.open(window.location.href, '_blank')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105 ml-auto"
+              style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: '#A5B4FC' }}
+              title="Open a new clean session in a new tab"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg>
+              New session
+            </button>
+            <button
               onClick={async () => { await props.onReset(); resetRecording(); }}
               disabled={!!props.disabled}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105 disabled:opacity-40 ml-auto"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105 disabled:opacity-40"
               style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5' }}
               title="Reset everything — clears recording, transcript and AI results"
             >
