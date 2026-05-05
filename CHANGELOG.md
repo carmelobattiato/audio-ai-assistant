@@ -8,6 +8,11 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.95] — 2026-05-05
+
+- Calendar "Load Info": incluse le note riunione (`body`) nel testo importato nella sessione
+
+
 ## [1.94] — 2026-04-30
 
 - PiP widget: Document Picture-in-Picture always-on-top (Chrome 116+); bottone nella riga start + bottone circolare durante la registrazione (accanto alle cuffie)

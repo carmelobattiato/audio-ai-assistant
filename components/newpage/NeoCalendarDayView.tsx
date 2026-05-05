@@ -154,6 +154,7 @@ function buildNoteHtml(appt: OutlookAppointment): string {
     ${appt.organizer ? `<p style="margin:4px 0"><strong>👤 Organizzatore:</strong> ${appt.organizer}</p>` : ''}
     <p style="margin:10px 0 4px"><strong>👥 Invitati:</strong></p>
     <ul style="margin:0 0 0 18px;padding:0">${attendeesList}</ul>
+    ${appt.body ? `<p style="margin:14px 0 4px"><strong>📝 Note riunione:</strong></p><p style="margin:0;white-space:pre-wrap;color:#9CA3AF">${appt.body}</p>` : ''}
   </div>`;
 }
 
