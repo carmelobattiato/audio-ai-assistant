@@ -343,13 +343,14 @@ interface NeoCalendarDayViewProps {
   externalError?: string | null;
   isBackgroundRefreshing?: boolean;
   onRequestRefresh?: () => void;
+  onConfigureIcs?: () => void;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
   isOpen, onClose, onImport, onOpenTeamsAndRecord,
   externalAppointments, externalBridgeAvailable, externalError,
-  isBackgroundRefreshing = false, onRequestRefresh,
+  isBackgroundRefreshing = false, onRequestRefresh, onConfigureIcs,
 }) => {
   const isExternal = externalAppointments !== undefined;
 
@@ -616,13 +617,27 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                   {errorMsg ?? 'Start the Outlook bridge and try again.'}
                 </p>
                 <p className="text-[10px]" style={{ color: 'var(--neo-muted)', opacity: 0.6 }}>
-                  OS: {clientOSName()} ({navigator.platform})
+                  OS: {clientOSName()}
                 </p>
-                <button onClick={refresh}
-                  className="mt-2 px-4 py-2 text-xs font-medium rounded-lg transition-all hover:scale-105"
-                  style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: '#A78BFA' }}>
-                  Retry
-                </button>
+                <div className="flex gap-2 mt-2">
+                  <button onClick={refresh}
+                    className="px-4 py-2 text-xs font-medium rounded-lg transition-all hover:scale-105"
+                    style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: '#A78BFA' }}>
+                    Retry
+                  </button>
+                  {clientOSName() !== 'Windows' && onConfigureIcs && (
+                    <button onClick={onConfigureIcs}
+                      className="px-4 py-2 text-xs font-medium rounded-lg transition-all hover:scale-105"
+                      style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(52,211,153,0.45)', color: '#6EE7B7' }}>
+                      Configure ICS feed →
+                    </button>
+                  )}
+                </div>
+                {clientOSName() !== 'Windows' && (
+                  <p className="text-[10px] mt-2 max-w-xs" style={{ color: 'var(--neo-muted)', opacity: 0.7 }}>
+                    On {clientOSName()} use the ICS feed source (Settings → Integrations).
+                  </p>
+                )}
               </div>
             ) : appointments.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-2 p-8 text-center">

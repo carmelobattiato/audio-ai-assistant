@@ -10,6 +10,7 @@ import { AppSettings, BubbleNote, SavedSession } from '../types';
 interface AppModalsProps {
   isSettingsOpen: boolean;
   setIsSettingsOpen: (v: boolean) => void;
+  settingsInitialTab?: string;
   appSettings: AppSettings;
   handleSettingsChange: (s: AppSettings) => void;
   hasCustomApiKey: boolean;
@@ -50,6 +51,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       hasCustomApiKey={props.hasCustomApiKey}
       onSaveCustomApiKey={props.onSaveCustomApiKey}
       onDeleteCustomApiKey={props.onDeleteCustomApiKey}
+      initialTab={props.settingsInitialTab}
     />
 
     <StatisticsModal

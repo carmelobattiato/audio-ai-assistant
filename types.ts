@@ -428,3 +428,21 @@ export interface InProgressSessionData {
     settings: AppSettings;
   }
 }
+
+export interface IcsAppointment {
+  id: string;
+  subject: string;
+  start: string; // ISO
+  end: string;
+  location?: string;
+  description?: string;
+  organizer?: string;
+  attendees?: string[];
+  isCancelled?: boolean;
+  isRecurring?: boolean;
+}
+
+export interface Calendar2Settings {
+  icsUrl: string;
+}
+

@@ -110,6 +110,7 @@ export const NewHome: React.FC = () => {
   const wasTranscribingRef = useRef(false);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
   const [showLoadSessionModal, setShowLoadSessionModal] = useState(false);
   const [showLoadChunksModal, setShowLoadChunksModal] = useState(false);
@@ -784,6 +785,61 @@ export const NewHome: React.FC = () => {
         platform: navigator.platform,
       });
     }
+
+    const { loadCalendarSource, loadIcsConfig, fetchIcs } = await import('../services/icsService');
+    const source = loadCalendarSource();
+
+    if (source === 'ics') {
+      try {
+        const cfg = loadIcsConfig();
+        if (!cfg?.icsUrl) {
+          throw new Error('ICS feed not configured. Open Settings → Integrations and paste the published Outlook ICS URL.');
+        }
+        const events = await fetchIcs(cfg.icsUrl);
+        // Filter to today (LOCAL date) and map to OutlookAppointment shape
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayKey = `${yyyy}-${mm}-${dd}`;
+        const teamsRe = /https:\/\/teams\.microsoft\.com\/l\/[^\s<>"']+/;
+        const mapped: OutlookAppointment[] = events
+          .filter(ev => {
+            if (!ev.start) return false;
+            const d = new Date(ev.start);
+            const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            return k === todayKey;
+          })
+          .sort((a, b) => a.start.localeCompare(b.start))
+          .map(ev => ({
+            id: ev.id,
+            subject: ev.subject,
+            start: ev.start,
+            end: ev.end,
+            location: ev.location || '',
+            body: ev.description || '',
+            attendees: (ev.attendees || []).map(name => ({ name, email: '' })),
+            organizer: ev.organizer || '',
+            onlineMeetingUrl: ev.description?.match(teamsRe)?.[0],
+            isCanceled: ev.isCancelled,
+            isRecurring: ev.isRecurring,
+          }));
+        setCalBridgeAvailable(true);
+        setCalAppointments(mapped);
+        setCalError(null);
+        loggingService.debug('CALENDAR_LOADED', `Loaded ${mapped.length} appointments via ICS feed`, {
+          count: mapped.length, source: 'ics', isRetry,
+        });
+      } catch (e: unknown) {
+        setCalBridgeAvailable(false);
+        setCalError((e as Error).message ?? 'ICS fetch error');
+        loggingService.warn('CALENDAR_BRIDGE_ERROR', String((e as Error).message), { source: 'ics', isRetry });
+      } finally {
+        setCalRefreshing(false);
+      }
+      return;
+    }
+
     try {
       const statusRes = await fetch('/api/outlook/status', { signal: AbortSignal.timeout(3000) });
       if (!statusRes.ok) {
@@ -1118,7 +1174,8 @@ export const NewHome: React.FC = () => {
 
       {/* Modals (reused unchanged) */}
       <AppModals
-        isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen}
+        isSettingsOpen={isSettingsOpen} setIsSettingsOpen={(v) => { setIsSettingsOpen(v); if (!v) setSettingsInitialTab(undefined); }}
+        settingsInitialTab={settingsInitialTab}
         appSettings={appSettings}
         hasCustomApiKey={hasCustomApiKey}
         onSaveCustomApiKey={handleSaveCustomApiKey}
@@ -1174,6 +1231,11 @@ export const NewHome: React.FC = () => {
         externalError={calError}
         isBackgroundRefreshing={calRefreshing}
         onRequestRefresh={() => fetchCalendarData(true)}
+        onConfigureIcs={() => {
+          setIsCalendarOpen(false);
+          setSettingsInitialTab('integrations');
+          setIsSettingsOpen(true);
+        }}
       />
       </Suspense>
 

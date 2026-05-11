@@ -27,6 +27,7 @@ const GEMINI_LIVE_MODELS = [
 import { LogsTab } from './settings/LogsTab';
 import { CustomInstructionsTab } from './settings/CustomInstructionsTab';
 import { SystemPromptsTab } from './settings/SystemPromptsTab';
+import { Calendar2IntegrationTab } from './settings/Calendar2IntegrationTab';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ interface SettingsPanelProps {
   hasCustomApiKey: boolean;
   onSaveCustomApiKey: (key: string) => Promise<void>;
   onDeleteCustomApiKey: () => Promise<void>;
+  initialTab?: string;
 }
 
 const TABS = [
@@ -44,6 +46,7 @@ const TABS = [
   { id: 'audio', label: 'Audio Recording' },
   { id: 'transcription', label: 'Transcription & Notes' },
   { id: 'custom-instructions', label: 'AI Rules' },
+  { id: 'integrations', label: 'Integrations' },
   { id: 'logs', label: 'Logs & Monitoring' },
 ];
 
@@ -97,6 +100,7 @@ const ModelSelectionTable: React.FC<{
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen, onClose, settings, onSettingsChange,
   hasCustomApiKey, onSaveCustomApiKey, onDeleteCustomApiKey,
+  initialTab,
 }) => {
   const [localSettings, setLocalSettings] = useState<AppSettings>(() => {
     const validLiveIds = GEMINI_LIVE_MODELS.map(m => m.id);
@@ -106,7 +110,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       : (GEMINI_LIVE_MODELS[0]?.id ?? '');
     return { ...settings, transcription: { ...settings.transcription, liveModel } };
   });
-  const [activeTab, setActiveTab] = useState(TABS[0]?.id ?? '');
+  const [activeTab, setActiveTab] = useState(initialTab ?? TABS[0]?.id ?? '');
+
+  useEffect(() => {
+    if (isOpen && initialTab) setActiveTab(initialTab);
+  }, [isOpen, initialTab]);
   const [aiRulesSubTab, setAiRulesSubTab] = useState<'user' | 'system'>('user');
 
   // Live model fetch + test state
@@ -1076,6 +1084,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 />
               </div>
             )}
+          </section>
+        )}
+
+        {activeTab === 'integrations' && (
+          <section>
+            <Calendar2IntegrationTab />
           </section>
         )}
 

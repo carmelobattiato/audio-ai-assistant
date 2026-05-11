@@ -8,6 +8,27 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.98] — 2026-05-11
+
+- Calendar: nuova modalità sorgente **ICS feed** affiancata al Windows COM bridge esistente — abilita calendar Outlook cross-platform su Mac/Linux/Windows senza Azure AD, OAuth o installazioni
+- Settings → Integrations: scelta sorgente (Windows COM / ICS feed) con radio toggle; su sistemi non-Windows l'opzione COM è disabilitata, su Windows è preselezionata di default
+- Settings → Integrations: istruzioni step-by-step per pubblicare ICS da outlook.office.com (o outlook.live.com), input URL, bottone "Test fetch"
+- Settings → Integrations: disclaimer dedicato — la pubblicazione del calendario è controllata dal tenant admin Microsoft 365; se l'opzione "Publish a calendar" è assente o disattivata, è policy lato server e non dipende dall'applicazione
+- Calendar bottone topbar: un'unica entry, la sorgente viene letta da `localStorage['calendar:source']` (default `'windows'`)
+- Calendar error panel: su sistemi non-Windows mostra bottone "Configure ICS feed →" che apre direttamente Settings sulla tab Integrations (chiude il modal calendar)
+- Calendar error panel: rimosso `navigator.platform` raw (es. `MacIntel`) dall'OS display, ora mostra solo nome friendly (`macOS`, `Linux`, `Windows`)
+- ICS path: filtra eventi alla data odierna locale, mappa a `OutlookAppointment` (attendees come stringhe, Teams URL estratto via regex dal body, isCancelled/isRecurring preservati) — l'UI esistente di `NeoCalendarDayView` funziona invariata
+- `services/icsService.ts`: parser ICS RFC5545 (line unfolding, escape, DTSTART/DTEND UTC+floating+all-day, TZID con mapping `Greenwich Standard Time`/`GMT`/`UTC`→UTC, RRULE→isRecurring, STATUS→isCancelled, ORGANIZER/ATTENDEE/LOCATION/DESCRIPTION); fetch diretto con fallback proxy dev
+- `services/icsService.ts`: helper `loadCalendarSource/saveCalendarSource` (default `'windows'`)
+- `vite.config.ts`: nuovo middleware `/api/ics` proxy server-side dell'URL ICS (aggira CORS, solo https)
+- `SettingsPanel`: nuova prop `initialTab` per aprire una tab specifica all'apertura del pannello; `AppModals` propaga `settingsInitialTab`
+- Tipo `IcsAppointment` in types.ts: id, subject, start/end ISO, location, description, organizer, attendees, isCancelled, isRecurring
+- Tipo `Calendar2Settings` in types.ts: icsUrl persistito in `localStorage['calendar2:ics']`
+- Logging: nuovi eventi `ICS_FETCH_OK/ERROR`, `ICS_DIRECT_FAILED`
+- Fix calendar day-key: usa data LOCALE (`getFullYear/getMonth/getDate`) invece di `toISOString` UTC — eliminava il bug "evento non visibile oggi" in fusi orari con offset positivo
+- Limiti noti ICS: read-only, refresh latency 1-3h gestita da Microsoft, attendees senza email, Teams URL solo se presente nel body, molti tenant aziendali disabilitano la pubblicazione
+
+
 ## [1.97] — 2026-05-11
 
 - Fix Calendar: bug critico Restrict filter su locale Italiano — `MM/dd/yyyy` veniva interpretato come `dd/MM/yyyy` (es. `05/11/2026` letto come 5 novembre invece di 11 maggio), restituendo appuntamenti del giorno sbagliato

@@ -216,6 +216,44 @@ function outlookPlugin() {
   };
 }
 
+function icsProxyPlugin() {
+  return {
+    name: 'ics-proxy',
+    configureServer(server: any) {
+      server.middlewares.use('/api/ics', async (req: any, res: any, next: () => void) => {
+        try {
+          const u = new URL(req.url || '', 'http://localhost');
+          const target = u.searchParams.get('url');
+          if (!target) {
+            res.statusCode = 400;
+            res.end('Missing url param');
+            return;
+          }
+          if (!/^https:\/\//i.test(target)) {
+            res.statusCode = 400;
+            res.end('Only https URLs allowed');
+            return;
+          }
+          const upstream = await fetch(target, { headers: { Accept: 'text/calendar' } });
+          if (!upstream.ok) {
+            res.statusCode = upstream.status;
+            res.end(`Upstream HTTP ${upstream.status}`);
+            return;
+          }
+          const body = await upstream.text();
+          res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-cache');
+          res.end(body);
+        } catch (e: any) {
+          res.statusCode = 500;
+          res.end(`ICS proxy error: ${e?.message || 'unknown'}`);
+        }
+        void next;
+      });
+    },
+  };
+}
+
 // =============================================================================
 
 export default defineConfig(({ mode }) => {
@@ -234,7 +272,7 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
-    plugins: [react(), outlookPlugin()],
+    plugins: [react(), outlookPlugin(), icsProxyPlugin()],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
