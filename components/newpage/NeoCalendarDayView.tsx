@@ -427,9 +427,30 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
         loggingService.debug('CALENDAR_APPOINTMENTS_ERROR_DETAIL', 'Appointments endpoint returned error', { data: d, isRetry });
         throw new Error(d.error);
       }
-      setIntAppts(d.appointments ?? []);
-      loggingService.debug('CALENDAR_LOADED', `Loaded ${d.appointments?.length ?? 0} appointments`, {
-        count: d.appointments?.length ?? 0, isRetry,
+      const apptList = d.appointments ?? [];
+      const skippedList = d.skipped ?? [];
+      setIntAppts(apptList);
+      loggingService.debug('CALENDAR_LOADED', `Loaded ${apptList.length} appointments (seen ${d.totalSeen ?? '?'}, skipped ${skippedList.length}) in ${d.timings?.total ?? '?'}ms`, {
+        count: apptList.length,
+        skippedCount: skippedList.length,
+        totalSeen: d.totalSeen,
+        filter: d.filter,
+        timings: d.timings,
+        canceledCount: apptList.filter((a: any) => a.isCanceled).length,
+        recurringCount: apptList.filter((a: any) => a.isRecurring).length,
+        isRetry,
+      });
+      if (skippedList.length > 0) {
+        loggingService.warn('CALENDAR_SKIPPED', `${skippedList.length} appointments skipped by bridge`, { skipped: skippedList });
+      }
+      // Per-appointment detail to spot meetings hidden by overlap or unexpected fields
+      loggingService.debug('CALENDAR_APPOINTMENTS_DETAIL', 'Appointment summary', {
+        appointments: apptList.map((a: any) => ({
+          id: a.id, subject: a.subject, start: a.start, end: a.end,
+          organizer: a.organizer, responseStatus: a.responseStatus,
+          meetingStatus: a.meetingStatus, isCanceled: a.isCanceled, isRecurring: a.isRecurring,
+          hasTeamsUrl: !!a.onlineMeetingUrl, attendees: a.attendees?.length ?? 0,
+        })),
       });
     } catch (e: unknown) {
       setIntBridge(false);

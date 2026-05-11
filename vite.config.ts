@@ -11,30 +11,67 @@ import { spawn } from 'child_process';
 
 const PS_GET_APPOINTMENTS = `
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$swTotal = [System.Diagnostics.Stopwatch]::StartNew()
+$timings = [pscustomobject]@{ comInit = 0; restrict = 0; loop = 0; attendees = 0; bodies = 0; total = 0 }
 try {
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $ol  = New-Object -ComObject Outlook.Application -ErrorAction Stop
     $ns  = $ol.GetNameSpace('MAPI')
     $cal = $ns.GetDefaultFolder(9)
     $items = $cal.Items
     $items.IncludeRecurrences = $true
     $items.Sort('[Start]')
+    $timings.comInit = $sw.ElapsedMilliseconds
+
+    $sw.Restart()
     $today = Get-Date
-    $ds = $today.ToString('MM/dd/yyyy')
+    # CRITICAL: Outlook COM Restrict() expects the date string in the USER'S CURRENT REGIONAL FORMAT,
+    # not MM/dd/yyyy as some MSDN pages claim. On it-IT systems a US-format string like '05/11/2026'
+    # is read as 5 November (dd/MM/yyyy), silently returning the wrong day. ToString('d') uses the
+    # current culture's short date pattern. AM/PM 12h time is mandatory.
+    $ds = $today.ToString('d')
     $filter = "[Start] >= '$ds 12:00 AM' AND [Start] <= '$ds 11:59 PM'"
     $restricted = $items.Restrict($filter)
-    $appts = [System.Collections.Generic.List[object]]::new()
+    $timings.restrict = $sw.ElapsedMilliseconds
+
+    $appts   = [System.Collections.Generic.List[object]]::new()
+    $skipped = [System.Collections.Generic.List[object]]::new()
+    $totalSeen = 0
     $idx = 0
+    $attElapsed = 0
+    $bodyElapsed = 0
+    $swLoop = [System.Diagnostics.Stopwatch]::StartNew()
     foreach ($a in $restricted) {
+        $totalSeen++
+        # Read core fields up-front with safe defaults; if these throw, log and skip
+        $subject = '(Nessun titolo)'
+        try { if ($a.Subject) { $subject = [string]$a.Subject } } catch {}
+        $startStr = ''
+        try { $startStr = [string]$a.Start } catch {}
+        $endStr = ''
+        try { $endStr = [string]$a.End } catch {}
+
         try {
             $att = @()
+            $swA = [System.Diagnostics.Stopwatch]::StartNew()
             try {
                 for ($i = 1; $i -le $a.Recipients.Count; $i++) {
-                    $r = $a.Recipients.Item($i)
-                    $email = ''
-                    try { $email = $r.AddressEntry.GetExchangeUser().PrimarySmtpAddress } catch { try { $email = $r.Address } catch {} }
-                    $att += [pscustomobject]@{ name = $r.Name; email = $email }
+                    try {
+                        $r = $a.Recipients.Item($i)
+                        $name = ''
+                        try { $name = [string]$r.Name } catch {}
+                        # Fast path: r.Address is local. Only fall back to GetExchangeUser (Exchange GAL lookup,
+                        # 50-500ms per call) when Address looks like a legacy EX DN instead of SMTP.
+                        $email = ''
+                        try { $email = [string]$r.Address } catch {}
+                        if ($email -and ($email -like '/o=*' -or $email -like '/cn=*')) {
+                            try { $email = [string]$r.AddressEntry.GetExchangeUser().PrimarySmtpAddress } catch {}
+                        }
+                        $att += [pscustomobject]@{ name = $name; email = $email }
+                    } catch {}
                 }
             } catch {}
+            $attElapsed += $swA.ElapsedMilliseconds
             $fullBody = ''
             try { if ($a.Body) { $fullBody = $a.Body } } catch {}
             $body = if ($fullBody.Length -gt 1200) { $fullBody.Substring(0,1200).Trim() } else { $fullBody.Trim() }
@@ -48,7 +85,7 @@ try {
                 } catch {}
             }
             $organizer = ''
-            try { $organizer = $a.Organizer } catch {}
+            try { $organizer = [string]$a.Organizer } catch {}
             $rs = 'none'
             try {
                 switch ([int]$a.ResponseStatus) {
@@ -60,27 +97,55 @@ try {
                     5 { $rs = 'notResponded' }
                 }
             } catch {}
+            $location = ''
+            try { if ($a.Location) { $location = [string]$a.Location } } catch {}
+            # MeetingStatus: 0=Non meeting, 1=Meeting, 3=Received, 5=Canceled, 7=ReceivedAndCanceled
+            $meetingStatus = 0
+            try { $meetingStatus = [int]$a.MeetingStatus } catch {}
+            $isCanceled = ($meetingStatus -eq 5 -or $meetingStatus -eq 7)
+            $isRecurring = $false
+            try { $isRecurring = [bool]$a.IsRecurring } catch {}
+
             $appts.Add([pscustomobject]@{
                 id               = [string]$idx
-                subject          = if ($a.Subject) { $a.Subject } else { '(Nessun titolo)' }
-                start            = [string]$a.Start
-                end              = [string]$a.End
-                location         = if ($a.Location) { $a.Location } else { '' }
+                subject          = $subject
+                start            = $startStr
+                end              = $endStr
+                location         = $location
                 body             = $body
                 attendees        = $att
                 organizer        = $organizer
                 onlineMeetingUrl = $meetingUrl
                 responseStatus   = $rs
+                meetingStatus    = $meetingStatus
+                isCanceled       = $isCanceled
+                isRecurring      = $isRecurring
             })
             $idx++
-        } catch {}
+        } catch {
+            # Surface the skipped appointment instead of silently swallowing
+            $skipped.Add([pscustomobject]@{
+                subject = $subject
+                start   = $startStr
+                end     = $endStr
+                error   = $_.Exception.Message
+                step    = $_.InvocationInfo.ScriptLineNumber
+            })
+        }
     }
+    $timings.loop      = $swLoop.ElapsedMilliseconds
+    $timings.attendees = $attElapsed
+    $timings.total     = $swTotal.ElapsedMilliseconds
     [pscustomobject]@{
         appointments = $appts.ToArray()
+        skipped      = $skipped.ToArray()
+        totalSeen    = $totalSeen
         date         = $today.ToString('yyyy-MM-dd')
+        filter       = $filter
+        timings      = $timings
     } | ConvertTo-Json -Depth 6 -Compress
 } catch {
-    [pscustomobject]@{ error = $_.Exception.Message } | ConvertTo-Json -Compress
+    [pscustomobject]@{ error = $_.Exception.Message; timings = $timings; totalMs = $swTotal.ElapsedMilliseconds } | ConvertTo-Json -Compress
 }
 `;
 

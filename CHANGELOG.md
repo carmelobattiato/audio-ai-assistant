@@ -8,6 +8,22 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.97] — 2026-05-11
+
+- Fix Calendar: bug critico Restrict filter su locale Italiano — `MM/dd/yyyy` veniva interpretato come `dd/MM/yyyy` (es. `05/11/2026` letto come 5 novembre invece di 11 maggio), restituendo appuntamenti del giorno sbagliato
+- Calendar filter: `$today.ToString('d')` usa il formato data della cultura corrente (locale-aware), risolve il bug e ripristina tutti gli appuntamenti del giorno
+- Calendar performance: tempo di caricamento da ~42s a ~1-8s (eliminata iterazione di 108 occorrenze sbagliate)
+- Bridge PowerShell: lookup attendee ottimizzato — `r.Address` come fast path, fallback a `GetExchangeUser().PrimarySmtpAddress` solo per legacy EX DN
+- Bridge PowerShell: nuovi campi `meetingStatus`, `isCanceled`, `isRecurring` per ogni appuntamento
+- Bridge PowerShell: appuntamenti che falliscono la lettura ora finiscono in `skipped[]` con error/step invece di sparire silenziosamente
+- Bridge PowerShell: timings dettagliati (`comInit`, `restrict`, `loop`, `attendees`, `total`) inclusi nella response
+- Logging frontend: `CALENDAR_LOADED` mostra `totalSeen`, `skippedCount`, `filter`, `timings`, `canceledCount`, `recurringCount`
+- Logging frontend: `CALENDAR_SKIPPED` (warn) emesso quando il bridge salta appuntamenti
+- Logging frontend: `CALENDAR_APPOINTMENTS_DETAIL` (debug) elenca id/subject/start/end/organizer/responseStatus/meetingStatus/isCanceled/isRecurring per ogni appuntamento
+- `tools/outlook_diag.py`: script Python standalone (pywin32) per diagnosi Outlook COM senza la sovrastruttura applicativa — 6 strategie a confronto (current_app, msdn_order, locale_fixed, no_recurrence, advanced_search, full_scan) con timing e diff tra strategie
+- Tipo `OutlookAppointment`: aggiunti campi `meetingStatus`, `isCanceled`, `isRecurring`; nuova interfaccia `SkippedAppointment`
+
+
 ## [1.96] — 2026-05-05
 
 - Calendar "Load Info": incluse le note riunione (`body`) nel testo importato nella sessione

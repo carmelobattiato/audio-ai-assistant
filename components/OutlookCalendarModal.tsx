@@ -20,6 +20,18 @@ export interface OutlookAppointment {
   onlineMeetingUrl?: string;
   /** Outlook response status: 'accepted' | 'tentative' | 'declined' | 'organizer' | 'notResponded' | 'none' */
   responseStatus?: string;
+  /** Outlook MeetingStatus enum value: 0=Non meeting, 1=Meeting, 3=Received, 5=Canceled, 7=ReceivedAndCanceled */
+  meetingStatus?: number;
+  isCanceled?: boolean;
+  isRecurring?: boolean;
+}
+
+export interface SkippedAppointment {
+  subject: string;
+  start: string;
+  end: string;
+  error: string;
+  step?: number;
 }
 
 type MeetingStatus = 'live' | 'next' | 'future' | 'past';

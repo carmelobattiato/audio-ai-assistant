@@ -815,10 +815,30 @@ export const NewHome: React.FC = () => {
         loggingService.debug('CALENDAR_APPOINTMENTS_ERROR_DETAIL', 'Appointments endpoint returned error', { data, isRetry });
         throw new Error(data.error);
       }
-      setCalAppointments(data.appointments ?? []);
+      const apptList = data.appointments ?? [];
+      const skippedList = data.skipped ?? [];
+      setCalAppointments(apptList);
       setCalError(null);
-      loggingService.debug('CALENDAR_LOADED', `Loaded ${data.appointments?.length ?? 0} appointments`, {
-        count: data.appointments?.length ?? 0, isRetry,
+      loggingService.debug('CALENDAR_LOADED', `Loaded ${apptList.length} appointments (seen ${data.totalSeen ?? '?'}, skipped ${skippedList.length}) in ${data.timings?.total ?? '?'}ms`, {
+        count: apptList.length,
+        skippedCount: skippedList.length,
+        totalSeen: data.totalSeen,
+        filter: data.filter,
+        timings: data.timings,
+        canceledCount: apptList.filter((a: any) => a.isCanceled).length,
+        recurringCount: apptList.filter((a: any) => a.isRecurring).length,
+        isRetry,
+      });
+      if (skippedList.length > 0) {
+        loggingService.warn('CALENDAR_SKIPPED', `${skippedList.length} appointments skipped by bridge`, { skipped: skippedList });
+      }
+      loggingService.debug('CALENDAR_APPOINTMENTS_DETAIL', 'Appointment summary', {
+        appointments: apptList.map((a: any) => ({
+          id: a.id, subject: a.subject, start: a.start, end: a.end,
+          organizer: a.organizer, responseStatus: a.responseStatus,
+          meetingStatus: a.meetingStatus, isCanceled: a.isCanceled, isRecurring: a.isRecurring,
+          hasTeamsUrl: !!a.onlineMeetingUrl, attendees: a.attendees?.length ?? 0,
+        })),
       });
     } catch (e: unknown) {
       setCalBridgeAvailable(false);
