@@ -257,7 +257,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
                   <Button variant="ghost" size="sm" onClick={() => saveBlobToFile(item.file, item.file.name)} title="Download this chunk">
                     <DownloadIcon className="w-5 h-5" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => onTranscribeChunk(index)} disabled={isTranscribing || item.transcribed} title={item.transcribed ? 'Already transcribed' : 'Transcribe this chunk'}>
+                  <Button variant="ghost" size="sm" onClick={() => onTranscribeChunk(index)} disabled={isTranscribing} title={item.transcribed ? 'Re-transcribe this chunk (already transcribed)' : 'Transcribe this chunk'}>
                     <span className={`text-xs font-bold ${item.transcribed ? 'text-green-400' : 'text-sky-400'}`}>T</span>
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => onReorderQueue(index, index - 1)} disabled={index === 0} title="Move up">

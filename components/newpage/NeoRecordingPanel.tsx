@@ -349,8 +349,9 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
     }, [audioBlob, props.transcriptionSettings.enableChunkedRecording]);
 
     // ── Handlers ─────────────────────────────────────────────────────────────
-    const handleStartMicOnly = useCallback(() => {
-      props.onRecordingSessionStart();
+    const handleStartMicOnly = useCallback(async () => {
+      const res = await props.onRecordingSessionStart();
+      if (res === false) return;
       startRecording(false);
     }, [props.onRecordingSessionStart, startRecording]);
 
@@ -360,21 +361,41 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
 
     const handleStartWithHeadphones = useCallback(() => setShowGuide(true), []);
 
-    const handleConfirmGuide = useCallback(() => {
+    const handleConfirmGuide = useCallback(async () => {
       setShowGuide(false);
-      props.onRecordingSessionStart();
+      const res = await props.onRecordingSessionStart();
+      if (res === false) return;
       startRecording(true);
     }, [props.onRecordingSessionStart, startRecording]);
 
-    const handleStartWithoutHeadphones = useCallback(() => {
+    const handleStartWithoutHeadphones = useCallback(async () => {
       setShowGuide(false);
-      props.onRecordingSessionStart();
+      const res = await props.onRecordingSessionStart();
+      if (res === false) return;
       startRecording(false);
     }, [props.onRecordingSessionStart, startRecording]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? []).filter((f: File) => f.type.startsWith('audio/'));
-      if (files.length) props.onFilesSelected(files);
+      const AUDIO_EXT = /\.(webm|ogg|oga|opus|mp3|m4a|mp4|aac|wav|wave|flac|amr|3gp|3gpp|mka)$/i;
+      const all = Array.from(e.target.files ?? []);
+      loggingService.info('UPLOAD', 'File picker returned', { count: all.length, files: all.map(f => ({ name: f.name, type: f.type, size: f.size })) });
+      const files = all.filter((f: File) =>
+        f.type.startsWith('audio/') ||
+        f.type === 'video/webm' || f.type === 'video/ogg' || f.type === 'video/mp4' ||
+        AUDIO_EXT.test(f.name)
+      );
+      const rejected = all.filter(f => !files.includes(f));
+      if (rejected.length) {
+        loggingService.warn('UPLOAD', 'Files rejected by MIME/extension filter', { files: rejected.map(f => ({ name: f.name, type: f.type, size: f.size })) });
+      }
+      if (files.length) {
+        loggingService.info('UPLOAD', 'Forwarding files to pipeline', { files: files.map(f => ({ name: f.name, type: f.type, size: f.size })) });
+        props.onFilesSelected(files);
+      } else if (all.length) {
+        loggingService.error('UPLOAD', 'No accepted files after filter — upload aborted', { files: all.map(f => ({ name: f.name, type: f.type })) });
+        alert(`Unsupported file format: ${all.map(f => f.name).join(', ')}`);
+      }
+      e.target.value = '';
     };
 
     // ── Derived state ────────────────────────────────────────────────────────
@@ -889,7 +910,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
           )}
 
           {/* Hidden file input */}
-          <input ref={fileInputRef} type="file" accept="audio/*" multiple className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" accept="audio/*,video/webm,video/ogg,video/mp4,.webm,.ogg,.oga,.opus,.mp3,.m4a,.mp4,.aac,.wav,.wave,.flac,.amr,.3gp,.3gpp,.mka" multiple className="hidden" onChange={handleFileChange} />
           {finalAudioUrl && (
             <audio ref={player.audioPlayerRef} src={finalAudioUrl}
               onPlay={() => player.setIsPlayerPlaying(true)}

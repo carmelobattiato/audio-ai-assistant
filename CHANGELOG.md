@@ -6,9 +6,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+- Calendar background sync: auto-refresh ogni 15 minuti
+- Calendar background sync: refresh anche su `window focus` e `document visibilitychange` (tab torna visibile)
+- Calendar topbar icon: lampeggia arancione → bianco durante il sync (spinner-like), torna bianco fissa a sync completato
+
 ---
 
-## [1.98] — 2026-05-11
+## [1.98] — 2026-05-14
 
 - Calendar: nuova modalità sorgente **ICS feed** affiancata al Windows COM bridge esistente — abilita calendar Outlook cross-platform su Mac/Linux/Windows senza Azure AD, OAuth o installazioni
 - Settings → Integrations: scelta sorgente (Windows COM / ICS feed) con radio toggle; su sistemi non-Windows l'opzione COM è disabilitata, su Windows è preselezionata di default
@@ -27,6 +31,24 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 - Logging: nuovi eventi `ICS_FETCH_OK/ERROR`, `ICS_DIRECT_FAILED`
 - Fix calendar day-key: usa data LOCALE (`getFullYear/getMonth/getDate`) invece di `toISOString` UTC — eliminava il bug "evento non visibile oggi" in fusi orari con offset positivo
 - Limiti noti ICS: read-only, refresh latency 1-3h gestita da Microsoft, attendees senza email, Teams URL solo se presente nel body, molti tenant aziendali disabilitano la pubblicazione
+- Fix Upload file: `.webm` (e altri container marcati `video/*` da Windows) venivano scartati in silenzio — filtro MIME esteso ad `audio/*`, `video/webm|ogg|mp4` e fallback per estensione (`.webm .ogg .opus .mp3 .m4a .wav .flac .aac .mka .amr .3gp`)
+- Upload: log dettagliati in Settings → Logs — `UPLOAD / File picker returned`, `UPLOAD / Forwarding files to pipeline`, `UPLOAD / Files rejected` (warn), `UPLOAD / No accepted files` (error)
+- Upload: reset di `input.value` dopo selezione — ricaricare lo stesso file ora ritrigghera `onChange`
+- Upload: `accept` dell'input allargato così il file picker non pre-filtra i container ambigui
+- Upload: alert utente se nessun file passa il filtro
+- Fix tasto T in coda chunk: rimane cliccabile anche dopo trascrizione completata (re-force consentito); tooltip "Re-transcribe this chunk (already transcribed)"
+- Fix "Transcribe X File(s)" bulk: non sovrascrive più le trascrizioni precedenti (parte da `transcribedText` corrente invece che da `""`)
+- Fix "Transcribe X File(s)" bulk: marca `transcribed: true` sui chunk processati → diventano verdi/barrati in coda
+- "Transcribe X File(s)" bulk: messaggio "All chunks are already transcribed." se non c'è nulla da fare
+- Modal "Sessione esistente" alla pressione di Rec con dati già presenti (trascrizione/analisi/audio/chunk in coda): 3 scelte — Aggiungi alla sessione / Nuova sessione / Annulla
+- "Aggiungi alla sessione": mantiene `transcribedText`, `llmProcessedText`, bubble notes, coda chunk; riattiva pipeline RECORDING sullo stesso `activeSessionId` e segna lo status come `In Progress`
+- "Annulla": il flusso di start abortisce senza toccare i dati né avviare `MediaRecorder`
+- `onRecordingSessionStart` ora restituisce `Promise<boolean | void>` — il pannello attende e salta `startRecording` su `false`
+- Logging RECORDING: `User cancelled new recording` (info), `Appending new recording to existing session` (info), `Failed to mark session In Progress on append` (error)
+- Fix append-mode chunk naming: `chunkIndexOffsetRef` traccia l'offset globale dei segmenti — i nuovi chunk partono da `existingQueue.length + 1` invece di collidere con i nomi `_segment_001…` già in coda (che venivano scartati dal dedup di `addChunkToQueue`)
+- Fix append-mode non-chunked: la nuova registrazione singola viene accodata come segmento (`addChunkToQueue` + auto-transcribe se Smart Pipeline ON) invece di sovrascrivere `audioBlob` e azzerare `transcribedText`/`llmProcessedText`
+- Modal "Existing session" e relativi pulsanti tradotti in inglese (Append to session / New session / Cancel)
+- Alert upload tradotto in inglese ("Unsupported file format: …")
 
 
 ## [1.97] — 2026-05-11

@@ -9,6 +9,8 @@ import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
 import { NeoTabs } from '../components/newpage/NeoTabs';
 import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { Modal } from '../components/common/Modal';
+import { Button } from '../components/common/Button';
 // Type-only imports (no runtime cost)
 import type { LlmProcessorRef } from '../components/LlmProcessor';
 import type { Attendee, OutlookAppointment } from '../components/OutlookCalendarModal';
@@ -114,6 +116,9 @@ export const NewHome: React.FC = () => {
   const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
   const [showLoadSessionModal, setShowLoadSessionModal] = useState(false);
   const [showLoadChunksModal, setShowLoadChunksModal] = useState(false);
+  const [startChoiceModal, setStartChoiceModal] = useState<{
+    resolve: (mode: 'new' | 'append' | 'cancel') => void;
+  } | null>(null);
   const [viewingBubbleNoteId, setViewingBubbleNoteId] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [appUserMessage, setAppUserMessage] = useState<string | null>(null);
@@ -128,6 +133,8 @@ export const NewHome: React.FC = () => {
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isInitialLoadingRef = useRef(false);
   const recordingChunksRef = useRef<Blob[]>([]);
+  const chunkIndexOffsetRef = useRef<number>(0);
+  const appendModeRef = useRef<boolean>(false);
   const finalEffectiveTitleRef = useRef<string>('Session');
   const audioRecorderRef = useRef<AudioRecorderRef>(null);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -650,9 +657,26 @@ export const NewHome: React.FC = () => {
 
   // ── Shared AudioRecorder callbacks ────────────────────────────────────────
   const handleRecordingComplete = useCallback((blob: Blob, name: string, start: Date | null, emo?: EmotionEvent[]) => {
+    setEmotionHistory(emo || []);
+    if (appendModeRef.current && !appSettings.transcription.enableChunkedRecording) {
+      // Append a non-chunked recording as an extra segment in the transcription queue
+      const ext = blob.type.split('/')[1]?.split(';')[0] || 'webm';
+      const segName = `${finalEffectiveTitleRef.current}_segment_${(chunkIndexOffsetRef.current + 1).toString().padStart(3, '0')}.${ext}`;
+      chunkIndexOffsetRef.current += 1;
+      loggingService.info('PIPELINE', 'handleRecordingComplete (append mode, non-chunked) → queued as segment', { segName });
+      transLogic.addChunkToQueue(blob, segName);
+      const smartPipelineActive = appSettings.transcription.enableAutoPipeline ?? true;
+      if (smartPipelineActive && appSettings.transcription.autoTranscribeChunks !== false) {
+        transLogic.handleTranscribeChunkDirect(blob, segName);
+        setActiveRightTab('transcript');
+        setPipelineStep(PipelineStep.TRANSCRIBING);
+      } else {
+        setPipelineStep(PipelineStep.IDLE);
+      }
+      return;
+    }
     setAudioBlob(blob); setAudioFileName(name);
     if (start) setAudioRecordingStartTime(start);
-    setEmotionHistory(emo || []);
     const updates: Partial<SavedSessionData> = { audioBlob: blob, audioFileName: name };
     if (start) updates.audioRecordingStartTime = start;
     if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, updates)
@@ -677,7 +701,7 @@ export const NewHome: React.FC = () => {
 
   const handleChunkComplete = useCallback((chunk: Blob) => {
     recordingChunksRef.current.push(chunk);
-    const chunkIndex = recordingChunksRef.current.length;
+    const chunkIndex = chunkIndexOffsetRef.current + recordingChunksRef.current.length;
     const ext = chunk.type.split('/')[1]?.split(';')[0] || 'webm';
     const chunkName = `${finalEffectiveTitleRef.current}_segment_${chunkIndex.toString().padStart(3, '0')}.${ext}`;
 
@@ -733,8 +757,51 @@ export const NewHome: React.FC = () => {
     }
   }, [transcribedText, bubbleNotes, emotionHistory, llmUsageHistory, appSettings.transcription, transLogic, finalEffectiveTitle]);
 
-  const handleRecordingSessionStart = useCallback(async () => {
+  const handleRecordingSessionStart = useCallback(async (): Promise<boolean> => {
+    const hasExistingData =
+      !!transcribedText ||
+      !!llmProcessedText ||
+      !!audioBlob ||
+      transLogic.transcriptionQueue.length > 0;
+
+    let mode: 'new' | 'append' | 'cancel' = 'new';
+    if (hasExistingData) {
+      mode = await new Promise<'new' | 'append' | 'cancel'>(resolve => {
+        setStartChoiceModal({ resolve });
+      });
+      setStartChoiceModal(null);
+    }
+
+    if (mode === 'cancel') {
+      loggingService.info('RECORDING', 'User cancelled new recording (existing session data)');
+      return false;
+    }
+
+    if (mode === 'append') {
+      loggingService.info('RECORDING', 'Appending new recording to existing session', {
+        sessionId: activeSessionIdRef.current,
+        existingQueueLen: transLogic.transcriptionQueue.length,
+      });
+      hasLiveTranscriptRef.current = false;
+      appendModeRef.current = true;
+      chunkIndexOffsetRef.current = transLogic.transcriptionQueue.length;
+      recordingChunksRef.current = [];
+      setRecordingChunks([]);
+      setPipelineStep(PipelineStep.RECORDING);
+      const sid = activeSessionIdRef.current;
+      if (sid) {
+        try {
+          await db.updateSessionIncremental(sid, { status: 'In Progress' });
+        } catch (e) {
+          loggingService.error('RECORDING', 'Failed to mark session In Progress on append', { error: String(e) });
+        }
+      }
+      return true;
+    }
+
     hasLiveTranscriptRef.current = false;
+    appendModeRef.current = false;
+    chunkIndexOffsetRef.current = 0;
     await resetAllDataStates({ preserveBubbleNotes: true });
     setPipelineStep(PipelineStep.RECORDING);
     const newSessionId = `s_${Date.now()}`;
@@ -761,7 +828,8 @@ export const NewHome: React.FC = () => {
       setBubbleNotes(initialSession.data.bubbleNotes);
       setPendingNoteHtml('');
     }
-  }, [resetAllDataStates, finalEffectiveTitle, pendingNoteHtml, appSettings]);
+    return true;
+  }, [resetAllDataStates, finalEffectiveTitle, pendingNoteHtml, appSettings, transcribedText, llmProcessedText, audioBlob, transLogic.transcriptionQueue.length]);
 
   // ── Right tabs definition ─────────────────────────────────────────────────
   const rightTabs = [
@@ -1171,6 +1239,29 @@ export const NewHome: React.FC = () => {
           </NeoTabs>
         </div>
       </div>
+
+      {/* Modal: scelta nuova registrazione vs append a sessione esistente */}
+      <Modal
+        isOpen={!!startChoiceModal}
+        onClose={() => startChoiceModal?.resolve('cancel')}
+        title="Existing session"
+        footer={
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
+            <Button onClick={() => startChoiceModal?.resolve('cancel')} variant="ghost">Cancel</Button>
+            <Button onClick={() => startChoiceModal?.resolve('new')} variant="danger">New session</Button>
+            <Button onClick={() => startChoiceModal?.resolve('append')} variant="primary">Append to session</Button>
+          </div>
+        }
+      >
+        <p className="text-gray-300">
+          This session already contains a transcript / AI analysis / recording.<br />
+          What do you want to do with the new recording?
+        </p>
+        <ul className="text-sm text-gray-400 list-disc pl-5 space-y-1">
+          <li><strong className="text-sky-400">Append to session</strong>: keeps the current transcript, AI analysis, bubble notes and queued chunks. The new recording is appended.</li>
+          <li><strong className="text-red-400">New session</strong>: discards current data and creates an empty session.</li>
+        </ul>
+      </Modal>
 
       {/* Modals (reused unchanged) */}
       <AppModals

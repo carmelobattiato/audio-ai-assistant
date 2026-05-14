@@ -64,14 +64,17 @@ export const useTranscriptionLogic = (
 
   const processFilesInternal = async (filesToProcess: QueuedFile[]) => {
     const pending = filesToProcess.filter(f => !f.transcribed);
-    if (pending.length === 0) return;
+    if (pending.length === 0) {
+      setAppUserMessage("All chunks are already transcribed.");
+      return;
+    }
     if (isAnyTranscribingRef.current) return;
     isAnyTranscribingRef.current = true;
     setIsTranscribing(true);
     setTranscriptionError(null);
     setPlaybackFile(null);
     abortControllerRef.current = new AbortController();
-    let accumulatedHtml = "";
+    let accumulatedHtml = transcribedText || "";
     let hasError = false;
 
     try {
@@ -83,7 +86,7 @@ export const useTranscriptionLogic = (
           const tSettings = { ...appSettings.transcription, fileName: file.name };
           const txPromptTpl = getPromptText(appSettings.systemPrompts ?? [], 'transcription-main') || undefined;
           const { transcription: result, usageMetadata } = await transcriptionService.transcribe(file, tSettings, appSettings.llm, abortControllerRef.current?.signal, txPromptTpl);
-          
+
           if (usageMetadata) {
             addLlmUsageStat({
               functionName: `Transcribe File (${file.name})`,
@@ -93,14 +96,17 @@ export const useTranscriptionLogic = (
               provider: appSettings.llm.provider,
             });
           }
-          
+
           const headerHtml = `<br><hr class='my-4 border-gray-600'><br><h3>Transcription for: ${file.name}</h3><br>`;
-          const contentHtml = result.startsWith("Error:") ? `<p class="text-red-400">${result}</p>` : result.replace(/\n/g, '<br />');
-          if (result.startsWith("Error:")) hasError = true;
+          const isError = result.startsWith("Error:");
+          const contentHtml = isError ? `<p class="text-red-400">${result}</p>` : result.replace(/\n/g, '<br />');
+          if (isError) hasError = true;
           accumulatedHtml += headerHtml + contentHtml;
-          
-          // Update UI progressively
           setTranscribedText(accumulatedHtml);
+
+          if (!isError) {
+            setTranscriptionQueue(prev => prev.map(q => q.file.name === file.name ? { ...q, transcribed: true } : q));
+          }
         } catch (e) {
           hasError = true;
           accumulatedHtml += `<br><hr class='my-4 border-gray-600'><br><h3>FAILED Transcription for: ${file.name}</h3><br>`;

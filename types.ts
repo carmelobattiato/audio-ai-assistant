@@ -58,7 +58,7 @@ export interface AudioRecorderProps {
   onChunkComplete?: (chunk: Blob, chunkIndex: number) => void;
   onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string | null, emotionHistory?: EmotionEvent[]) => void | Promise<void>;
   onFilesSelected: (files: File[]) => void;
-  onRecordingSessionStart: () => void;
+  onRecordingSessionStart: () => void | Promise<boolean | void>;
   disabled?: boolean;
   onAudioDurationChange: (duration: number) => void;
   audioDuration: number;
