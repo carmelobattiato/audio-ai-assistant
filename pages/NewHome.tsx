@@ -978,6 +978,20 @@ export const NewHome: React.FC = () => {
   // Refresh in background every time the calendar is opened
   useEffect(() => { if (isCalendarOpen) fetchCalendarData(); }, [isCalendarOpen, fetchCalendarData]);
 
+  // Auto-refresh every 15 min + when window/tab regains focus or becomes visible
+  useEffect(() => {
+    const intervalId = window.setInterval(() => { fetchCalendarData(); }, 15 * 60 * 1000);
+    const onFocus = () => { fetchCalendarData(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchCalendarData(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [fetchCalendarData]);
+
   // ── Divider drag handler ──────────────────────────────────────────────────
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -1021,6 +1035,7 @@ export const NewHome: React.FC = () => {
         onOpenStats={() => setIsStatisticsModalOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenCalendar={() => setIsCalendarOpen(true)}
+        calendarSyncing={calRefreshing}
       />
 
       {/* Pipeline bar */}

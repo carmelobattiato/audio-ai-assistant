@@ -10,9 +10,10 @@ interface NeoNavButtonProps {
   onClick: () => void;
   disabled?: boolean;
   highlight?: boolean;
+  iconPulse?: boolean;
 }
 
-const NeoNavButton: React.FC<NeoNavButtonProps> = ({ icon, label, tooltip, onClick, disabled, highlight }) => (
+const NeoNavButton: React.FC<NeoNavButtonProps> = ({ icon, label, tooltip, onClick, disabled, highlight, iconPulse }) => (
   <NeoTooltip text={tooltip}>
     <button
       onClick={onClick}
@@ -34,7 +35,12 @@ const NeoNavButton: React.FC<NeoNavButtonProps> = ({ icon, label, tooltip, onCli
         boxShadow: highlight ? '0 0 12px rgba(124,58,237,0.3)' : 'none',
       }}
     >
-      <span className="flex-shrink-0">{icon}</span>
+      <span
+        className="flex-shrink-0"
+        style={iconPulse ? { animation: 'caveman-cal-sync-pulse 1s ease-in-out infinite' } : undefined}
+      >
+        {icon}
+      </span>
       <span className="hidden sm:inline">{label}</span>
     </button>
   </NeoTooltip>
@@ -80,13 +86,14 @@ interface NeoTopbarProps {
   onOpenStats: () => void;
   onOpenSettings: () => void;
   onOpenCalendar: () => void;
+  calendarSyncing?: boolean;
 }
 
 export const NeoTopbar: React.FC<NeoTopbarProps> = ({
   appUserMessage, isBusy, canSaveZip, statsDisabled,
   transcriptionLabel, analysisLabel,
   onManageSessions, onSaveAll, onOpenStats, onOpenSettings,
-  onOpenCalendar,
+  onOpenCalendar, calendarSyncing,
 }) => (
   <header
     className="sticky top-0 z-40 flex items-center justify-between px-5 py-3 neo-topbar-border"
@@ -126,8 +133,9 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
     <nav className="flex items-center gap-1.5 flex-shrink-0">
       <NeoNavButton
         icon={<CalendarIcon />} label="Calendar" tooltip="Outlook calendar: day view with time slots and meeting details"
-        onClick={onOpenCalendar} disabled={isBusy} highlight
+        onClick={onOpenCalendar} disabled={isBusy} highlight iconPulse={calendarSyncing}
       />
+      <style>{`@keyframes caveman-cal-sync-pulse { 0%,100% { color: #ffffff; } 50% { color: #fb923c; } }`}</style>
       <NeoNavButton
         icon={<SessionsIcon />} label="Sessions" tooltip="Browse, restore or export your saved recording sessions"
         onClick={onManageSessions} disabled={isBusy} highlight

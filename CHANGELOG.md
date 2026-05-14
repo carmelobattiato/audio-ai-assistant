@@ -6,11 +6,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+---
+
+## [1.99] — 2026-05-14
+
 - Calendar background sync: auto-refresh ogni 15 minuti
 - Calendar background sync: refresh anche su `window focus` e `document visibilitychange` (tab torna visibile)
 - Calendar topbar icon: lampeggia arancione → bianco durante il sync (spinner-like), torna bianco fissa a sync completato
 
----
 
 ## [1.98] — 2026-05-14
 
