@@ -8,6 +8,16 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.101] — 2026-05-14
+
+- ### Calendar sync — dedup multi-tab e meno rumore log
+- Throttle 60s spostato da `useRef` a `localStorage['calendar:lastFetch']` → sopravvive a remount di NewHome (React.StrictMode in dev + nuove tab aperte da `?startMeeting=`) e a riavvii rapidi del componente
+- Lock cross-tab `localStorage['calendar:fetching']` con TTL 120s → quando una tab sta fetching, le altre saltano; il TTL evita deadlock se una tab crasha mid-fetch
+- `BroadcastChannel('calendar-sync-v1')`: la tab che fetcha propaga la lista appuntamenti a tutte le peer tabs → una sola chiamata al COM bridge per tutto il browser invece di una per tab
+- In-flight guard intra-tab (`calInFlightRef`) → secondi trigger ravvicinati (focus + visibilitychange + open-modal nello stesso tick) coalescono invece di doppiare il fetch
+- `CALENDAR_APPOINTMENTS_DETAIL` logga solo quando l'hash `id|start|end|meetingStatus|isCanceled` cambia rispetto al fetch precedente — prima emetteva un payload da N appuntamenti ad ogni fetch (ogni 15 min) anche se nulla cambiava
+
+
 ## [1.100] — 2026-05-14
 
 - ### Meeting pre-call notifications

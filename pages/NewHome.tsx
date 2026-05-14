@@ -853,15 +853,54 @@ export const NewHome: React.FC = () => {
 
   // ── Calendar background sync ──────────────────────────────────────────────
   // Throttle: skip auto-fetches that fire within 60s of the previous fetch.
+  // Throttle timestamp lives in localStorage so it survives component remounts
+  // AND is shared across browser tabs (the meeting-notification feature opens
+  // extra tabs via ?startMeeting=…, each running its own NewHome).
   // User-initiated retries (isRetry=true) and the scheduled 15-min tick bypass throttle.
-  const lastCalFetchRef = useRef<number>(0);
+  // Cross-tab lock with TTL prevents two tabs from hitting the COM bridge at once;
+  // BroadcastChannel propagates the appointment list to peer tabs.
+  const CAL_LAST_KEY = 'calendar:lastFetch';
+  const CAL_LOCK_KEY = 'calendar:fetching';
+  const CAL_LOCK_TTL = 120_000;
+  const CAL_BC = 'calendar-sync-v1';
+  const calBcRef = useRef<BroadcastChannel | null>(null);
+  const calInFlightRef = useRef(false);
+  const calLastDetailHashRef = useRef<string>('');
+
+  useEffect(() => {
+    const bc = new BroadcastChannel(CAL_BC);
+    calBcRef.current = bc;
+    bc.onmessage = (ev) => {
+      const msg = ev.data;
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.type === 'appointments' && Array.isArray(msg.appointments)) {
+        setCalAppointments(msg.appointments);
+        setCalBridgeAvailable(true);
+        setCalError(null);
+      }
+    };
+    return () => { bc.close(); calBcRef.current = null; };
+  }, []);
+
   const fetchCalendarData = useCallback(async (isRetry = false, bypassThrottle = false) => {
+    if (calInFlightRef.current) return; // in-tab coalescing
     const now = Date.now();
-    if (!isRetry && !bypassThrottle && (now - lastCalFetchRef.current) < 60_000) {
-      console.info('[calendar] fetch throttled (last fetch %dms ago)', now - lastCalFetchRef.current);
+    const lastStr = localStorage.getItem(CAL_LAST_KEY);
+    const last = lastStr ? parseInt(lastStr, 10) : 0;
+    if (!isRetry && !bypassThrottle && Number.isFinite(last) && (now - last) < 60_000) {
       return;
     }
-    lastCalFetchRef.current = now;
+    // Cross-tab lock with TTL (auto-expires in case a tab crashed mid-fetch)
+    const lockStr = localStorage.getItem(CAL_LOCK_KEY);
+    if (!isRetry && lockStr) {
+      const lockTs = parseInt(lockStr, 10);
+      if (Number.isFinite(lockTs) && (now - lockTs) < CAL_LOCK_TTL) {
+        return;
+      }
+    }
+    localStorage.setItem(CAL_LAST_KEY, String(now));
+    localStorage.setItem(CAL_LOCK_KEY, String(now));
+    calInFlightRef.current = true;
     setCalRefreshing(true);
     if (isRetry) {
       loggingService.info('CALENDAR_RETRY', 'User triggered calendar data retry', {
@@ -913,11 +952,14 @@ export const NewHome: React.FC = () => {
         loggingService.debug('CALENDAR_LOADED', `Loaded ${mapped.length} appointments via ICS feed`, {
           count: mapped.length, source: 'ics', isRetry,
         });
+        calBcRef.current?.postMessage({ type: 'appointments', appointments: mapped });
       } catch (e: unknown) {
         setCalBridgeAvailable(false);
         setCalError((e as Error).message ?? 'ICS fetch error');
         loggingService.warn('CALENDAR_BRIDGE_ERROR', String((e as Error).message), { source: 'ics', isRetry });
       } finally {
+        localStorage.removeItem(CAL_LOCK_KEY);
+        calInFlightRef.current = false;
         setCalRefreshing(false);
       }
       return;
@@ -971,18 +1013,28 @@ export const NewHome: React.FC = () => {
       if (skippedList.length > 0) {
         loggingService.warn('CALENDAR_SKIPPED', `${skippedList.length} appointments skipped by bridge`, { skipped: skippedList });
       }
-      loggingService.debug('CALENDAR_APPOINTMENTS_DETAIL', 'Appointment summary', {
-        appointments: apptList.map((a: any) => ({
-          id: a.id, subject: a.subject, start: a.start, end: a.end,
-          organizer: a.organizer, responseStatus: a.responseStatus,
-          meetingStatus: a.meetingStatus, isCanceled: a.isCanceled, isRecurring: a.isRecurring,
-          hasTeamsUrl: !!a.onlineMeetingUrl, attendees: a.attendees?.length ?? 0,
-        })),
-      });
+      // Detail log only when the appointment set changes (id+start+end+meetingStatus
+      // hash) — otherwise we'd write a 21-event payload every 15 min for no signal.
+      const detailEntries = apptList.map((a: any) => ({
+        id: a.id, subject: a.subject, start: a.start, end: a.end,
+        organizer: a.organizer, responseStatus: a.responseStatus,
+        meetingStatus: a.meetingStatus, isCanceled: a.isCanceled, isRecurring: a.isRecurring,
+        hasTeamsUrl: !!a.onlineMeetingUrl, attendees: a.attendees?.length ?? 0,
+      }));
+      const detailHash = detailEntries.map((e: any) => `${e.id}|${e.start}|${e.end}|${e.meetingStatus}|${e.isCanceled}`).join('::');
+      if (detailHash !== calLastDetailHashRef.current) {
+        calLastDetailHashRef.current = detailHash;
+        loggingService.debug('CALENDAR_APPOINTMENTS_DETAIL', 'Appointment summary (changed)', {
+          appointments: detailEntries,
+        });
+      }
+      calBcRef.current?.postMessage({ type: 'appointments', appointments: apptList });
     } catch (e: unknown) {
       setCalBridgeAvailable(false);
       setCalError((e as Error).message ?? 'Connection error');
     } finally {
+      localStorage.removeItem(CAL_LOCK_KEY);
+      calInFlightRef.current = false;
       setCalRefreshing(false);
     }
   }, []);
