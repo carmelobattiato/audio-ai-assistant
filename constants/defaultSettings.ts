@@ -53,6 +53,9 @@ export const DEFAULT_LLM_SETTINGS: AppSettings['llm'] = {
 
 export const DEFAULT_APPEARANCE_SETTINGS: AppSettings['appearance'] = {
   theme: Theme.DARK,
+  userEmail: '',
+  meetingNotificationsEnabled: true,
+  meetingNotificationLeadMinutes: 10,
 };
 
 export const DEFAULT_CUSTOM_INSTRUCTIONS: CustomInstruction[] = [];

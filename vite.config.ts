@@ -149,7 +149,7 @@ try {
 }
 `;
 
-function runPowerShell(script: string): Promise<string> {
+function runPowerShell(script: string, stdinInput?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     // EncodedCommand accetta UTF-16 LE in base64 — evita qualsiasi problema di escaping
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
@@ -165,8 +165,35 @@ function runPowerShell(script: string): Promise<string> {
       else resolve(out.trim());
     });
     proc.on('error', reject);
+    if (stdinInput !== undefined) {
+      proc.stdin.write(stdinInput, 'utf8');
+      proc.stdin.end();
+    }
   });
 }
+
+// Opens an Outlook compose window with HTML body preserved (formatting matches "Copy Text" rich output).
+// Recipients are separated by ';' which is Outlook's native separator.
+// Reads a base64-encoded JSON payload from stdin to avoid escaping/size limits.
+const PS_COMPOSE_EMAIL = `
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+try {
+    $b64 = [Console]::In.ReadToEnd()
+    $bytes = [Convert]::FromBase64String($b64)
+    $json = [System.Text.Encoding]::UTF8.GetString($bytes)
+    $data = $json | ConvertFrom-Json
+    $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop
+    $mail = $ol.CreateItem(0)
+    if ($data.subject) { $mail.Subject = [string]$data.subject }
+    if ($data.htmlBody) { $mail.HTMLBody = [string]$data.htmlBody }
+    if ($data.to -and $data.to.Count -gt 0) { $mail.To = ($data.to -join '; ') }
+    if ($data.cc -and $data.cc.Count -gt 0) { $mail.CC = ($data.cc -join '; ') }
+    $mail.Display()
+    [pscustomobject]@{ ok = $true } | ConvertTo-Json -Compress
+} catch {
+    [pscustomobject]@{ ok = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+}
+`;
 
 function outlookPlugin() {
   return {
@@ -185,6 +212,31 @@ function outlookPlugin() {
               platform: process.platform,
               mode: 'vite-plugin',
             }));
+            return;
+          }
+
+          // POST /api/outlook/email — opens Outlook compose with HTML body
+          if (req.url === '/email' && req.method === 'POST') {
+            if (process.platform !== 'win32') {
+              res.statusCode = 503;
+              res.end(JSON.stringify({
+                error: `Outlook Bridge is not available on ${process.platform}. This feature requires Windows.`,
+              }));
+              return;
+            }
+            try {
+              const chunks: Buffer[] = [];
+              for await (const c of req) chunks.push(c as Buffer);
+              const bodyStr = Buffer.concat(chunks).toString('utf8');
+              // Validate JSON early so the user gets a meaningful error
+              JSON.parse(bodyStr);
+              const b64 = Buffer.from(bodyStr, 'utf8').toString('base64');
+              const raw = await runPowerShell(PS_COMPOSE_EMAIL, b64);
+              res.end(raw);
+            } catch (e: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: e.message ?? 'Errore PowerShell' }));
+            }
             return;
           }
 

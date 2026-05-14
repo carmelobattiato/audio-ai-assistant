@@ -39,6 +39,7 @@ interface AppModalsProps {
   handleDeleteBubbleNote: (id: string) => void;
   handleGenerateSummaryForBubble: (n: BubbleNote) => Promise<string | null>;
   handleAssessCoherence: () => Promise<void>;
+  onTestMeetingNotification?: () => void;
 }
 
 export const AppModals: React.FC<AppModalsProps> = (props) => (
@@ -52,6 +53,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       onSaveCustomApiKey={props.onSaveCustomApiKey}
       onDeleteCustomApiKey={props.onDeleteCustomApiKey}
       initialTab={props.settingsInitialTab}
+      onTestMeetingNotification={props.onTestMeetingNotification}
     />
 
     <StatisticsModal

@@ -8,6 +8,35 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.100] — 2026-05-14
+
+- ### Meeting pre-call notifications
+- Notifica in-app N minuti prima di ogni call del calendar (default 10, configurabile 1-30 min) con relazione AI breve generata al volo da Gemini su `body`/`subject` + ruolo utente (organizer / required / optional) dedotto dal match `userEmail` ↔ `attendees`
+- Toast in-app (top-right, slide-in animato) usato al posto di Notification API browser — bypassa group policy aziendali che bloccano notifiche OS-level
+- Chime audio al fire via Web Audio API (sine 880→1320 Hz, no asset esterno)
+- Persistenza in IndexedDB (store `meetingNotifications`, DB v7) con TTL 24h e prune automatico al mount
+- Multi-tab: scheduler attivo su ogni scheda ma la chiamata LLM avviene **una sola volta** — claim atomico via `tryClaimMeetingNotification` (add-if-absent); altre tab attendono via `BroadcastChannel('meeting-notifications-v1')` + polling DB
+- Stable id `${subject_normalized}::${startIso}` per dedup robusto — gli id posizionali del bridge Outlook si rinumerano ad ogni refresh e causavano rifire spurio a 5/0 min
+- Snooze 2m / 5m: rimuove il toast e lo ripianifica con id univoco (sopravvive al re-render dell'hook); altri trigger non richiesti
+- Bell icon nella topbar: badge con count, dropdown con elenco notifiche del giorno
+- Bell dropdown: ordine **più recente in alto** (badge "RECENTE" sulla prima), orari `HH:MM–HH:MM` per ogni notifica, riunioni terminate (end < now) con sfondo grigio + opacità + badge "TERMINATA" e bottone "Avvia sessione" nascosto
+- Bell dropdown: × per riga (elimina singola) + "Clear all" in header con conferma
+- Componente condiviso `MeetingNotificationCard` — toast e bell rendono la stessa card (stesso accent stripe colorato per ruolo, layout, stili), differiscono solo per `variant: 'toast' | 'panel'` e set di bottoni
+- Bottone toast "Avvia sessione" (sostituisce "Join Teams"): apre nuova scheda con `?startMeeting=<id>` precaricato → carica meeting dal DB, popola titolo + bubble note (organizer/summary/body), mostra banner countdown in alto; al T-0 chiama `audioRecorderRef.startMicOnly()` (registrazione mic-only)
+- Banner countdown: bottoni "Avvia ora" (manuale prima del T-0) e "Annulla" (disabilita auto-start); il countdown parte solo nella tab target (URL param), non in quella di origine
+- Settings: tab `Appearance` rinominato `General`; nuova sezione "Meeting notifications" con toggle on/off, campo `Your email` (per matching To/CC), lead time 1-30 min, bottone "Test notification" che genera un toast di prova in-app
+- Skip notifica per appuntamenti `isCanceled` o passati; fallback metadata-only se Gemini fallisce
+- Log diagnostici `[meeting-notif]` in console: claim/wait, scheduler armato, ogni appuntamento schedulato con delay
+- `hooks/useMeetingNotifications.ts` + `hooks/useMeetingNotificationHistory.ts` + `utils/meetingUtils.ts` (`computeRole`, `MeetingToastData`)
+- ### Calendar sync
+- Throttle 60s su auto-fetch (focus/visibilitychange) per evitare storming del COM bridge ad ogni alt-tab; il tick scheduled di 15 min bypassa il throttle
+- ### Prepare Email
+- Separatore destinatari `;` (convenzione Outlook) al posto di `,`
+- Bridge Outlook COM su Windows — apre la finestra di composizione con `HTMLBody` preservando la formattazione di "Copy Text" (heading, tabelle, stili inline); fallback `mailto:` su altri OS
+- `vite.config.ts`: nuovo endpoint POST `/api/outlook/email` (payload JSON via stdin base64 → `Outlook.Application.CreateItem(0).Display()`)
+- Tabelle leggibili su sfondo bianco — testo `#111827`, bordi `#d1d5db`, header background `#f3f4f6` (prima usava grigio chiaro pensato per dark theme)
+
+
 ## [1.99] — 2026-05-14
 
 - Calendar background sync: auto-refresh ogni 15 minuti

@@ -87,13 +87,14 @@ interface NeoTopbarProps {
   onOpenSettings: () => void;
   onOpenCalendar: () => void;
   calendarSyncing?: boolean;
+  notificationBell?: React.ReactNode;
 }
 
 export const NeoTopbar: React.FC<NeoTopbarProps> = ({
   appUserMessage, isBusy, canSaveZip, statsDisabled,
   transcriptionLabel, analysisLabel,
   onManageSessions, onSaveAll, onOpenStats, onOpenSettings,
-  onOpenCalendar, calendarSyncing,
+  onOpenCalendar, calendarSyncing, notificationBell,
 }) => (
   <header
     className="sticky top-0 z-40 flex items-center justify-between px-5 py-3 neo-topbar-border"
@@ -156,7 +157,8 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
     </nav>
 
     {/* Status message — right */}
-    <div className="flex justify-end items-center min-w-0 px-2" style={{ flex: '1 1 0' }}>
+    <div className="flex justify-end items-center min-w-0 gap-2 px-2" style={{ flex: '1 1 0' }}>
+      {notificationBell}
       {appUserMessage && (
         <p
           className="text-xs px-3 py-1 rounded-full truncate max-w-xs"

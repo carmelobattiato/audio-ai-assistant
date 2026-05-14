@@ -5,14 +5,33 @@ import { MAX_SESSIONS } from '../constants';
 import type { EncryptedBlob } from './crypto';
 
 const DB_NAME = 'AudioAIAssistantDB';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const SESSIONS_STORE_NAME = 'sessions';
 const IN_PROGRESS_STORE_NAME = 'inProgressSessions';
 const SECRETS_STORE_NAME = 'appSecrets';
+const MEETING_NOTIF_STORE_NAME = 'meetingNotifications';
 const API_KEY_RECORD_ID = 'googleApiKey';
 
 interface SecretRecord extends EncryptedBlob {
   id: string;
+}
+
+export interface MeetingNotificationRecord {
+  id: string;                  // `${apptId}::${YYYY-MM-DD}`
+  apptId: string;
+  date: string;                // YYYY-MM-DD (local)
+  subject: string;
+  organizer: string;
+  startIso: string;
+  endIso?: string;             // meeting end time
+  role: 'organizer' | 'required' | 'optional' | 'unknown';
+  summary: string;             // '' until LLM finishes (placeholder for claim)
+  generatedAt: number;         // ms epoch when summary was written ('' summary → 0)
+  expiresAt: number;           // ms epoch; default = generatedAt + 24h
+  shownAt?: number;            // when the toast was first displayed (for history grouping)
+  body?: string;               // truncated meeting body, for "Avvia sessione" context
+  onlineMeetingUrl?: string;
+  location?: string;
 }
 
 interface AppDB extends DBSchema {
@@ -29,10 +48,17 @@ interface AppDB extends DBSchema {
     key: string;
     value: SecretRecord;
   };
+  [MEETING_NOTIF_STORE_NAME]: {
+    key: string;
+    value: MeetingNotificationRecord;
+    indexes: { 'by-expiresAt': number };
+  };
 }
 
+type AppStoreName = 'sessions' | 'inProgressSessions' | 'appSecrets' | 'meetingNotifications';
+
 const dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
-  upgrade(db: IDBPDatabase<AppDB>, oldVersion: number, _newVersion: number | null, tx: IDBPTransaction<AppDB, ('sessions' | 'inProgressSessions' | 'appSecrets')[], 'versionchange'>) {
+  upgrade(db: IDBPDatabase<AppDB>, oldVersion: number, _newVersion: number | null, tx: IDBPTransaction<AppDB, AppStoreName[], 'versionchange'>) {
     console.log(`Upgrading database from version ${oldVersion} to ${DB_VERSION}`);
     if (!db.objectStoreNames.contains(SESSIONS_STORE_NAME)) {
       const store = db.createObjectStore(SESSIONS_STORE_NAME, { keyPath: 'id' });
@@ -49,6 +75,10 @@ const dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
     }
     if (!db.objectStoreNames.contains(SECRETS_STORE_NAME)) {
       db.createObjectStore(SECRETS_STORE_NAME, { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains(MEETING_NOTIF_STORE_NAME)) {
+      const store = db.createObjectStore(MEETING_NOTIF_STORE_NAME, { keyPath: 'id' });
+      store.createIndex('by-expiresAt', 'expiresAt');
     }
   },
 });
@@ -149,6 +179,70 @@ export const db = {
   async deleteEncryptedApiKey(): Promise<void> {
     const dbInstance = await dbPromise;
     await dbInstance.delete(SECRETS_STORE_NAME, API_KEY_RECORD_ID);
+  },
+
+  // ── Meeting notifications (cross-tab dedup + 1-day history) ────────────────
+  // tryClaimMeetingNotification: atomic insert-if-absent. Returns true if this tab
+  // owns the record (must generate the LLM summary), false if another tab already
+  // claimed it. Uses an explicit transaction + get/add to avoid races.
+  async tryClaimMeetingNotification(record: MeetingNotificationRecord): Promise<boolean> {
+    const dbInstance = await dbPromise;
+    const tx = dbInstance.transaction(MEETING_NOTIF_STORE_NAME, 'readwrite');
+    const existing = await tx.store.get(record.id);
+    if (existing) {
+      await tx.done;
+      return false;
+    }
+    await tx.store.add(record);
+    await tx.done;
+    return true;
+  },
+
+  async getMeetingNotification(id: string): Promise<MeetingNotificationRecord | undefined> {
+    const dbInstance = await dbPromise;
+    return dbInstance.get(MEETING_NOTIF_STORE_NAME, id);
+  },
+
+  async updateMeetingNotificationSummary(id: string, summary: string): Promise<void> {
+    const dbInstance = await dbPromise;
+    const existing = await dbInstance.get(MEETING_NOTIF_STORE_NAME, id);
+    if (!existing) return;
+    existing.summary = summary;
+    existing.generatedAt = Date.now();
+    if (!existing.shownAt) existing.shownAt = Date.now();
+    await dbInstance.put(MEETING_NOTIF_STORE_NAME, existing);
+  },
+
+  async getAllMeetingNotifications(): Promise<MeetingNotificationRecord[]> {
+    const dbInstance = await dbPromise;
+    const all = await dbInstance.getAll(MEETING_NOTIF_STORE_NAME);
+    return all.sort((a, b) => new Date(a.startIso).getTime() - new Date(b.startIso).getTime());
+  },
+
+  async deleteMeetingNotification(id: string): Promise<void> {
+    const dbInstance = await dbPromise;
+    await dbInstance.delete(MEETING_NOTIF_STORE_NAME, id);
+  },
+
+  async clearAllMeetingNotifications(): Promise<void> {
+    const dbInstance = await dbPromise;
+    await dbInstance.clear(MEETING_NOTIF_STORE_NAME);
+  },
+
+  async pruneExpiredMeetingNotifications(): Promise<number> {
+    const dbInstance = await dbPromise;
+    const tx = dbInstance.transaction(MEETING_NOTIF_STORE_NAME, 'readwrite');
+    let pruned = 0;
+    const now = Date.now();
+    const all = await tx.store.getAll();
+    for (const r of all) {
+      if ((r.expiresAt ?? 0) <= now) {
+        await tx.store.delete(r.id);
+        pruned++;
+      }
+    }
+    await tx.done;
+    return pruned;
   },
 
   async markCrashedSessions(): Promise<number> {

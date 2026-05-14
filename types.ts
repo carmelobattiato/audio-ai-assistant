@@ -266,6 +266,9 @@ export interface LogEntry {
 
 export interface AppearanceSettings {
   theme: Theme;
+  userEmail: string;
+  meetingNotificationsEnabled: boolean;
+  meetingNotificationLeadMinutes: number;
 }
 
 export interface CustomInstruction {

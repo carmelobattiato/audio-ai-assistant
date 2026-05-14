@@ -38,10 +38,11 @@ interface SettingsPanelProps {
   onSaveCustomApiKey: (key: string) => Promise<void>;
   onDeleteCustomApiKey: () => Promise<void>;
   initialTab?: string;
+  onTestMeetingNotification?: () => void;
 }
 
 const TABS = [
-  { id: 'appearance', label: 'Appearance' },
+  { id: 'appearance', label: 'General' },
   { id: 'llm', label: 'LLM Configuration' },
   { id: 'audio', label: 'Audio Recording' },
   { id: 'transcription', label: 'Transcription & Notes' },
@@ -100,7 +101,7 @@ const ModelSelectionTable: React.FC<{
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen, onClose, settings, onSettingsChange,
   hasCustomApiKey, onSaveCustomApiKey, onDeleteCustomApiKey,
-  initialTab,
+  initialTab, onTestMeetingNotification,
 }) => {
   const [localSettings, setLocalSettings] = useState<AppSettings>(() => {
     const validLiveIds = GEMINI_LIVE_MODELS.map(m => m.id);
@@ -430,15 +431,64 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       <div className="pt-5 space-y-6">
         {activeTab === 'appearance' && (
-          <section>
+          <section className="space-y-4">
             <div className="space-y-4 p-3 bg-gray-700 rounded-md">
-            <Select
-                label="Color Theme:"
-                id="appearanceTheme"
-                options={themeOptions}
-                value={localSettings.appearance?.theme || Theme.DARK}
-                onChange={(e) => handleLocalGenericChange('appearance', 'theme', e.target.value as Theme)}
-            />
+              <Select
+                  label="Color Theme:"
+                  id="appearanceTheme"
+                  options={themeOptions}
+                  value={localSettings.appearance?.theme || Theme.DARK}
+                  onChange={(e) => handleLocalGenericChange('appearance', 'theme', e.target.value as Theme)}
+              />
+            </div>
+
+            <div className="space-y-3 p-3 bg-gray-700 rounded-md">
+              <h3 className="text-sm font-semibold text-sky-300">Meeting notifications</h3>
+              <p className="text-xs text-gray-400">
+                Mostra una notifica del browser N minuti prima dell'inizio di una call, con relazione AI sul contenuto e indicazione del tuo ruolo (organizzatore / required / optional).
+              </p>
+
+              <Checkbox
+                label="Enable pre-call browser notifications"
+                id="meetingNotificationsEnabled"
+                checked={localSettings.appearance?.meetingNotificationsEnabled ?? true}
+                onChange={(e) => handleLocalGenericChange('appearance', 'meetingNotificationsEnabled', e.target.checked)}
+              />
+
+              <Input
+                label="Your email (per matching To / CC)"
+                id="userEmail"
+                type="email"
+                placeholder="name@company.com"
+                value={localSettings.appearance?.userEmail ?? ''}
+                onChange={(e) => handleLocalGenericChange('appearance', 'userEmail', e.target.value.trim())}
+              />
+
+              <Input
+                label="Lead time (minutes before the call)"
+                id="meetingNotificationLeadMinutes"
+                type="number"
+                min={1}
+                max={30}
+                value={localSettings.appearance?.meetingNotificationLeadMinutes ?? 10}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  handleLocalGenericChange('appearance', 'meetingNotificationLeadMinutes', Number.isFinite(n) ? Math.min(30, Math.max(1, n)) : 10);
+                }}
+              />
+
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => onTestMeetingNotification?.()}
+                  className="text-xs px-3 py-1 rounded-md bg-sky-600 hover:bg-sky-500 text-white"
+                >
+                  Test notification
+                </button>
+                <span className="text-[11px] text-gray-400">
+                  Le notifiche compaiono in-app (toast in alto a destra), nessun permesso browser/OS richiesto.
+                </span>
+              </div>
             </div>
           </section>
         )}

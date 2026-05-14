@@ -23,6 +23,12 @@ const NeoCalendarDayView = lazy(() => import('../components/newpage/NeoCalendarD
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
 import { useSessionLogic } from '../hooks/useSessionLogic';
+import { useMeetingNotifications } from '../hooks/useMeetingNotifications';
+import { MeetingNotificationToasts } from '../components/MeetingNotificationToast';
+import { MeetingNotificationBell } from '../components/MeetingNotificationBell';
+import { useMeetingNotificationHistory } from '../hooks/useMeetingNotificationHistory';
+import type { MeetingToastData } from '../utils/meetingUtils';
+import type { MeetingNotificationRecord } from '../utils/db';
 
 import {
   AppSettings,
@@ -846,7 +852,16 @@ export const NewHome: React.FC = () => {
   ];
 
   // ── Calendar background sync ──────────────────────────────────────────────
-  const fetchCalendarData = useCallback(async (isRetry = false) => {
+  // Throttle: skip auto-fetches that fire within 60s of the previous fetch.
+  // User-initiated retries (isRetry=true) and the scheduled 15-min tick bypass throttle.
+  const lastCalFetchRef = useRef<number>(0);
+  const fetchCalendarData = useCallback(async (isRetry = false, bypassThrottle = false) => {
+    const now = Date.now();
+    if (!isRetry && !bypassThrottle && (now - lastCalFetchRef.current) < 60_000) {
+      console.info('[calendar] fetch throttled (last fetch %dms ago)', now - lastCalFetchRef.current);
+      return;
+    }
+    lastCalFetchRef.current = now;
     setCalRefreshing(true);
     if (isRetry) {
       loggingService.info('CALENDAR_RETRY', 'User triggered calendar data retry', {
@@ -978,9 +993,11 @@ export const NewHome: React.FC = () => {
   // Refresh in background every time the calendar is opened
   useEffect(() => { if (isCalendarOpen) fetchCalendarData(); }, [isCalendarOpen, fetchCalendarData]);
 
-  // Auto-refresh every 15 min + when window/tab regains focus or becomes visible
+  // Auto-refresh every 15 min (bypasses throttle) + opportunistic refresh on
+  // window/tab focus or visibility (throttled to once per 60s to avoid storming
+  // the COM bridge when the user alt-tabs frequently).
   useEffect(() => {
-    const intervalId = window.setInterval(() => { fetchCalendarData(); }, 15 * 60 * 1000);
+    const intervalId = window.setInterval(() => { fetchCalendarData(false, true); }, 15 * 60 * 1000);
     const onFocus = () => { fetchCalendarData(); };
     const onVisibility = () => { if (document.visibilityState === 'visible') fetchCalendarData(); };
     window.addEventListener('focus', onFocus);
@@ -991,6 +1008,166 @@ export const NewHome: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [fetchCalendarData]);
+
+  // Pre-call in-app toast notifications (10 min before each meeting by default).
+  // Toggleable in Settings → General. Generates an AI summary via Gemini at fire time.
+  // In-app toasts are used instead of the browser Notification API to bypass corporate
+  // group policies that block OS-level notifications.
+  const [meetingToasts, setMeetingToasts] = useState<MeetingToastData[]>([]);
+
+  const playMeetingChime = useCallback(() => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(880, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.45);
+    } catch { /* audio not available */ }
+  }, []);
+
+  const handleMeetingTrigger = useCallback((data: MeetingToastData) => {
+    setMeetingToasts(prev => (prev.some(t => t.id === data.id) ? prev : [...prev, data]));
+    playMeetingChime();
+  }, [playMeetingChime]);
+
+  const handleToastDismiss = useCallback((id: string) => {
+    setMeetingToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const handleToastSnooze = useCallback((id: string, minutes: number) => {
+    setMeetingToasts(prev => {
+      const t = prev.find(x => x.id === id);
+      if (t) {
+        const snoozed: MeetingToastData = { ...t, id: `${t.apptId}::snooze::${Date.now()}` };
+        window.setTimeout(() => {
+          setMeetingToasts(cur => (cur.some(c => c.id === snoozed.id) ? cur : [...cur, snoozed]));
+          playMeetingChime();
+        }, minutes * 60_000);
+      }
+      return prev.filter(x => x.id !== id);
+    });
+  }, [playMeetingChime]);
+
+  const handleToastOpen = useCallback((_t: MeetingToastData) => {
+    setIsCalendarOpen(true);
+  }, []);
+
+  const handleTestMeetingNotification = useCallback(() => {
+    const now = new Date();
+    const start = new Date(now.getTime() + 10 * 60_000);
+    const fake: MeetingToastData = {
+      id: `test::${Date.now()}`,
+      apptId: 'test',
+      subject: 'Test meeting · review demo',
+      organizer: appSettings.appearance?.userEmail || 'you@company.com',
+      startIso: start.toISOString(),
+      minutesToStart: 10,
+      role: 'required',
+      summary: 'Questa è una notifica di prova. La call simulata richiede una breve presentazione dei progressi: PREPARA 2-3 slide sullo stato attuale, poi sarà discussione aperta.',
+    };
+    setMeetingToasts(prev => [...prev, fake]);
+    playMeetingChime();
+  }, [appSettings.appearance, playMeetingChime]);
+
+  useMeetingNotifications({
+    appointments: calAppointments,
+    enabled: appSettings.appearance?.meetingNotificationsEnabled ?? true,
+    leadMinutes: appSettings.appearance?.meetingNotificationLeadMinutes ?? 10,
+    userEmail: appSettings.appearance?.userEmail ?? '',
+    llmSettings: appSettings.llm,
+    onTrigger: handleMeetingTrigger,
+  });
+
+  // Notification history (bell icon dropdown) — backed by IndexedDB, 1-day TTL
+  const { records: meetingHistory, deleteOne: deleteMeetingHistoryItem, clearAll: clearAllMeetingHistory } = useMeetingNotificationHistory();
+
+  // Opens a new browser tab pre-loaded for a given meeting; the new tab parses
+  // the URL params on mount and prepares the session (title + countdown auto-start).
+  const handleStartSessionForMeeting = useCallback((rec: Pick<MeetingNotificationRecord, 'apptId' | 'date'>) => {
+    const u = new URL(window.location.href);
+    u.searchParams.set('startMeeting', `${rec.apptId}::${rec.date}`);
+    window.open(u.toString(), '_blank', 'noopener');
+  }, []);
+
+  const handleStartSessionFromToast = useCallback((toast: MeetingToastData) => {
+    const date = toast.startIso ? new Date(toast.startIso) : new Date();
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    handleStartSessionForMeeting({ apptId: toast.apptId, date: `${y}-${m}-${d}` });
+  }, [handleStartSessionForMeeting]);
+
+  // URL param: ?startMeeting=<recordId> — auto-load meeting context + countdown
+  const [pendingAutoStart, setPendingAutoStart] = useState<{ startMs: number; subject: string } | null>(null);
+  const pendingAutoStartLoadedRef = useRef(false);
+  useEffect(() => {
+    if (pendingAutoStartLoadedRef.current) return;
+    pendingAutoStartLoadedRef.current = true;
+    const sp = new URLSearchParams(window.location.search);
+    const id = sp.get('startMeeting');
+    if (!id) return;
+    (async () => {
+      const rec = await db.getMeetingNotification(id);
+      if (!rec) {
+        console.warn('[auto-start] meeting record not found for', id);
+        return;
+      }
+      const bodyHtml = rec.body ? `<p><strong>${rec.subject}</strong></p><p>Organizer: ${rec.organizer}</p>${rec.summary ? `<hr><p>${rec.summary}</p>` : ''}${rec.body ? `<hr><p>${rec.body.replace(/\n/g, '<br>')}</p>` : ''}` : `<p><strong>${rec.subject}</strong></p><p>Organizer: ${rec.organizer}</p>`;
+      handleOutlookImport(rec.subject, bodyHtml, []);
+      setPendingAutoStart({ startMs: new Date(rec.startIso).getTime(), subject: rec.subject });
+      console.info('[auto-start] loaded meeting "%s", auto-record at %s', rec.subject, rec.startIso);
+    })();
+  }, []);
+
+  // Countdown banner state — recomputed each second
+  const [autoStartCountdownMs, setAutoStartCountdownMs] = useState<number | null>(null);
+  useEffect(() => {
+    if (!pendingAutoStart) { setAutoStartCountdownMs(null); return; }
+    const tick = () => setAutoStartCountdownMs(pendingAutoStart.startMs - Date.now());
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [pendingAutoStart]);
+
+  // Trigger the recording at meeting start time (or immediately if start already passed
+  // when user lands on the page)
+  const autoStartFiredRef = useRef(false);
+  useEffect(() => {
+    if (!pendingAutoStart) return;
+    if (autoStartFiredRef.current) return;
+    const delay = Math.max(0, pendingAutoStart.startMs - Date.now());
+    const id = window.setTimeout(() => {
+      if (autoStartFiredRef.current) return;
+      autoStartFiredRef.current = true;
+      try {
+        audioRecorderRef.current?.startMicOnly?.();
+      } catch (err) {
+        console.warn('[auto-start] startMicOnly failed', err);
+      }
+    }, delay);
+    return () => window.clearTimeout(id);
+  }, [pendingAutoStart]);
+
+  const handleAutoStartNow = useCallback(() => {
+    if (autoStartFiredRef.current) return;
+    autoStartFiredRef.current = true;
+    try { audioRecorderRef.current?.startMicOnly?.(); } catch { /* noop */ }
+    setPendingAutoStart(null);
+  }, []);
+
+  const handleAutoStartCancel = useCallback(() => {
+    setPendingAutoStart(null);
+    autoStartFiredRef.current = true; // prevent the deferred timer from firing
+  }, []);
 
   // ── Divider drag handler ──────────────────────────────────────────────────
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1020,6 +1197,53 @@ export const NewHome: React.FC = () => {
       className="neo-ctx flex flex-col"
       style={{ background: 'var(--neo-bg)', minHeight: '100vh', color: 'var(--neo-text)', fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
+      {/* Auto-start countdown banner */}
+      {pendingAutoStart && autoStartCountdownMs !== null && (
+        <div
+          className="px-4 py-2 flex items-center justify-between gap-3 text-sm"
+          style={{
+            background: 'linear-gradient(90deg, rgba(16,185,129,0.18), rgba(124,58,237,0.18))',
+            borderBottom: '1px solid rgba(167,139,250,0.4)',
+            color: '#f1f5f9',
+          }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span style={{ fontSize: '18px' }}>⏱️</span>
+            <span className="truncate">
+              {autoStartCountdownMs > 0 ? (
+                <>
+                  Auto-record di <strong>{pendingAutoStart.subject}</strong> tra{' '}
+                  <strong>
+                    {String(Math.floor(autoStartCountdownMs / 60000)).padStart(2, '0')}:
+                    {String(Math.floor((autoStartCountdownMs / 1000) % 60)).padStart(2, '0')}
+                  </strong>
+                </>
+              ) : (
+                <>Auto-record in avvio…</>
+              )}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={handleAutoStartNow}
+              className="text-xs px-3 py-1 rounded font-medium"
+              style={{ background: 'rgba(16,185,129,0.4)', border: '1px solid rgba(16,185,129,0.6)', color: 'white' }}
+            >
+              Avvia ora
+            </button>
+            <button
+              type="button"
+              onClick={handleAutoStartCancel}
+              className="text-xs px-3 py-1 rounded font-medium"
+              style={{ background: 'rgba(75,85,99,0.5)', color: '#e5e7eb' }}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Topbar */}
       <NeoTopbar
         appUserMessage={appUserMessage}
@@ -1036,6 +1260,15 @@ export const NewHome: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenCalendar={() => setIsCalendarOpen(true)}
         calendarSyncing={calRefreshing}
+        notificationBell={
+          <MeetingNotificationBell
+            records={meetingHistory}
+            onOpenCalendar={() => setIsCalendarOpen(true)}
+            onStartSessionForMeeting={handleStartSessionForMeeting}
+            onDelete={(id) => { void deleteMeetingHistoryItem(id); }}
+            onClearAll={() => { void clearAllMeetingHistory(); }}
+          />
+        }
       />
 
       {/* Pipeline bar */}
@@ -1278,10 +1511,19 @@ export const NewHome: React.FC = () => {
         </ul>
       </Modal>
 
+      <MeetingNotificationToasts
+        toasts={meetingToasts}
+        onDismiss={handleToastDismiss}
+        onSnooze={handleToastSnooze}
+        onOpen={handleToastOpen}
+        onStartSession={handleStartSessionFromToast}
+      />
+
       {/* Modals (reused unchanged) */}
       <AppModals
         isSettingsOpen={isSettingsOpen} setIsSettingsOpen={(v) => { setIsSettingsOpen(v); if (!v) setSettingsInitialTab(undefined); }}
         settingsInitialTab={settingsInitialTab}
+        onTestMeetingNotification={handleTestMeetingNotification}
         appSettings={appSettings}
         hasCustomApiKey={hasCustomApiKey}
         onSaveCustomApiKey={handleSaveCustomApiKey}

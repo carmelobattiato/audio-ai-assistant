@@ -336,18 +336,32 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
         (h as HTMLElement).style.fontFamily = 'sans-serif';
     });
     
+    // Email clients render on a white background, so use dark text + light borders.
+    // (The in-app dark theme uses light text — that does NOT carry over to Outlook/Gmail.)
     tempDiv.querySelectorAll('table').forEach(table => {
         table.style.width = '100%';
         table.style.borderCollapse = 'collapse';
         table.style.marginTop = '16px';
         table.style.marginBottom = '16px';
-        table.style.color = '#e5e7eb';
+        table.style.color = '#111827';
+        table.style.fontFamily = 'sans-serif';
+        table.style.fontSize = '14px';
     });
-    
-    tempDiv.querySelectorAll('th, td').forEach(cell => {
-        (cell as HTMLElement).style.border = '1px solid #4b5563';
-        (cell as HTMLElement).style.padding = '8px';
+
+    tempDiv.querySelectorAll('th').forEach(cell => {
+        (cell as HTMLElement).style.border = '1px solid #d1d5db';
+        (cell as HTMLElement).style.padding = '8px 10px';
         (cell as HTMLElement).style.textAlign = 'left';
+        (cell as HTMLElement).style.backgroundColor = '#f3f4f6';
+        (cell as HTMLElement).style.color = '#111827';
+        (cell as HTMLElement).style.fontWeight = '600';
+    });
+
+    tempDiv.querySelectorAll('td').forEach(cell => {
+        (cell as HTMLElement).style.border = '1px solid #d1d5db';
+        (cell as HTMLElement).style.padding = '8px 10px';
+        (cell as HTMLElement).style.textAlign = 'left';
+        (cell as HTMLElement).style.color = '#111827';
     });
 
     return tempDiv.innerHTML;
@@ -373,10 +387,10 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
     }
   };
 
-  const handlePrepareEmail = () => {
+  const handlePrepareEmail = async () => {
     if (!currentLlmResult) return;
-    const body = htmlToPlainText(currentLlmResult);
     const subject = meetingTitle?.trim() || recordingTitle;
+    const richHtml = getRichClipboardHtml(currentLlmResult);
 
     let toEmails = (meetingAttendees ?? [])
       .filter(a => a.email && (!a.type || a.type === 'required'))
@@ -392,14 +406,33 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
       toEmails = [...new Set(noteText.match(emailRegex) ?? [])];
     }
 
-    // mailto: requires proper percent-encoding; URLSearchParams uses + for spaces which breaks Outlook
+    // Preferred path: Outlook COM bridge (Windows). Preserves HTML formatting from "Copy Text"
+    // and uses ';' as recipient separator (Outlook's native convention).
+    try {
+      const resp = await fetch('/api/outlook/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: toEmails, cc: ccEmails, subject, htmlBody: richHtml }),
+      });
+      if (resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        if (data?.ok) return;
+      }
+    } catch {
+      // bridge unavailable, fall back to mailto
+    }
+
+    // Fallback: mailto. RFC 6068 specifies ',' between addresses, but user requested ';' (Outlook
+    // convention). Outlook on Windows accepts both; webmail clients typically expect ','. We honor
+    // the explicit user preference here.
+    const body = htmlToPlainText(currentLlmResult);
     const parts = [
       `subject=${encodeURIComponent(subject)}`,
       `body=${encodeURIComponent(body)}`,
     ];
-    if (ccEmails.length > 0) parts.push(`cc=${encodeURIComponent(ccEmails.join(', '))}`);
+    if (ccEmails.length > 0) parts.push(`cc=${encodeURIComponent(ccEmails.join('; '))}`);
 
-    window.location.href = `mailto:${encodeURIComponent(toEmails.join(', '))}?${parts.join('&')}`;
+    window.location.href = `mailto:${encodeURIComponent(toEmails.join('; '))}?${parts.join('&')}`;
   };
 
   const handleDownloadLlmResult = () => {
