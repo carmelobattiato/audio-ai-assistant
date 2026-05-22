@@ -29,16 +29,16 @@ const SingleToast: React.FC<ToastProps> = ({ toast, onDismiss, onSnooze, onOpen,
           style={{ background: 'rgba(124,58,237,0.4)', border: '1px solid rgba(167,139,250,0.5)', color: 'white' }}
           type="button"
         >
-          Apri Calendar
+          Open Calendar
         </button>
         <button
           onClick={() => { onStartSession(toast); onDismiss(toast.id); }}
           className="text-[11px] px-2.5 py-1 rounded-md font-medium"
           style={{ background: 'rgba(16,185,129,0.3)', border: '1px solid rgba(16,185,129,0.55)', color: '#a7f3d0' }}
           type="button"
-          title="Apre una nuova scheda con il meeting precaricato e un countdown auto-record"
+          title="Opens a new tab with the meeting preloaded and an auto-record countdown"
         >
-          Avvia sessione
+          Start session
         </button>
         <button
           onClick={() => onSnooze(toast.id, 2)}

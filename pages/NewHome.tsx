@@ -1625,6 +1625,13 @@ export const NewHome: React.FC = () => {
         isOpen={isCalendarOpen}
         onClose={() => setIsCalendarOpen(false)}
         onImport={handleOutlookImport}
+        onImportAndSchedule={(title, noteHtml, attendees, startIso, subject) => {
+          handleOutlookImport(title, noteHtml, attendees);
+          const startMs = new Date(startIso).getTime();
+          if (!Number.isFinite(startMs)) return;
+          autoStartFiredRef.current = false;
+          setPendingAutoStart({ startMs, subject });
+        }}
         onOpenTeamsAndRecord={handleOutlookOpenTeams}
         externalAppointments={calAppointments}
         externalBridgeAvailable={calBridgeAvailable}

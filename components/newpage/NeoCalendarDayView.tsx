@@ -191,8 +191,9 @@ const ApptInfoModal: React.FC<{
   appt: OutlookAppointment;
   onClose: () => void;
   onLoadInfo: () => void;
+  onLoadAndSchedule: () => void;
   onTeams?: () => void;
-}> = ({ appt, onClose, onLoadInfo, onTeams }) => {
+}> = ({ appt, onClose, onLoadInfo, onLoadAndSchedule, onTeams }) => {
   const teamsUrl = extractTeamsUrl(appt);
   return (
     <div
@@ -321,10 +322,19 @@ const ApptInfoModal: React.FC<{
             </svg>
             Load Info
           </button>
+          <button onClick={onLoadAndSchedule}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-105"
+            style={{ background: 'linear-gradient(135deg,#10B981,#7C3AED)', color: 'white' }}
+            title="Load meeting info and arm a countdown that auto-starts recording at the meeting time">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Load & Schedule
+          </button>
           <button onClick={onClose}
             className="px-4 py-2 rounded-lg text-xs font-medium"
             style={{ color: 'var(--neo-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--neo-border)' }}>
-            Chiudi
+            Close
           </button>
         </div>
       </div>
@@ -337,6 +347,7 @@ interface NeoCalendarDayViewProps {
   isOpen: boolean;
   onClose: () => void;
   onImport: (title: string, noteHtml: string, attendees: Attendee[]) => void;
+  onImportAndSchedule?: (title: string, noteHtml: string, attendees: Attendee[], startIso: string, subject: string) => void;
   onOpenTeamsAndRecord?: (title: string, noteHtml: string, teamsUrl: string, attendees: Attendee[]) => void;
   externalAppointments?: OutlookAppointment[];
   externalBridgeAvailable?: boolean | null;
@@ -348,7 +359,7 @@ interface NeoCalendarDayViewProps {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
-  isOpen, onClose, onImport, onOpenTeamsAndRecord,
+  isOpen, onClose, onImport, onImportAndSchedule, onOpenTeamsAndRecord,
   externalAppointments, externalBridgeAvailable, externalError,
   isBackgroundRefreshing = false, onRequestRefresh, onConfigureIcs,
 }) => {
@@ -693,6 +704,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                         <div
                           key={appt.id}
                           onClick={() => setSelected(isSel ? null : appt)}
+                          onDoubleClick={() => setInfoAppt(appt)}
                           className="absolute cursor-pointer rounded-lg overflow-hidden transition-all duration-150"
                           style={{
                             top: topPx + 1, height: heightPx - 2,
@@ -749,6 +761,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                       key={appt.id}
                       ref={isFirst ? (el => { firstHighlightRef.current = el; }) : undefined}
                       onClick={() => setSelected(isSel ? null : appt)}
+                      onDoubleClick={() => setInfoAppt(appt)}
                       className="rounded-xl border cursor-pointer transition-all duration-150 overflow-hidden select-none"
                       style={{
                         background: isSel ? 'rgba(124,58,237,0.12)' : c.bg,
@@ -887,6 +900,21 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                       </svg>
                       Load Info
                     </button>
+                    {onImportAndSchedule && (
+                      <button
+                        onClick={() => {
+                          onImportAndSchedule(selected.subject, buildNoteHtml(selected), selected.attendees, selected.start, selected.subject);
+                          onClose();
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
+                        style={{ background: 'linear-gradient(135deg,#10B981,#7C3AED)', color: 'white' }}
+                        title="Load meeting info and arm a countdown that auto-starts recording at the meeting time">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Load & Schedule
+                      </button>
+                    )}
                     <button onClick={() => setSelected(null)} className="p-1.5 rounded-lg"
                       style={{ color: 'var(--neo-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--neo-border)' }}>
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -908,6 +936,15 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
           onClose={() => setInfoAppt(null)}
           onLoadInfo={() => {
             onImport(infoAppt.subject, buildNoteHtml(infoAppt), infoAppt.attendees);
+            setInfoAppt(null);
+            onClose();
+          }}
+          onLoadAndSchedule={() => {
+            if (onImportAndSchedule) {
+              onImportAndSchedule(infoAppt.subject, buildNoteHtml(infoAppt), infoAppt.attendees, infoAppt.start, infoAppt.subject);
+            } else {
+              onImport(infoAppt.subject, buildNoteHtml(infoAppt), infoAppt.attendees);
+            }
             setInfoAppt(null);
             onClose();
           }}

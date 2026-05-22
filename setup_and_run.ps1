@@ -219,15 +219,27 @@ function Start-AppService {
         Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
     }
 
-    $npmCmd = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { "npm.cmd" } else { "npm" }
+    $useWsl = $false
+    $npmCmd = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) {
+        "npm.cmd"
+    } elseif (Get-Command npm -ErrorAction SilentlyContinue) {
+        "npm"
+    } else {
+        $useWsl = $true; $null
+    }
 
     # [1/4] Dipendenze npm
     Write-Host ""
     $NodeModulesPath = Join-Path $PSScriptRoot "node_modules"
     if (-not (Test-Path $NodeModulesPath)) {
         Write-Host "[1/4] Installazione dipendenze npm..." -ForegroundColor Cyan
-        Start-Process $npmCmd -ArgumentList "install" -Wait -NoNewWindow `
-            -WorkingDirectory $PSScriptRoot
+        if ($useWsl) {
+            $wslDir = (& wsl wslpath -u $PSScriptRoot).Trim()
+            & wsl bash -c "cd '$wslDir' && npm install"
+        } else {
+            Start-Process $npmCmd -ArgumentList "install" -Wait -NoNewWindow `
+                -WorkingDirectory $PSScriptRoot
+        }
         Write-Host "      Dipendenze installate." -ForegroundColor Green
     }
     else {
@@ -251,14 +263,22 @@ function Start-AppService {
     if (Test-Path $LogFile)    { Remove-Item $LogFile    -Force -ErrorAction SilentlyContinue }
     if (Test-Path $ErrLogFile) { Remove-Item $ErrLogFile -Force -ErrorAction SilentlyContinue }
 
-    $npmArgs = "run dev -- --port $Port --host 127.0.0.1"
-    $npmProc = Start-PersistentProcess -Executable $npmCmd -Arguments $npmArgs `
-                   -WorkDir $PSScriptRoot -LogPath $LogFile
+    if ($useWsl) {
+        if (-not $wslDir) { $wslDir = (& wsl wslpath -u $PSScriptRoot).Trim() }
+        $wslLog = (& wsl wslpath -u $LogFile).Trim()
+        $wslCmd = "cd '$wslDir' && npm run dev -- --port $Port >> '$wslLog' 2>&1"
+        $npmProc = Start-Process wsl -ArgumentList @("bash", "-c", $wslCmd) `
+                       -WindowStyle Hidden -PassThru
+    } else {
+        $npmArgs = "run dev -- --port $Port --host 127.0.0.1"
+        $npmProc = Start-PersistentProcess -Executable $npmCmd -Arguments $npmArgs `
+                       -WorkDir $PSScriptRoot -LogPath $LogFile
+    }
 
     # [4/4] Verifica che l'app risponda via HTTP
     Write-Host ""
     Write-Host "[4/4] Verifica disponibilita'..." -ForegroundColor Cyan
-    $appUrl  = "http://127.0.0.1:$Port"
+    $appUrl = if ($useWsl) { "http://localhost:$Port" } else { "http://127.0.0.1:$Port" }
     $isReady = Wait-AppReady -Url $appUrl -MaxSeconds 40
 
     # Salva stato

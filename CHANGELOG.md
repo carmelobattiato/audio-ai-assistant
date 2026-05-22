@@ -8,6 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.102] — 2026-05-22
+
+- `setup_and_run.ps1`: fallback WSL quando npm non è installato su Windows — rileva `npm.cmd` → `npm` → WSL; install e dev server avviati via `wsl bash -c`; `Wait-AppReady` usa `localhost` invece di `127.0.0.1` in modalità WSL
+- Calendar: doppio click su un appuntamento (vista giornaliera e lista) apre la modale "Show Info"
+- Calendar: nuovo bottone "Load & Schedule" (Show Info modal + quick bar) — carica info riunione nella sessione corrente e arma il countdown auto-record fino all'orario di inizio, senza aprire una nuova tab
+- Notification bell dropdown: testi tradotti in inglese — "Today's notifications", "Open Calendar", "No notifications yet.", "Start session", tooltip
+- Notification card condivisa (toast + panel): "Recent", "Ended", "From:", "You're the organizer / Required (To) / Optional (CC)"
+- Notification toast: bottoni "Open Calendar" / "Start session" (era italiano)
+- Calendar Show Info modal: bottone "Close" (era "Chiudi")
+
+
 ## [1.101] — 2026-05-14
 
 - ### Calendar sync — dedup multi-tab e meno rumore log

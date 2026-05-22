@@ -17,9 +17,9 @@ export const cardRoleColor = (role: CardRole): string => {
 
 export const cardRoleLabel = (role: CardRole): string => {
   switch (role) {
-    case 'organizer': return "Sei l'organizzatore";
-    case 'required':  return 'Sei richiesto (To)';
-    case 'optional':  return 'Sei opzionale (CC)';
+    case 'organizer': return "You're the organizer";
+    case 'required':  return 'Required (To)';
+    case 'optional':  return 'Optional (CC)';
     default:          return '';
   }
 };
@@ -83,21 +83,21 @@ export const MeetingNotificationCard: React.FC<MeetingNotificationCardProps> = (
                 <span
                   className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
                   style={{ background: 'rgba(16,185,129,0.3)', color: '#a7f3d0', letterSpacing: '0.05em' }}
-                  title="Notifica più recente"
+                  title="Most recent notification"
                 >
-                  Recente
+                  Recent
                 </span>
               )}
               <span className="text-[11px] uppercase tracking-wider opacity-70">{headerLine}</span>
               {isPast && (
                 <span className="text-[9px] uppercase px-1 py-0.5 rounded" style={{ background: 'rgba(107,114,128,0.5)', color: '#e5e7eb', letterSpacing: '0.05em' }}>
-                  Terminata
+                  Ended
                 </span>
               )}
             </div>
             <div className="font-semibold text-[13px] mt-0.5 leading-tight">{subject}</div>
             <div className="text-[11px] mt-1 opacity-90">
-              <span className="opacity-70">Da:</span> {organizer}
+              <span className="opacity-70">From:</span> {organizer}
               {roleLabel && (
                 <>
                   {' · '}
@@ -109,7 +109,7 @@ export const MeetingNotificationCard: React.FC<MeetingNotificationCardProps> = (
           <button
             onClick={onDismiss}
             className="text-gray-400 hover:text-white text-lg leading-none flex-shrink-0"
-            title="Elimina"
+            title="Delete"
             type="button"
           >
             ×

@@ -46,7 +46,7 @@ export const MeetingNotificationBell: React.FC<Props> = ({ records, onOpenCalend
           border: '1px solid var(--neo-border)',
           color: 'var(--neo-primary-l)',
         }}
-        title={`${count} notifica/e di oggi`}
+        title={`${count} notification${count === 1 ? '' : 's'} today`}
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.6V5a2 2 0 10-4 0v.4A6 6 0 006 11v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0" />
@@ -77,21 +77,21 @@ export const MeetingNotificationBell: React.FC<Props> = ({ records, onOpenCalend
           }}
         >
           <div className="px-3 py-2 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(124,58,237,0.25)' }}>
-            <span className="text-xs font-semibold text-sky-300">Notifiche di oggi</span>
+            <span className="text-xs font-semibold text-sky-300">Today's notifications</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => { onOpenCalendar(); setOpen(false); }}
                 className="text-[11px] text-violet-300 hover:text-violet-100"
               >
-                Apri Calendar
+                Open Calendar
               </button>
               {count > 0 && (
                 <button
                   type="button"
-                  onClick={() => { if (window.confirm('Eliminare tutte le notifiche?')) onClearAll(); }}
+                  onClick={() => { if (window.confirm('Delete all notifications?')) onClearAll(); }}
                   className="text-[11px] text-red-300 hover:text-red-100"
-                  title="Elimina tutte le notifiche"
+                  title="Delete all notifications"
                 >
                   Clear all
                 </button>
@@ -102,8 +102,8 @@ export const MeetingNotificationBell: React.FC<Props> = ({ records, onOpenCalend
           <div className="overflow-y-auto p-2 space-y-2" style={{ maxHeight: '510px' }}>
             {sorted.length === 0 ? (
               <div className="px-3 py-6 text-center text-xs text-gray-400">
-                Nessuna notifica ancora.<br />
-                <span className="opacity-70">Le riunioni di oggi appariranno qui quando scatta l'allarme.</span>
+                No notifications yet.<br />
+                <span className="opacity-70">Today's meetings will appear here when the alarm fires.</span>
               </div>
             ) : (
               sorted.map((r, idx) => {
@@ -131,7 +131,7 @@ export const MeetingNotificationBell: React.FC<Props> = ({ records, onOpenCalend
                           className="text-[10px] px-2 py-1 rounded font-medium"
                           style={{ background: 'rgba(16,185,129,0.25)', border: '1px solid rgba(16,185,129,0.5)', color: '#a7f3d0' }}
                         >
-                          Avvia sessione
+                          Start session
                         </button>
                       ) : null
                     }
