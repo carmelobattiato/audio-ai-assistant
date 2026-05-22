@@ -8,6 +8,11 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.103] — 2026-05-22
+
+- Aggiornamento
+
+
 ## [1.102] — 2026-05-22
 
 - `setup_and_run.ps1`: fallback WSL quando npm non è installato su Windows — rileva `npm.cmd` → `npm` → WSL; install e dev server avviati via `wsl bash -c`; `Wait-AppReady` usa `localhost` invece di `127.0.0.1` in modalità WSL
