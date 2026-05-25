@@ -8,6 +8,11 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.104] — 2026-05-25
+
+- eliminato fallback su ps1 e gestito controllo requisiti per npm
+
+
 ## [1.103] — 2026-05-22
 
 - Aggiornamento

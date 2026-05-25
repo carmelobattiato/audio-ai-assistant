@@ -46,6 +46,38 @@ function Show-Help {
 }
 
 # =============================================================================
+# Utility - verifica requisiti
+# =============================================================================
+
+function Test-Requirements {
+    $missing = @()
+
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $node) { $missing += "node" }
+
+    $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if (-not $npm) { $npm = Get-Command npm -ErrorAction SilentlyContinue }
+    if (-not $npm) { $missing += "npm" }
+
+    if ($missing.Count -eq 0) { return $true }
+
+    Write-Host ""
+    Write-Host "Requisiti mancanti: $($missing -join ', ')" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "L'app richiede Node.js (include npm) installato su Windows." -ForegroundColor Yellow
+    Write-Host "Installa con uno di questi comandi:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  winget install OpenJS.NodeJS.LTS" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  oppure scarica l'installer da:" -ForegroundColor DarkGray
+    Write-Host "  https://nodejs.org/en/download" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Dopo l'installazione chiudi e riapri il terminale, poi riprova." -ForegroundColor Yellow
+    Write-Host ""
+    return $false
+}
+
+# =============================================================================
 # Utility - processi e porte
 # =============================================================================
 
@@ -209,6 +241,9 @@ function Install-Shortcuts {
 # =============================================================================
 
 function Start-AppService {
+    # Verifica requisiti (node + npm su Windows)
+    if (-not (Test-Requirements)) { return }
+
     # Controlla se gia' in esecuzione (porta come fonte di verita')
     if (Test-PortListening -PortNum $Port) {
         Write-Host "Il servizio e' gia' in ascolto sulla porta $Port." -ForegroundColor Yellow
@@ -219,27 +254,15 @@ function Start-AppService {
         Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
     }
 
-    $useWsl = $false
-    $npmCmd = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) {
-        "npm.cmd"
-    } elseif (Get-Command npm -ErrorAction SilentlyContinue) {
-        "npm"
-    } else {
-        $useWsl = $true; $null
-    }
+    $npmCmd = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { "npm.cmd" } else { "npm" }
 
     # [1/4] Dipendenze npm
     Write-Host ""
     $NodeModulesPath = Join-Path $PSScriptRoot "node_modules"
     if (-not (Test-Path $NodeModulesPath)) {
         Write-Host "[1/4] Installazione dipendenze npm..." -ForegroundColor Cyan
-        if ($useWsl) {
-            $wslDir = (& wsl wslpath -u $PSScriptRoot).Trim()
-            & wsl bash -c "cd '$wslDir' && npm install"
-        } else {
-            Start-Process $npmCmd -ArgumentList "install" -Wait -NoNewWindow `
-                -WorkingDirectory $PSScriptRoot
-        }
+        Start-Process $npmCmd -ArgumentList "install" -Wait -NoNewWindow `
+            -WorkingDirectory $PSScriptRoot
         Write-Host "      Dipendenze installate." -ForegroundColor Green
     }
     else {
@@ -263,22 +286,14 @@ function Start-AppService {
     if (Test-Path $LogFile)    { Remove-Item $LogFile    -Force -ErrorAction SilentlyContinue }
     if (Test-Path $ErrLogFile) { Remove-Item $ErrLogFile -Force -ErrorAction SilentlyContinue }
 
-    if ($useWsl) {
-        if (-not $wslDir) { $wslDir = (& wsl wslpath -u $PSScriptRoot).Trim() }
-        $wslLog = (& wsl wslpath -u $LogFile).Trim()
-        $wslCmd = "cd '$wslDir' && npm run dev -- --port $Port >> '$wslLog' 2>&1"
-        $npmProc = Start-Process wsl -ArgumentList @("bash", "-c", $wslCmd) `
-                       -WindowStyle Hidden -PassThru
-    } else {
-        $npmArgs = "run dev -- --port $Port --host 127.0.0.1"
-        $npmProc = Start-PersistentProcess -Executable $npmCmd -Arguments $npmArgs `
-                       -WorkDir $PSScriptRoot -LogPath $LogFile
-    }
+    $npmArgs = "run dev -- --port $Port --host 127.0.0.1"
+    $npmProc = Start-PersistentProcess -Executable $npmCmd -Arguments $npmArgs `
+                   -WorkDir $PSScriptRoot -LogPath $LogFile
 
     # [4/4] Verifica che l'app risponda via HTTP
     Write-Host ""
     Write-Host "[4/4] Verifica disponibilita'..." -ForegroundColor Cyan
-    $appUrl = if ($useWsl) { "http://localhost:$Port" } else { "http://127.0.0.1:$Port" }
+    $appUrl = "http://127.0.0.1:$Port"
     $isReady = Wait-AppReady -Url $appUrl -MaxSeconds 40
 
     # Salva stato
@@ -392,6 +407,7 @@ function Restart-AppService {
 
 function Reinstall-App {
     Write-Host "=== Reinstallazione Pulita ===" -ForegroundColor Cyan
+    if (-not (Test-Requirements)) { return }
     Stop-AppService
 
     $NodeModulesPath = Join-Path $PSScriptRoot "node_modules"

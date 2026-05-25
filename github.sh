@@ -94,6 +94,34 @@ ask_token() {
 
 load_config
 
+# ── Pre-flight: rilevamento bump orfano da run precedente fallita ─────────────
+# Se il working tree contiene una APP_VERSION diversa da quella in HEAD significa
+# che una run precedente ha fatto bump_version ma il commit non è andato a buon
+# fine (es. git identity mancante, hook fallito, conflitto). Senza cleanup ogni
+# nuova run incrementa di nuovo creando salti di versione e voci CHANGELOG duplicate.
+detect_orphan_bump() {
+    local config_file="constants/appConfig.ts"
+    [[ ! -f "$config_file" ]] && return 0
+    [[ ! -d ".git" ]] && return 0
+    local current head
+    current=$(grep 'APP_VERSION' "$config_file" 2>/dev/null \
+        | sed 's/.*"\([0-9][0-9]*\.[0-9][0-9]*\)".*/\1/') || true
+    head=$(git show HEAD:"$config_file" 2>/dev/null | grep 'APP_VERSION' \
+        | sed 's/.*"\([0-9][0-9]*\.[0-9][0-9]*\)".*/\1/') || true
+    [[ -z "$current" || -z "$head" ]] && return 0
+    [[ "$current" == "$head" ]] && return 0
+    echo ""
+    echo "⚠️  Bump orfano rilevato: working tree v$current, HEAD v$head."
+    echo "    Probabile run precedente fallita dopo il bump ma prima del commit."
+    read -r -p "    Revertire CHANGELOG.md / README.md / $config_file al HEAD? (s/n, default s): " ANS </dev/tty
+    if [[ "$ANS" != "n" && "$ANS" != "N" ]]; then
+        git checkout HEAD -- CHANGELOG.md README.md "$config_file" 2>/dev/null || true
+        echo "✅ File bump-related ripristinati al HEAD (v$head)."
+    else
+        echo "⏭  Salto il revert. Lo script proseguirà con stato inconsistente."
+    fi
+}
+
 # ── 1. Init repo locale se non esiste ─────────────────────────────────────────
 if [ ! -d ".git" ]; then
     echo "⚠️  Repository non inizializzato. Procedo con 'git init'..."
@@ -170,6 +198,9 @@ if [ "$LOCAL_BRANCH" != "$REMOTE_DEFAULT" ]; then
 fi
 
 BRANCH="$LOCAL_BRANCH"
+
+# Cleanup pre-commit: revert bump orfano da run precedente fallita
+detect_orphan_bump
 
 # ── Estrae sezione [Unreleased] da CHANGELOG.md ───────────────────────────────
 get_latest_changelog() {
@@ -255,36 +286,67 @@ bump_version() {
 }
 
 # ── 4. Commit ──────────────────────────────────────────────────────────────────
-# Legge la sezione [Unreleased] dal CHANGELOG come testo suggerito
-CHANGELOG_DEFAULT="$(get_latest_changelog)"
-
-if [[ -n "$CHANGELOG_DEFAULT" ]]; then
-    echo ""
-    echo "📋 CHANGELOG.md → [Unreleased] (default commit):"
-    echo "---------------------------------------------------------"
-    echo "$CHANGELOG_DEFAULT"
-    echo "---------------------------------------------------------"
-    echo "  → Premi INVIO per usarla, oppure digita un messaggio personalizzato."
-    echo ""
-fi
-
-read -p "📝 Messaggio commit: " COMMIT_MSG
-
-if [[ -z "$COMMIT_MSG" ]] && [[ -n "$CHANGELOG_DEFAULT" ]]; then
-    COMMIT_MSG="$CHANGELOG_DEFAULT"
-elif [[ -z "$COMMIT_MSG" ]]; then
-    COMMIT_MSG="Aggiornamento"
-fi
-
-bump_version "$COMMIT_MSG"
+# Strategia transazionale: stage prima, poi rilevamento changes; bump SOLO se
+# c'è effettivamente qualcosa da committare; rollback bump se commit fallisce.
+# Evita: doppi bump quando il commit fallisce silenziosamente, salti di versione,
+# voci CHANGELOG duplicate.
 
 echo "⏳ Aggiungo le modifiche..."
 git add .
-git commit -m "$COMMIT_MSG" 2>/dev/null || echo "ℹ️  Nessuna modifica da committare. Controllo push pendenti..."
+
+# Niente staged → niente commit né bump, prosegui col push (caso: commit locali
+# già fatti ma non ancora pushati)
+if git diff --cached --quiet; then
+    echo "ℹ️  Nessuna modifica da committare. Controllo push pendenti..."
+else
+    # Legge la sezione [Unreleased] dal CHANGELOG come testo suggerito
+    CHANGELOG_DEFAULT="$(get_latest_changelog)"
+
+    if [[ -n "$CHANGELOG_DEFAULT" ]]; then
+        echo ""
+        echo "📋 CHANGELOG.md → [Unreleased] (default commit):"
+        echo "---------------------------------------------------------"
+        echo "$CHANGELOG_DEFAULT"
+        echo "---------------------------------------------------------"
+        echo "  → Premi INVIO per usarla, oppure digita un messaggio personalizzato."
+        echo ""
+    fi
+
+    read -p "📝 Messaggio commit: " COMMIT_MSG
+
+    if [[ -z "$COMMIT_MSG" ]] && [[ -n "$CHANGELOG_DEFAULT" ]]; then
+        COMMIT_MSG="$CHANGELOG_DEFAULT"
+    elif [[ -z "$COMMIT_MSG" ]]; then
+        COMMIT_MSG="Aggiornamento"
+    fi
+
+    bump_version "$COMMIT_MSG"
+    git add CHANGELOG.md README.md constants/appConfig.ts 2>/dev/null || true
+
+    # Capture stderr per distinguere errori reali (identity, hook, ecc.)
+    if ! COMMIT_ERR=$(git commit -m "$COMMIT_MSG" 2>&1); then
+        echo "❌ Commit fallito:"
+        echo "$COMMIT_ERR" | sed 's/^/    /'
+        echo ""
+        echo "⏪ Rollback del bump versione per evitare stato inconsistente alla prossima run..."
+        git checkout HEAD -- CHANGELOG.md README.md constants/appConfig.ts 2>/dev/null || true
+        echo "    Risolvi l'errore sopra e rilancia ./github.sh"
+        exit 1
+    fi
+fi
 
 # ── 5. Pull + rebase ───────────────────────────────────────────────────────────
 echo "🔄 Allineamento con il remote (pull --rebase)..."
-if ! env GIT_TERMINAL_PROMPT=0 git pull origin "$BRANCH" --rebase 2>&1; then
+PULL_OUT=$(env GIT_TERMINAL_PROMPT=0 git pull origin "$BRANCH" --rebase 2>&1) || PULL_FAIL=1
+
+if [[ "${PULL_FAIL:-0}" == "1" ]]; then
+    echo "$PULL_OUT"
+    if echo "$PULL_OUT" | grep -qi "uncommitted changes\|unstaged changes\|cannot pull with rebase"; then
+        echo ""
+        echo "⚠️  Stato non pulito (modifiche non committate). Lo script avrebbe dovuto"
+        echo "    committarle prima del pull. Controlla con 'git status' e rilancia."
+        exit 1
+    fi
     echo ""
     echo "⚠️  Conflitti rilevati durante il rebase. Risolvili manualmente:"
     echo "    1. Controlla i file in conflitto:  git status"
@@ -294,6 +356,7 @@ if ! env GIT_TERMINAL_PROMPT=0 git pull origin "$BRANCH" --rebase 2>&1; then
     echo "    5. Poi riesegui:                   ./github.sh"
     exit 1
 fi
+echo "$PULL_OUT"
 
 # ── 6. Push ────────────────────────────────────────────────────────────────────
 echo "🚀 Push su '$BRANCH'..."
