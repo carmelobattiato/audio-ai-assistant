@@ -456,6 +456,9 @@ export const NewHome: React.FC = () => {
 
   useEffect(() => {
     scheduleDbUpdate({ transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory });
+  }, [transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if (pipelineStep === PipelineStep.COMPLETED) {
       flushDbUpdate();
       if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
@@ -463,7 +466,7 @@ export const NewHome: React.FC = () => {
           .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Success', { err: String(err) }));
       }
     }
-  }, [transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory, pipelineStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pipelineStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { scheduleDbUpdate({ meetingChatHistory }); }, [meetingChatHistory]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -685,8 +688,8 @@ export const NewHome: React.FC = () => {
     if (start) setAudioRecordingStartTime(start);
     const updates: Partial<SavedSessionData> = { audioBlob: blob, audioFileName: name };
     if (start) updates.audioRecordingStartTime = start;
-    if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, updates)
-      .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session on recording complete', { err: String(err) }));
+    scheduleDbUpdate(updates);
+    flushDbUpdate();
     loggingService.info('PIPELINE', 'handleRecordingComplete', {
       name, autoPipeline: appSettings.transcription.enableAutoPipeline,
       chunked: appSettings.transcription.enableChunkedRecording, realtime: appSettings.transcription.enableRealtimeTranscription,
@@ -711,10 +714,7 @@ export const NewHome: React.FC = () => {
     const ext = chunk.type.split('/')[1]?.split(';')[0] || 'webm';
     const chunkName = `${finalEffectiveTitleRef.current}_segment_${chunkIndex.toString().padStart(3, '0')}.${ext}`;
 
-    if (activeSessionIdRef.current) {
-      db.updateSessionIncremental(activeSessionIdRef.current, { chunks: recordingChunksRef.current })
-        .catch(err => loggingService.error('DB_UPDATE', 'Failed to update session chunks', { err: String(err) }));
-    }
+    scheduleDbUpdate({ chunks: recordingChunksRef.current });
     setRecordingChunks(p => [...p, chunk]);
 
     const smartPipelineActive = appSettings.transcription.enableAutoPipeline ?? true;
@@ -743,7 +743,8 @@ export const NewHome: React.FC = () => {
     if (wasChunked) {
       setRecordingChunks([]);
       recordingChunksRef.current = [];
-      if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, finalUpdates);
+      scheduleDbUpdate(finalUpdates);
+      flushDbUpdate();
       setShowLoadChunksModal(false);
       loggingService.info('PIPELINE', 'handleRecordingStop: chunked', {
         autoPipeline: appSettings.transcription.enableAutoPipeline,
@@ -756,9 +757,11 @@ export const NewHome: React.FC = () => {
         setPipelineStep(PipelineStep.TRANSCRIBING);
       }
     } else if (appSettings.transcription.enableAutoPipeline) {
-      if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, finalUpdates);
+      scheduleDbUpdate(finalUpdates);
+      flushDbUpdate();
     } else {
-      if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, finalUpdates);
+      scheduleDbUpdate(finalUpdates);
+      flushDbUpdate();
       setPipelineStep(PipelineStep.IDLE);
     }
   }, [transcribedText, bubbleNotes, emotionHistory, llmUsageHistory, appSettings.transcription, transLogic, finalEffectiveTitle]);
@@ -838,7 +841,7 @@ export const NewHome: React.FC = () => {
   }, [resetAllDataStates, finalEffectiveTitle, pendingNoteHtml, appSettings, transcribedText, llmProcessedText, audioBlob, transLogic.transcriptionQueue.length]);
 
   // ── Right tabs definition ─────────────────────────────────────────────────
-  const rightTabs = [
+  const rightTabs = useMemo(() => [
     { id: 'notes',      label: 'Notes', icon: <NotesIcon />,
       badge: bubbleNotes.length > 0 ? String(bubbleNotes.length) : undefined },
     { id: 'transcript', label: 'Transcript', icon: <DocumentIcon />,
@@ -849,7 +852,7 @@ export const NewHome: React.FC = () => {
       badge: llmProcessedText ? '✓' : undefined },
     { id: 'chat',       label: 'Chat', icon: <ChatIcon />,
       badge: meetingChatHistory.length > 0 ? String(meetingChatHistory.length) : undefined },
-  ];
+  ], [bubbleNotes.length, transLogic.transcriptionQueue, llmProcessedText, meetingChatHistory.length]);
 
   // ── Calendar background sync ──────────────────────────────────────────────
   // Throttle: skip auto-fetches that fire within 60s of the previous fetch.

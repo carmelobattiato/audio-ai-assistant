@@ -24,11 +24,3 @@ export function computeRole(appt: OutlookAppointment, userEmail: string): Meetin
   return me.type === 'optional' ? 'optional' : 'required';
 }
 
-export function roleLabel(role: MeetingRole): string {
-  switch (role) {
-    case 'organizer': return 'Sei l\'organizzatore';
-    case 'required': return 'Sei richiesto (To)';
-    case 'optional': return 'Sei opzionale (CC)';
-    default: return '';
-  }
-}

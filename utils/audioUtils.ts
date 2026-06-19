@@ -1,60 +1,27 @@
 
 
-export const blobToBase64 = (blob: Blob): Promise<string> => {
-  console.log("audioUtils: Converting Blob to Base64. Blob type:", blob.type, "Blob size:", blob.size);
-  return new Promise((resolve, reject) => {
+export const blobToBase64 = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        const base64String = reader.result.split(',')[1];
-        if (base64String) {
-          console.log("audioUtils: Blob converted to Base64 successfully.");
-          resolve(base64String);
-        } else {
-          // If the result is just "data:" (empty data), it means the blob was likely empty or invalid
-          if (reader.result === "data:") {
-             console.error("audioUtils: Error splitting Base64 string from data URL. Result was 'data:', indicating empty or invalid blob data for base64 conversion.");
-             reject(new Error("Empty or invalid blob data for base64 conversion."));
-          } else {
-            console.error("audioUtils: Error splitting Base64 string from data URL. Result was (first 100 chars):", reader.result.substring(0,100) + "...");
-            reject(new Error("Error splitting Base64 string from data URL."));
-          }
-        }
-      } else {
-        console.error("audioUtils: FileReader result is not a string.");
-        reject(new Error("FileReader result is not a string."));
-      }
+      if (typeof reader.result !== 'string') { reject(new Error('FileReader result is not a string')); return; }
+      const base64 = reader.result.split(',')[1];
+      if (!base64) { reject(new Error('Empty or invalid blob data for base64 conversion')); return; }
+      resolve(base64);
     };
-    reader.onerror = (error) => {
-      console.error("audioUtils: FileReader error.", error);
-      reject(error);
-    };
+    reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
-};
 
-export const getMimeTypeFromBlob = (blob: Blob): string => {
-  const mimeType = blob.type || 'application/octet-stream';
-  console.log(`audioUtils: Determined MimeType for blob. Original blob.type: "${blob.type}", Resolved MimeType: "${mimeType}"`);
-  return mimeType;
-}
+export const getMimeTypeFromBlob = (blob: Blob): string =>
+  blob.type || 'application/octet-stream';
 
 export const mergeAudioBlobs = async (blob1: Blob, blob2: Blob): Promise<Blob> => {
-  console.log(`audioUtils: Merging two blobs. Blob1 size: ${blob1.size}, Blob2 size: ${blob2.size}`);
-  if (blob1.type !== blob2.type) {
-    console.warn("audioUtils: Merging blobs of different types. The output will have the type of the first blob.", blob1.type, blob2.type);
-  }
-
-  const buffer1 = await blob1.arrayBuffer();
-  const buffer2 = await blob2.arrayBuffer();
-
-  const combinedBuffer = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
-  combinedBuffer.set(new Uint8Array(buffer1), 0);
-  combinedBuffer.set(new Uint8Array(buffer2), buffer1.byteLength);
-
-  const mergedBlob = new Blob([combinedBuffer.buffer], { type: blob1.type });
-  console.log(`audioUtils: Merged blob created successfully. New size: ${mergedBlob.size}`);
-  return mergedBlob;
+  const [buffer1, buffer2] = await Promise.all([blob1.arrayBuffer(), blob2.arrayBuffer()]);
+  const combined = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
+  combined.set(new Uint8Array(buffer1), 0);
+  combined.set(new Uint8Array(buffer2), buffer1.byteLength);
+  return new Blob([combined.buffer], { type: blob1.type });
 };
 
 export const getAudioBlobDuration = (blob: Blob): Promise<number> => {

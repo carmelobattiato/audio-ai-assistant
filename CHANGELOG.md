@@ -8,6 +8,19 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.105] — 2026-06-19
+
+- Performance: `handleChunkComplete`, `handleRecordingComplete`, `handleRecordingStop` ora usano `scheduleDbUpdate`+`flushDbUpdate` invece di `db.updateSessionIncremental` diretto — elimina write storm su IndexedDB durante registrazione
+- Performance: split effect con 5 dipendenze in 2 distinti — DB save non si triggerava a ogni cambio `pipelineStep`
+- Performance: `rightTabs` memoizzato con `useMemo` — evita re-render di NeoTabs a ogni render del parent
+- Rimossi file morti: `UserManagementPanel.tsx`, `LoadingModal.tsx` (deprecato), `usePromptBuilder.ts` (zero caller)
+- Rimossi simboli morti: `AppConfig` (interfaccia vuota), `roleLabel` da meetingUtils, import `LoadingModal` in LlmProcessor
+- Rimosse 5 icone non usate da MediaIcons: `MicrophoneOnIcon`, `MicrophoneOffIcon`, `RewindIcon`, `ForwardIcon`, `DesktopComputerIcon`
+- Shrink `audioUtils`: rimossi console.log verbosi da `blobToBase64`/`getMimeTypeFromBlob`/`mergeAudioBlobs`
+- Shrink `generateStandardMetadataHeader`: da 28 a 14 righe via array filter/join
+
+---
+
 ## [1.104] — 2026-05-25
 
 - eliminato fallback su ps1 e gestito controllo requisiti per npm

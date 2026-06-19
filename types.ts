@@ -11,9 +11,6 @@ export interface ProcessedResult {
   timestamp: number;
 }
 
-export interface AppConfig {
-}
-
 export enum RecordingState {
   IDLE = "IDLE",
   RECORDING = "RECORDING",

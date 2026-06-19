@@ -5,7 +5,6 @@ import { llmService } from '../services/geminiService';
 import { Button } from './common/Button';
 import { Select } from './common/Select'; 
 import { TextArea } from './common/TextArea'; 
-import { LoadingModal } from './common/LoadingModal';
 import { AppSettings, CustomInstruction, SystemPrompt, GroundingChunk, SupportedLanguage, TranscriptionOutputFormat, BubbleNote } from '../types';
 import { resolvePrompt, getPromptText } from '../utils/promptUtils';
 import { RichTextEditorModal } from './RichTextEditorModal';

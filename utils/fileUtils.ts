@@ -81,36 +81,21 @@ export const generateStandardMetadataHeader = (
   details?: {
     transcriptionLanguage?: SupportedLanguage;
     llmProcessingType?: string;
-    outputFormat?: TranscriptionOutputFormat; // For specific format notes if needed
+    outputFormat?: TranscriptionOutputFormat;
   }
 ): string => {
-  let metadataHeader = "";
-  if (sourceTimestamp) {
-    const d = sourceTimestamp;
-    const ts = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-    metadataHeader += `Source Timestamp: ${ts}\n`;
-  }
-  if (sourceFileName) {
-    metadataHeader += `Original Source Filename: ${sourceFileName}\n`;
-  }
-  if (details?.transcriptionLanguage) {
-      metadataHeader += `Language (Transcription/LLM): ${details.transcriptionLanguage}\n`;
-  }
-  if (details?.llmProcessingType) {
-      metadataHeader += `LLM Processing Type: ${details.llmProcessingType}\n`;
-  }
-  if (details?.outputFormat) {
-      metadataHeader += `Output Format: ${details.outputFormat.toUpperCase()}\n`;
-  }
-  
-  const now = new Date();
-  const fileGenTs = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-  metadataHeader += `File Generated: ${fileGenTs}\n`;
-
-  if (metadataHeader) {
-    metadataHeader += `---\n`;
-  }
-  return metadataHeader;
+  const fmtDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ` +
+    `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  return [
+    sourceTimestamp && `Source Timestamp: ${fmtDate(sourceTimestamp)}`,
+    sourceFileName && `Original Source Filename: ${sourceFileName}`,
+    details?.transcriptionLanguage && `Language (Transcription/LLM): ${details.transcriptionLanguage}`,
+    details?.llmProcessingType && `LLM Processing Type: ${details.llmProcessingType}`,
+    details?.outputFormat && `Output Format: ${details.outputFormat.toUpperCase()}`,
+    `File Generated: ${fmtDate(new Date())}`,
+    '---',
+  ].filter(Boolean).join('\n') + '\n';
 };
 
 export const generateAnalysisHtmlDocument = (
