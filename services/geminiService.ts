@@ -176,7 +176,8 @@ export const llmService = {
 
   transcribeAudio: async (audioBase64: string, mimeType: string, language: string, llmSettings: LlmSettings, customInstruction?: string, attemptDiarization?: boolean, approximateSpeakerCount?: number, signal?: AbortSignal, promptTemplate?: string): Promise<{ transcription: string, usageMetadata?: UsageMetadata }> => {
     if (Date.now() < circuitBreakerTrippedUntil) return { transcription: "Error: Circuit breaker active." };
-    const { provider, model, maxRetries = 3, timeout = 600 } = llmSettings;
+    const { provider, maxRetries = 3, timeout = 600 } = llmSettings;
+    const model = llmSettings.transcriptionModel ?? llmSettings.model;
     await waitForRateLimit(llmSettings);
     if (provider !== 'Google') return { transcription: "Error: Google required for audio." };
     

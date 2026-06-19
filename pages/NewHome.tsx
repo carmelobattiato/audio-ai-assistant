@@ -1523,7 +1523,9 @@ export const NewHome: React.FC = () => {
                 audioRecordingStartTime: audioRecordingStartTime,
                 bubbleNotes: bubbleNotes,
               }}
-              llmSettings={appSettings.llm}
+              llmSettings={{ ...appSettings.llm, model: appSettings.llm.chatModel ?? appSettings.llm.model }}
+              chatSystemInstruction={appSettings.systemPrompts?.find(p => p.id === 'chat-system')?.text}
+              customInstructions={appSettings.customInstructions}
               history={meetingChatHistory}
               onHistoryChange={setMeetingChatHistory}
               onLlmUsage={(stats) => setLlmUsageHistory(prev => [...prev, stats])}

@@ -191,11 +191,14 @@ export interface ModelInfo {
   specialization: string;
   cost: string;
   releaseDate: string;
+  recommendedFor?: ('analysis' | 'transcription' | 'chat')[];
 }
 
 export interface LlmSettings {
   provider: string;
   model: string;
+  transcriptionModel?: string;
+  chatModel?: string;
   apiBaseUrl: string;
   customApiKey?: string;
   /** Resolved in-memory only — never persisted to localStorage. */
@@ -270,7 +273,7 @@ export interface SystemPrompt {
   id: string;
   name: string;
   description: string;
-  category: 'transcription' | 'analysis' | 'system';
+  category: 'transcription' | 'analysis' | 'system' | 'chat';
   text: string;
   defaultText: string;
 }

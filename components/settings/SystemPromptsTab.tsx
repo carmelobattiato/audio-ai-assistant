@@ -10,9 +10,10 @@ const CATEGORY_LABELS: Record<SystemPrompt['category'], string> = {
   transcription: 'Transcription',
   analysis: 'AI Analysis',
   system: 'System Role',
+  chat: 'Meeting Chat',
 };
 
-const CATEGORY_ORDER: SystemPrompt['category'][] = ['transcription', 'system', 'analysis'];
+const CATEGORY_ORDER: SystemPrompt['category'][] = ['transcription', 'system', 'analysis', 'chat'];
 
 const PLACEHOLDERS = [
   { key: '{{LANGUAGE}}', desc: 'Selected transcription language (e.g. Italian)' },

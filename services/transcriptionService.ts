@@ -3,15 +3,16 @@
 
 import { llmService } from './geminiService';
 import { blobToBase64, getMimeTypeFromBlob } from '../utils/audioUtils';
-import { TranscriptionQuality, SupportedLanguage, TranscriptionSettings, AppSettings } from '../types';
+import { TranscriptionQuality, SupportedLanguage, TranscriptionSettings, AppSettings, CustomInstruction } from '../types';
 
 export const transcriptionService = {
   transcribe: async (
     audioBlob: Blob,
-    settings: TranscriptionSettings, // Pass full TranscriptionSettings
-    llmSettings: AppSettings['llm'], // Pass LLM settings for provider/key info
+    settings: TranscriptionSettings,
+    llmSettings: AppSettings['llm'],
     signal?: AbortSignal,
     transcriptionPromptTemplate?: string,
+    customInstructions?: CustomInstruction[],
   ): Promise<{ transcription: string, usageMetadata?: { inputTokens: number, outputTokens: number, totalTokens: number } }> => {
     const { language, quality, attemptSpeakerDiarization, approximateSpeakerCount, fileName } = settings;
     console.log(`transcriptionService: Starting transcription. Language: ${language}, Quality: ${quality}, Diarization: ${attemptSpeakerDiarization}, Approx Speakers: ${approximateSpeakerCount}, FileName: ${fileName}`);
@@ -54,6 +55,10 @@ export const transcriptionService = {
         customInstruction = "Please provide the most accurate transcription possible, paying close attention to detail.";
       } else if (quality === TranscriptionQuality.LEVEL_1) {
         customInstruction = "Provide a quick transcription, prioritizing speed over absolute accuracy.";
+      }
+      const activeRules = (customInstructions ?? []).filter(r => r.enabled);
+      if (activeRules.length > 0) {
+        customInstruction += `\n\nRegole personalizzate:\n${activeRules.map(r => `- ${r.text}`).join('\n')}`;
       }
       
       const { transcription, usageMetadata } = await llmService.transcribeAudio(

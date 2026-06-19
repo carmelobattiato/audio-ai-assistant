@@ -44,48 +44,57 @@ const TABS = [
   { id: 'logs', label: 'Logs & Monitoring' },
 ];
 
-const ModelSelectionTable: React.FC<{
+type ModelFunction = 'analysis' | 'transcription' | 'chat';
+
+const ModelCombobox: React.FC<{
+  label: string;
+  hint: string;
+  value: string;
   models: ModelInfo[];
-  selectedModel: string;
-  onSelectModel: (modelName: string) => void;
-}> = ({ models, selectedModel, onSelectModel }) => {
-  if (models.length === 0) {
-    return <p className="text-gray-400 text-sm">No models available for this provider.</p>;
-  }
+  fn: ModelFunction;
+  onChange: (modelName: string) => void;
+}> = ({ label, hint, value, models, fn, onChange }) => {
+  const selected = models.find(m => m.name === value);
+  const isCustom = !selected;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-sm text-left text-gray-300">
-        <thead className="bg-gray-700 text-xs text-gray-400 uppercase">
-          <tr>
-            <th scope="col" className="px-4 py-2">Model Name</th>
-            <th scope="col" className="px-4 py-2">Specialization</th>
-            <th scope="col" className="px-4 py-2">Cost (USD/1k tokens)</th>
-            <th scope="col" className="px-4 py-2">Release Date</th>
-            <th scope="col" className="px-4 py-2 text-center">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {models.map((model) => (
-            <tr key={model.name} className={`border-b border-gray-700 ${model.name === selectedModel ? 'bg-emerald-900 bg-opacity-50' : 'hover:bg-gray-700'}`}>
-              <td className="px-4 py-2 font-medium">{model.name}</td>
-              <td className="px-4 py-2">{model.specialization}</td>
-              <td className="px-4 py-2">{model.cost}</td>
-              <td className="px-4 py-2">{model.releaseDate}</td>
-              <td className="px-4 py-2 text-center">
-                <Button
-                  size="sm"
-                  variant={model.name === selectedModel ? 'secondary' : 'primary'}
-                  onClick={() => onSelectModel(model.name)}
-                  disabled={model.name === selectedModel}
-                >
-                  {model.name === selectedModel ? 'Selected' : 'Select'}
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-1.5">
+      <div>
+        <label className="block text-sm font-medium text-gray-200">{label}</label>
+        <p className="text-[11px] text-gray-500 mt-0.5">{hint}</p>
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-sky-500"
+      >
+        {models.map((m) => {
+          const isRec = m.recommendedFor?.includes(fn);
+          return (
+            <option key={m.name} value={m.name}>
+              {isRec ? '★ ' : ''}{m.name} — {m.cost}
+            </option>
+          );
+        })}
+        {isCustom && (
+          <option value={value}>{value} (custom)</option>
+        )}
+      </select>
+      {selected ? (
+        <p className="text-[11px] text-gray-400 leading-snug">
+          {selected.specialization} <span className="text-gray-500">· {selected.releaseDate}</span>
+        </p>
+      ) : (
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="ID modello custom, es. gemini-2.5-pro-preview-05-06"
+            className="flex-1 bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+          />
+        </div>
+      )}
     </div>
   );
 };
@@ -297,15 +306,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }));
   };
   
-  const handleModelSelect = (modelName: string) => {
-    setLocalSettings(prev => ({
-        ...prev,
-        llm: {
-            ...prev.llm,
-            model: modelName
-        }
-    }));
-  };
+
 
   const handleSaveChanges = () => {
     onSettingsChange(localSettings);
@@ -609,23 +610,31 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     placeholder="https://generativelanguage.googleapis.com"
                   />
 
-                  {/* Editable model name */}
-                  <Input
-                    label="Nome Modello (editabile):"
-                    id="googleModelName"
-                    type="text"
-                    value={localSettings.llm.model}
-                    onChange={(e) => handleLocalLlmChange('model', e.target.value)}
-                    placeholder="es. gemini-2.5-pro-preview-05-06"
-                  />
-
-                  {/* Model selection table */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Seleziona Modello:</label>
-                    <ModelSelectionTable
+                  {/* Per-function model selectors */}
+                  <div className="space-y-4 border-t border-gray-600 pt-4">
+                    <ModelCombobox
+                      label="AI Analysis Model"
+                      hint="Write Minutes, Summary, Bullet Points, Coherence — operazioni di analisi LLM"
+                      value={localSettings.llm.model}
                       models={currentProviderInfo?.models || []}
-                      selectedModel={localSettings.llm.model}
-                      onSelectModel={handleModelSelect}
+                      fn="analysis"
+                      onChange={(v) => handleLocalLlmChange('model', v)}
+                    />
+                    <ModelCombobox
+                      label="Transcription Model"
+                      hint="Audio-to-text dei chunk registrati — trascrizione audio"
+                      value={localSettings.llm.transcriptionModel ?? localSettings.llm.model}
+                      models={currentProviderInfo?.models || []}
+                      fn="transcription"
+                      onChange={(v) => handleLocalLlmChange('transcriptionModel', v)}
+                    />
+                    <ModelCombobox
+                      label="Chatbot Model"
+                      hint="Meeting chat assistant — conversazione contestuale sulla sessione"
+                      value={localSettings.llm.chatModel ?? localSettings.llm.model}
+                      models={currentProviderInfo?.models || []}
+                      fn="chat"
+                      onChange={(v) => handleLocalLlmChange('chatModel', v)}
                     />
                   </div>
                 </>

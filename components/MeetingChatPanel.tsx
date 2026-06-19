@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from './common/Button';
-import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote } from '../types';
+import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote, CustomInstruction } from '../types';
 import { llmService } from '../services/geminiService';
 import { htmlToPlainText, markdownToHtmlSimple, formatTime } from '../utils/textUtils';
 import type { Part } from '@google/genai';
@@ -157,6 +157,8 @@ interface MeetingChatPanelProps {
     bubbleNotes?: BubbleNote[];
   };
   llmSettings: AppSettings['llm'];
+  chatSystemInstruction?: string;
+  customInstructions?: CustomInstruction[];
   history: MeetingChatMessage[];
   onHistoryChange: (history: MeetingChatMessage[]) => void;
   onLlmUsage?: (stats: LlmUsageStats) => void;
@@ -168,6 +170,8 @@ interface MeetingChatPanelProps {
 export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
   sessionContext,
   llmSettings,
+  chatSystemInstruction,
+  customInstructions,
   history,
   onHistoryChange,
   onLlmUsage,
@@ -212,19 +216,7 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
       : new Date().toLocaleDateString();
     const durationStr = audioDuration ? formatTime(audioDuration) : 'N/A';
 
-    return `You are a meeting intelligence assistant with full access to the transcript, AI analysis, and notes of a recorded session.
-
-MEETING METADATA:
-- Title: ${sessionTitle}
-- Date: ${dateStr}
-- Duration: ${durationStr}
-
-FULL TRANSCRIPT:
-${plainTranscript || '(no transcript available)'}
-
-${plainAnalysis ? `AI ANALYSIS:\n${plainAnalysis}` : ''}
-
-${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${notesText}` : ''}
+    const baseInstructions = chatSystemInstruction ?? `You are a meeting intelligence assistant with full access to the transcript, AI analysis, and notes of a recorded session.
 
 INSTRUCTIONS:
 - Answer questions directly and concisely, referencing actual content from the meeting
@@ -238,7 +230,26 @@ INSTRUCTIONS:
 - For rich document output, produce well-structured markdown that the user can download
 - Always respond in the same language as the transcript
 - Be precise and factual; never invent content not present in the meeting`;
-  }, [sessionContext]);
+
+    const activeRules = (customInstructions ?? []).filter(r => r.enabled);
+    const rulesSection = activeRules.length > 0
+      ? `\n\nREGOLE PERSONALIZZATE (applicare sempre):\n${activeRules.map(r => `- ${r.text}`).join('\n')}`
+      : '';
+
+    return `${baseInstructions}${rulesSection}
+
+MEETING METADATA:
+- Title: ${sessionTitle}
+- Date: ${dateStr}
+- Duration: ${durationStr}
+
+FULL TRANSCRIPT:
+${plainTranscript || '(no transcript available)'}
+
+${plainAnalysis ? `AI ANALYSIS:\n${plainAnalysis}` : ''}
+
+${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${notesText}` : ''}`;
+  }, [sessionContext, chatSystemInstruction, customInstructions]);
 
   // ── Prompt builder (multi-turn) ──────────────────────────────────────────
 

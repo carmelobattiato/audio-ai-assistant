@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.107] — 2026-06-20
+
+- LLM Configuration: modelli separati per AI Analysis, Trascrizione audio e Chatbot (`transcriptionModel`, `chatModel` in LlmSettings)
+- LLM Configuration: combobox con info costo sostituisce la tabella di selezione modelli
+- Lista modelli Google aggiornata con pricing giugno 2026 (aggiunti `gemini-3.5-flash`, `gemini-3.1-flash-lite` stabili; rimosso `gemini-2.0-flash`; aggiunto campo `recommendedFor` per funzione)
+- Default Analysis/Transcription/Chat: `gemini-2.5-flash-lite` per tutti e tre
+- AI-Rules: aggiunto prompt `chat-system` (Meeting Chat) — editabile in Settings → AI Rules; categoria `'chat'` in `SystemPrompt`
+- Meeting Chat: `buildSystemPrompt` usa prompt da settings se presente, fallback all'hardcoded
+- Custom Rules: iniettate in AI Analysis (era già), Trascrizione e Chatbot — tutte le funzioni LLM ora ricevono le regole attive
+
+---
+
 ## [1.106] — 2026-06-19
 
 - Rimosso Whisper locale: `workers/whisperWorker.ts`, `services/whisperService.ts`, `utils/whisperLanguages.ts`, `hooks/recorder/useWhisperLiveLogic.ts` eliminati

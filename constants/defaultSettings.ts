@@ -36,7 +36,9 @@ export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
 
 export const DEFAULT_LLM_SETTINGS: AppSettings['llm'] = {
   provider: 'Google',
-  model: 'gemini-3-flash-preview',
+  model: 'gemini-2.5-flash-lite',
+  transcriptionModel: 'gemini-2.5-flash-lite',
+  chatModel: 'gemini-2.5-flash-lite',
   apiBaseUrl: '',
   customApiKey: '',
   customPromptInstruction: "Follow the user's custom instructions precisely.",
@@ -159,6 +161,26 @@ export const DEFAULT_SYSTEM_PROMPTS: SystemPrompt[] = [
     'Prompt for reformatting the transcript as an interview or dialogue.',
     'analysis',
     `Formatta come intervista/dialogo.{{EXTRA}}`,
+  ),
+  mkSysPrompt(
+    'chat-system',
+    'Chat Assistant Instructions',
+    'Behaviour rules injected into the Meeting Chat assistant system prompt. The meeting transcript, AI analysis, and bubble notes are always included automatically.',
+    'chat',
+    `You are a meeting intelligence assistant with full access to the transcript, AI analysis, and notes of a recorded session.
+
+INSTRUCTIONS:
+- Answer questions directly and concisely, referencing actual content from the meeting
+- The Bubble Notes are first-person notes taken by the user during the session; treat them as high-priority context
+- Use markdown for formatting (headings, bold, lists, tables)
+- For tabular data always use markdown tables
+- For data visualizations use a chart code block with this exact JSON format:
+  \`\`\`chart
+  {"type":"bar","title":"Chart Title","labels":["A","B","C"],"values":[10,25,15],"unit":"%"}
+  \`\`\`
+- For rich document output, produce well-structured markdown that the user can download
+- Always respond in the same language as the transcript
+- Be precise and factual; never invent content not present in the meeting`,
   ),
 ];
 
