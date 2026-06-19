@@ -86,6 +86,7 @@ export interface UseAudioRecorderOptions {
   llmSettings: LlmSettings;
   onChunkComplete?: (chunk: Blob, chunkIndex: number) => void;
   onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string | null) => void | Promise<void>;
+  onAutoStopNotify?: () => void;
   enableChunkedRecording?: boolean;
   chunkIntervalSeconds?: number;
   enableRealtimeTranscription?: boolean;
@@ -114,6 +115,9 @@ export interface UseAudioRecorderResult {
   isAutoPaused: boolean;
   autoPauseState: AutoPauseState;
   autoPauseCountdown: number;
+  autoStopCountdown: number;
+  isAutoStopWarning: boolean;
+  isAutoStopNotified: boolean;
   realtimeTranscription: string;
   addAppAudio: () => Promise<void>;
   isAppAudioActive: boolean;
@@ -156,6 +160,10 @@ export interface AudioSettings {
   noiseSuppression: boolean;
   autoGainControl: boolean;
   waveformStyle?: WaveformStyle;
+  enableAutoStop: boolean;
+  autoNotifyAfterPausedMinutes: number;
+  autoStopAfterPausedMinutes: number;
+  autoStopWarningSeconds: number;
 }
 
 export interface TranscriptionSettings {

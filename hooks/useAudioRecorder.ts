@@ -43,6 +43,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
   const selectedMimeTypeRef = useRef<string>('');
   const chunkIndexRef = useRef(1);
   const chunkIntervalTimerRef = useRef<number | null>(null);
+  const stopRecordingRef = useRef<(() => void) | null>(null);
   const chunkIntervalSecondsRef = useRef<number>(chunkIntervalSeconds ?? 60);
   const elapsedTimeRef = useRef(0);
   const [chunkStartElapsedTime, setChunkStartElapsedTime] = useState(0);
@@ -70,12 +71,21 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     }
   }, [startTimer]);
 
+  const handleAutoStop = useCallback(() => {
+    stopRecordingRef.current?.();
+  }, []);
+
+  const handleAutoStopNotify = useCallback(() => {
+    optionsRef.current.onAutoStopNotify?.();
+  }, []);
+
   const autoPause = useAutoPauseLogic(
-    settings, recordingState, isPaused, 
-    streams.micAnalyserNodeRef.current, 
+    settings, recordingState, isPaused,
+    streams.micAnalyserNodeRef.current,
     streams.appAudioAnalyserNodeRef.current,
     streams.micAudioTrackRef.current,
-    handlePauseAction, handleResumeAction
+    handlePauseAction, handleResumeAction,
+    handleAutoStopNotify, handleAutoStop,
   );
 
   const geminiApiKey = llmSettings?.googleApiKey?.trim() || process.env.API_KEY;
@@ -226,6 +236,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
       setIsPaused(false);
     }
   }, [cleanupAll]);
+  stopRecordingRef.current = stopRecording;
 
   const toggleMic = useCallback(() => {
     if (streams.micAudioTrackRef.current) {
@@ -281,6 +292,9 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     getRecordingSessionId: () => recordingSessionIdRef.current,
     isAutoPaused: autoPause.isAutoPaused, autoPauseState: autoPause.autoPauseState,
     autoPauseCountdown: autoPause.autoPauseCountdown,
+    autoStopCountdown: autoPause.autoStopCountdown,
+    isAutoStopWarning: autoPause.isAutoStopWarning,
+    isAutoStopNotified: autoPause.isAutoStopNotified,
     realtimeTranscription: liveTrans.realtimeTranscription,
     addAppAudio,
     isAppAudioActive: streams.isAppAudioActive, isMicEnabled, toggleMic,

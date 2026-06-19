@@ -245,6 +245,7 @@ const NeoAudioGuideModal: React.FC<{
 // ─── Main component ───────────────────────────────────────────────────────────
 export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecordingPanelProps>(
   (props, ref) => {
+    const [showAutoStopNotification, setShowAutoStopNotification] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
     const [guideKey, setGuideKey] = useState(0);
     const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
@@ -256,7 +257,9 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       recordingState, startRecording, stopRecording, pauseRecording, resumeRecording,
       isPaused, audioBlob, micAnalyserNodeRef, appAudioAnalyserNodeRef,
       resetRecording, error, elapsedTime, displayStream, getAudioSnapshot, getRecordingSessionId,
-      isAutoPaused, autoPauseState, autoPauseCountdown, realtimeTranscription,
+      isAutoPaused, autoPauseState, autoPauseCountdown,
+      autoStopCountdown, isAutoStopWarning, isAutoStopNotified,
+      realtimeTranscription,
       addAppAudio, isAppAudioActive, isMicEnabled, toggleMic,
       forceNewChunk, chunkStartElapsedTime,
     } = useAudioRecorder({
@@ -269,7 +272,12 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       enableRealtimeTranscription: props.transcriptionSettings.enableRealtimeTranscription,
       liveModel: props.transcriptionSettings.liveModel,
       onLlmUsage: props.onLlmUsage,
+      onAutoStopNotify: () => setShowAutoStopNotification(true),
     });
+
+    useEffect(() => {
+      if (!isAutoStopNotified) setShowAutoStopNotification(false);
+    }, [isAutoStopNotified]);
 
     useEffect(() => {
       elapsedTimeRef.current = elapsedTime;
@@ -775,6 +783,40 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
                 <><div className="w-2 h-2 rounded-full bg-red-400" />
                   <span style={{ color: '#FCA5A5' }}>Auto-paused — in ascolto per riprendere…</span></>
               )}
+            </div>
+          )}
+
+          {/* ── AUTO-STOP NOTIFICATION (5 min silence) ───────────────────── */}
+          {isRecording && showAutoStopNotification && !isAutoStopWarning && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+              style={{ background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.4)' }}>
+              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#FB923C' }} />
+              <span className="flex-1" style={{ color: '#FED7AA' }}>Registrazione attiva — nessun audio rilevato da {props.audioSettings.autoNotifyAfterPausedMinutes} minuti</span>
+              <button
+                onClick={stopRecording}
+                className="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition-all hover:opacity-80 flex-shrink-0"
+                style={{ background: 'rgba(239,68,68,0.25)', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5' }}
+              >Stop</button>
+              <button
+                onClick={() => setShowAutoStopNotification(false)}
+                className="text-[10px] opacity-50 hover:opacity-80 flex-shrink-0"
+                style={{ color: '#FED7AA' }}
+                title="Chiudi"
+              >✕</button>
+            </div>
+          )}
+
+          {/* ── AUTO-STOP COUNTDOWN BANNER (15 min silence) ──────────────── */}
+          {isRecording && isAutoStopWarning && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.5)' }}>
+              <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ background: '#EF4444' }} />
+              <span className="flex-1" style={{ color: '#FCA5A5' }}>Nessun audio rilevato — registrazione si ferma in <strong>{autoStopCountdown}s</strong></span>
+              <button
+                onClick={resumeRecording}
+                className="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition-all hover:opacity-80 flex-shrink-0"
+                style={{ background: 'rgba(124,58,237,0.25)', border: '1px solid rgba(139,92,246,0.5)', color: '#C4B5FD' }}
+              >Continua a registrare</button>
             </div>
           )}
 

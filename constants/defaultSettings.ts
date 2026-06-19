@@ -14,6 +14,10 @@ export const DEFAULT_AUDIO_SETTINGS: AppSettings['audio'] = {
   noiseSuppression: false,
   autoGainControl: true,
   waveformStyle: 'spectrum',
+  enableAutoStop: true,
+  autoNotifyAfterPausedMinutes: 5,
+  autoStopAfterPausedMinutes: 15,
+  autoStopWarningSeconds: 60,
 };
 
 export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {

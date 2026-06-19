@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.108] — 2026-06-20
+
+- Auto-stop registrazione dopo silenzio prolungato: notifica toast con pulsante Stop a 5 min, banner countdown + auto-stop a 15 min (configurabili in Settings → Audio Recording)
+- `useAutoPauseLogic`: 2 timer scalabili (notify + stop) con countdown; attivati quando la registrazione è in auto-pause
+- Settings → Audio Recording: sezione "Auto-Stop after Prolonged Silence" con toggle e 3 parametri (notify min, stop min, warning sec)
+
+---
+
 ## [1.107] — 2026-06-20
 
 - LLM Configuration: modelli separati per AI Analysis, Trascrizione audio e Chatbot (`transcriptionModel`, `chatModel` in LlmSettings)

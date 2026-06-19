@@ -817,6 +817,50 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     </div>
                 </div>
               </div>
+
+              {/* Auto-Stop on Prolonged Silence */}
+              {localSettings.audio.enableAutoPause && (
+                <div className="pt-3 border-t border-gray-600 space-y-3">
+                  <h4 className="text-md font-semibold text-gray-200 mb-2">Auto-Stop after Prolonged Silence</h4>
+                  <Checkbox
+                    label="Enable Auto-Stop"
+                    id="audioEnableAutoStop"
+                    checked={localSettings.audio.enableAutoStop ?? true}
+                    onChange={(e) => handleLocalGenericChange('audio', 'enableAutoStop', e.target.checked)}
+                  />
+                  {(localSettings.audio.enableAutoStop ?? true) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+                      <Input
+                        label="Notify after (min):"
+                        id="audioAutoNotifyMin"
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={localSettings.audio.autoNotifyAfterPausedMinutes ?? 5}
+                        onChange={(e) => handleLocalGenericChange('audio', 'autoNotifyAfterPausedMinutes', parseInt(e.target.value, 10) || 5)}
+                      />
+                      <Input
+                        label="Stop after (min):"
+                        id="audioAutoStopMin"
+                        type="number"
+                        min="1"
+                        max="120"
+                        value={localSettings.audio.autoStopAfterPausedMinutes ?? 15}
+                        onChange={(e) => handleLocalGenericChange('audio', 'autoStopAfterPausedMinutes', parseInt(e.target.value, 10) || 15)}
+                      />
+                      <Input
+                        label="Warning countdown (sec):"
+                        id="audioAutoStopWarnSec"
+                        type="number"
+                        min="10"
+                        max="300"
+                        value={localSettings.audio.autoStopWarningSeconds ?? 60}
+                        onChange={(e) => handleLocalGenericChange('audio', 'autoStopWarningSeconds', parseInt(e.target.value, 10) || 60)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </section>
         )}
