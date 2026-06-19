@@ -279,6 +279,14 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       if (!isAutoStopNotified) setShowAutoStopNotification(false);
     }, [isAutoStopNotified]);
 
+    const [autoPausedSeconds, setAutoPausedSeconds] = useState(0);
+    useEffect(() => {
+      if (!isAutoPaused) { setAutoPausedSeconds(0); return; }
+      setAutoPausedSeconds(0);
+      const t = setInterval(() => setAutoPausedSeconds(s => s + 1), 1000);
+      return () => clearInterval(t);
+    }, [isAutoPaused]);
+
     useEffect(() => {
       elapsedTimeRef.current = elapsedTime;
       props.onElapsedTimeChange?.(elapsedTime);
@@ -781,7 +789,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
               )}
               {autoPauseState === 'auto-paused' && (
                 <><div className="w-2 h-2 rounded-full bg-red-400" />
-                  <span style={{ color: '#FCA5A5' }}>Auto-paused — in ascolto per riprendere…</span></>
+                  <span style={{ color: '#FCA5A5' }}>Auto-paused da {formatTime(autoPausedSeconds)} — in ascolto per riprendere…</span></>
               )}
             </div>
           )}
