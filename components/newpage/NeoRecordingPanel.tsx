@@ -257,7 +257,6 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       isPaused, audioBlob, micAnalyserNodeRef, appAudioAnalyserNodeRef,
       resetRecording, error, elapsedTime, displayStream, getAudioSnapshot, getRecordingSessionId,
       isAutoPaused, autoPauseState, autoPauseCountdown, realtimeTranscription,
-      currentEmotion, emotionHistory: recorderEmotionHistory,
       addAppAudio, isAppAudioActive, isMicEnabled, toggleMic,
       forceNewChunk, chunkStartElapsedTime,
     } = useAudioRecorder({
@@ -268,10 +267,7 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
       enableChunkedRecording: props.transcriptionSettings.enableChunkedRecording,
       chunkIntervalSeconds: props.transcriptionSettings.chunkRecordingIntervalSeconds,
       enableRealtimeTranscription: props.transcriptionSettings.enableRealtimeTranscription,
-      transcriptionEngine: props.transcriptionSettings.transcriptionEngine,
       liveModel: props.transcriptionSettings.liveModel,
-      whisperModel: props.transcriptionSettings.whisperModel,
-      realtimeLanguage: props.transcriptionSettings.language,
       onLlmUsage: props.onLlmUsage,
     });
 
@@ -336,9 +332,9 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
     useEffect(() => {
       if (recordingState === RecordingState.STOPPED && audioBlob && !props.transcriptionSettings.enableChunkedRecording) {
         const ext = audioBlob.type.split('/')[1]?.split(';')[0] || 'webm';
-        props.onRecordingComplete(audioBlob, `${fullTitle}.${ext}`, null, recorderEmotionHistory);
+        props.onRecordingComplete(audioBlob, `${fullTitle}.${ext}`, null);
       }
-    }, [recordingState, audioBlob, props.transcriptionSettings.enableChunkedRecording, fullTitle, recorderEmotionHistory]);
+    }, [recordingState, audioBlob, props.transcriptionSettings.enableChunkedRecording, fullTitle]);
 
     useEffect(() => {
       if (audioBlob && !props.transcriptionSettings.enableChunkedRecording) {
@@ -528,8 +524,6 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
                   autoPauseSensitivityDb={props.audioSettings.autoPauseSensitivityDb}
                   autoPauseState={autoPauseState}
                   onSeek={player.decodedAudioBuffer ? player.handleSeek : undefined}
-                  currentEmotion={currentEmotion}
-                  emotionHistory={props.emotionHistory}
                 />
               )}
             </div>
@@ -835,17 +829,6 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
             )}
           </div>
 
-
-          {/* ── WHISPER LIVE DISCLAIMER ──────────────────────────────────── */}
-          {props.transcriptionSettings.enableRealtimeTranscription &&
-           props.transcriptionSettings.transcriptionEngine === 'whisper' && isRecording && (
-            <div
-              className="px-3 py-2 rounded-xl text-xs leading-relaxed"
-              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', color: '#FCD34D' }}
-            >
-              <span className="font-bold">⚠ Local Whisper live mode</span> — transcription arrives in 5-second chunks with a delay. For best real-time results, use a Gemini Live model.
-            </div>
-          )}
 
           {/* ── PIPELINE STATUS ───────────────────────────────────────────── */}
           {isFinalizing && (

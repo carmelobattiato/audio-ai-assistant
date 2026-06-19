@@ -2,7 +2,6 @@
 import React, { useEffect, useRef } from 'react';
 import { formatTime } from '../utils/textUtils';
 import { AutoPauseState } from './useAudioRecorder';
-import { Emotion } from '../types';
 
 const MIC_WAVEFORM_COLOR = 'rgb(59, 130, 246)'; // Blue-500
 const APP_WAVEFORM_COLOR = 'rgb(239, 68, 68)'; // Red-500
@@ -22,7 +21,6 @@ export const useAudioVisualizer = (
   autoPauseEnabled?: boolean,
   autoPauseSensitivityDb?: number,
   autoPauseState?: AutoPauseState,
-  currentEmotion?: Emotion,
 ): void => {
   const animationFrameIdRef = useRef<number | null>(null);
 
@@ -109,7 +107,14 @@ export const useAudioVisualizer = (
         }
     };
 
-    const render = () => {
+    const FRAME_INTERVAL = 1000 / 25; // 25fps = 40ms
+    let lastFrameTime = 0;
+    const render = (timestamp: number) => {
+      if (timestamp - lastFrameTime < FRAME_INTERVAL) {
+        animationFrameIdRef.current = requestAnimationFrame(render);
+        return;
+      }
+      lastFrameTime = timestamp;
       context.clearRect(0, 0, canvasWidth, canvasHeight);
       
       const hasBoth = micAnalyserNode && appAnalyserNode;
@@ -152,12 +157,12 @@ export const useAudioVisualizer = (
       animationFrameIdRef.current = requestAnimationFrame(render);
     };
 
-    render();
+    animationFrameIdRef.current = requestAnimationFrame(render);
 
     return () => {
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
       }
     };
-  }, [micAnalyserNode, appAnalyserNode, canvasRef, isActive, currentTimeForLive, durationForLive, autoPauseEnabled, autoPauseSensitivityDb, autoPauseState, currentEmotion]);
+  }, [micAnalyserNode, appAnalyserNode, canvasRef, isActive, currentTimeForLive, durationForLive, autoPauseEnabled, autoPauseSensitivityDb, autoPauseState]);
 };

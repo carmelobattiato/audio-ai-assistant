@@ -1,12 +1,10 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { RecordingState, UseAudioRecorderOptions, UseAudioRecorderResult, EmotionEvent } from '../types';
+import { RecordingState, UseAudioRecorderOptions, UseAudioRecorderResult } from '../types';
 import { useRecorderTimer } from './recorder/useRecorderTimer';
 import { useMediaStreams } from './recorder/useMediaStreams';
 import { useAutoPauseLogic, AutoPauseState } from './recorder/useAutoPauseLogic';
 import { useLiveTranscriptionLogic } from './recorder/useLiveTranscriptionLogic';
-import { useWhisperLiveLogic } from './recorder/useWhisperLiveLogic';
-import { useEmotionAnalysisLogic } from './recorder/useEmotionAnalysisLogic';
 
 export type { AutoPauseState };
 
@@ -23,8 +21,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
   const {
     settings, llmSettings, onChunkComplete, onRecordingStop,
     enableChunkedRecording, chunkIntervalSeconds, enableRealtimeTranscription,
-    transcriptionEngine, liveModel, whisperModel, realtimeLanguage,
-    onLlmUsage,
+    liveModel,
   } = options;
 
   const optionsRef = useRef(options);
@@ -82,18 +79,14 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
   );
 
   const geminiApiKey = llmSettings?.googleApiKey?.trim() || process.env.API_KEY;
-  const geminiLiveTrans = useLiveTranscriptionLogic((text) => {}, { liveModel, apiKey: geminiApiKey });
-  const whisperLiveTrans = useWhisperLiveLogic((text) => {}, { whisperModel, language: realtimeLanguage });
-  const liveTrans = transcriptionEngine === 'whisper' ? whisperLiveTrans : geminiLiveTrans;
-  const emotions = useEmotionAnalysisLogic(llmSettings, onLlmUsage);
+  const liveTrans = useLiveTranscriptionLogic((text) => {}, { liveModel, apiKey: geminiApiKey });
 
   const cleanupAll = useCallback(() => {
     stopTimer();
     if (chunkIntervalTimerRef.current) clearInterval(chunkIntervalTimerRef.current);
     streams.cleanupStreams();
     liveTrans.cleanupLiveSession();
-    emotions.stopEmotionAnalysis();
-  }, [stopTimer, streams, liveTrans, emotions]);
+  }, [stopTimer, streams, liveTrans]);
 
   const restartChunkTimer = useCallback((intervalSeconds: number) => {
     if (chunkIntervalTimerRef.current) clearInterval(chunkIntervalTimerRef.current);
@@ -141,10 +134,9 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
         setIsPaused(false);
         if (recordingSessionIdRef.current && currentOptions.onRecordingStop) {
           currentOptions.onRecordingStop(
-            recordingSessionIdRef.current, 
-            !!currentOptions.enableChunkedRecording, 
-            liveTrans.realtimeTranscriptAccumulatorRef.current, 
-            emotions.emotionHistoryRef.current
+            recordingSessionIdRef.current,
+            !!currentOptions.enableChunkedRecording,
+            liveTrans.realtimeTranscriptAccumulatorRef.current,
           );
         }
       } else if (currentOptions.enableChunkedRecording) {
@@ -155,7 +147,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     };
     recorder.start();
     mediaRecorderRef.current = recorder;
-  }, [settings.bitrate, cleanupAll, liveTrans, emotions]);
+  }, [settings.bitrate, cleanupAll, liveTrans]);
 
   useEffect(() => {
     chunkIntervalSecondsRef.current = chunkIntervalSeconds ?? 60;
@@ -177,19 +169,6 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
       const { context, destination } = streams.setupAudioContext(enableRealtimeTranscription ? 16000 : undefined);
       const { micStream, micSource } = await streams.getMicStream(context, destination, includeAppAudio);
       
-      if (settings.enableEmotionAnalysis) {
-        const emoDest = context.createMediaStreamDestination();
-        micSource.connect(emoDest);
-        emotions.emotionRecorderRef.current = new MediaRecorder(emoDest.stream, { mimeType: selectSupportedMimeType() });
-        emotions.emotionRecorderRef.current.ondataavailable = async (e) => {
-          if (e.data.size > 0) await emotions.handleEmotionSnippet(e.data, elapsedTime, emotions.emotionRecorderRef.current!.mimeType);
-        };
-        emotions.emotionRecorderRef.current.start();
-        emotions.emotionIntervalRef.current = window.setInterval(() => {
-          if (emotions.emotionRecorderRef.current?.state === 'recording' && !isPausedRef.current) emotions.emotionRecorderRef.current.stop();
-        }, 3000);
-      }
-
       if (enableRealtimeTranscription) await liveTrans.connectLiveSession(context, micStream, isPausedRef);
       
       if (includeAppAudio) {
@@ -235,7 +214,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
       setError(`Start failed: ${err}`);
       cleanupAll();
     }
-  }, [streams, emotions, liveTrans, settings, enableRealtimeTranscription, enableChunkedRecording, chunkIntervalSeconds, startTimer, createNewRecorder, cleanupAll, setElapsedTime, restartChunkTimer]);
+  }, [streams, liveTrans, settings, enableRealtimeTranscription, enableChunkedRecording, chunkIntervalSeconds, startTimer, createNewRecorder, cleanupAll, setElapsedTime, restartChunkTimer]);
 
   const stopRecording = useCallback(() => {
     isStoppingRef.current = true;
@@ -303,7 +282,6 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     isAutoPaused: autoPause.isAutoPaused, autoPauseState: autoPause.autoPauseState,
     autoPauseCountdown: autoPause.autoPauseCountdown,
     realtimeTranscription: liveTrans.realtimeTranscription,
-    currentEmotion: emotions.currentEmotion, emotionHistory: emotions.emotionHistoryRef.current,
     addAppAudio,
     isAppAudioActive: streams.isAppAudioActive, isMicEnabled, toggleMic,
     forceNewChunk, chunkStartElapsedTime,

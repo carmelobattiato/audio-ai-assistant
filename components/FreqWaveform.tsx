@@ -17,7 +17,11 @@ export const FreqWaveform: React.FC<FreqWaveformProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const tick = () => {
+    const FRAME_INTERVAL = 1000 / 25; // 25fps
+    let lastFrameTime = 0;
+    const tick = (timestamp: number) => {
+      if (timestamp - lastFrameTime < FRAME_INTERVAL) { rafRef.current = requestAnimationFrame(tick); return; }
+      lastFrameTime = timestamp;
       const ctx = canvas.getContext('2d');
       if (!ctx) { rafRef.current = requestAnimationFrame(tick); return; }
 

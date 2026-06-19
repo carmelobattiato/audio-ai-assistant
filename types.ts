@@ -51,9 +51,9 @@ export interface AudioRecorderProps {
   transcriptionSettings: TranscriptionSettings;
   llmSettings: LlmSettings;
   onRecordingStateChange: (state: RecordingState) => void;
-  onRecordingComplete: (blob: Blob, filename: string, startTime: Date | null, emotionHistory?: EmotionEvent[]) => void;
+  onRecordingComplete: (blob: Blob, filename: string, startTime: Date | null) => void;
   onChunkComplete?: (chunk: Blob, chunkIndex: number) => void;
-  onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string | null, emotionHistory?: EmotionEvent[]) => void | Promise<void>;
+  onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string | null) => void | Promise<void>;
   onFilesSelected: (files: File[]) => void;
   onRecordingSessionStart: () => void | Promise<boolean | void>;
   disabled?: boolean;
@@ -66,7 +66,6 @@ export interface AudioRecorderProps {
   onPendingNoteHtmlChange: (html: string) => void;
   externalAudioUrl: string | null;
   onStopPlayback?: () => void;
-  emotionHistory: EmotionEvent[];
   viewingBubbleNoteId?: string | null;
   recordingTitle: string;
   onRecordingTitleChange: (title: string) => void;
@@ -86,14 +85,11 @@ export interface UseAudioRecorderOptions {
   settings: AudioSettings;
   llmSettings: LlmSettings;
   onChunkComplete?: (chunk: Blob, chunkIndex: number) => void;
-  onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string | null, emotionHistory?: EmotionEvent[]) => void | Promise<void>;
+  onRecordingStop?: (sessionId: string, wasChunked: boolean, finalTranscript?: string | null) => void | Promise<void>;
   enableChunkedRecording?: boolean;
   chunkIntervalSeconds?: number;
   enableRealtimeTranscription?: boolean;
-  transcriptionEngine?: 'gemini' | 'whisper';
   liveModel?: string;
-  whisperModel?: string;
-  realtimeLanguage?: string;
   onLlmUsage?: (stats: LlmUsageStats) => void;
   onAutoSave?: (recorderState: Readonly<UseAudioRecorderResult>, componentState: { includeAppAudio: boolean }) => void;
   initialState?: Partial<UseAudioRecorderResult>;
@@ -119,8 +115,6 @@ export interface UseAudioRecorderResult {
   autoPauseState: AutoPauseState;
   autoPauseCountdown: number;
   realtimeTranscription: string;
-  currentEmotion: Emotion;
-  emotionHistory: EmotionEvent[];
   addAppAudio: () => Promise<void>;
   isAppAudioActive: boolean;
   isMicEnabled: boolean;
@@ -156,7 +150,6 @@ export interface AudioSettings {
   enableAutoPause: boolean;
   autoPauseTimeoutSeconds: number;
   autoPauseSensitivityDb: number;
-  enableEmotionAnalysis: boolean;
   echoCancellation: boolean;
   autoManageEchoCancellation: boolean;
   echoCancellationStrength: EchoStrength;
@@ -180,8 +173,6 @@ export interface TranscriptionSettings {
   chunkRecordingIntervalSeconds?: number;
   enableRealtimeTranscription?: boolean;
   enableAutoPipeline?: boolean;
-  transcriptionEngine?: 'gemini' | 'whisper';
-  whisperModel?: string;
   liveModel?: string;
   autoTranscribeChunks?: boolean;
 }
@@ -363,15 +354,6 @@ export interface CustomQuickAction {
   promptTemplate: string;
 }
 
-export type Emotion = 'Neutral' | 'Joy' | 'Sadness' | 'Anger' | 'Fear' | 'Disgust' | 'Surprise' | 'Trust' | 'Anticipation' | 'Unknown';
-
-export const EMOTION_LIST: Emotion[] = ['Neutral', 'Joy', 'Sadness', 'Anger', 'Fear', 'Disgust', 'Surprise', 'Trust', 'Anticipation'];
-
-export interface EmotionEvent {
-  emotion: Emotion;
-  timestamp: number; 
-}
-
 export interface ChatMessage {
     id: string;
     role: 'user' | 'assistant';
@@ -399,7 +381,6 @@ export interface SavedSessionData {
   llmProcessedText: string;
   llmProcessingType: string;
   settings: AppSettings;
-  emotionHistory?: EmotionEvent[];
   llmUsageHistory?: LlmUsageStats[];
   llmResultsHistory?: ProcessedResult[];
   meetingChatHistory?: MeetingChatMessage[];

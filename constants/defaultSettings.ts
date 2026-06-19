@@ -8,7 +8,6 @@ export const DEFAULT_AUDIO_SETTINGS: AppSettings['audio'] = {
   enableAutoPause: true,
   autoPauseTimeoutSeconds: 10,
   autoPauseSensitivityDb: -20,
-  enableEmotionAnalysis: false,
   echoCancellation: false,
   autoManageEchoCancellation: true,
   echoCancellationStrength: "Standard",
@@ -31,8 +30,6 @@ export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
   chunkRecordingIntervalSeconds: 900, // Updated to 15 minutes (15 * 60)
   enableRealtimeTranscription: false,
   enableAutoPipeline: true,
-  transcriptionEngine: 'gemini' as const,
-  whisperModel: 'Xenova/whisper-tiny',
   liveModel: 'gemini-2.5-flash-native-audio-latest',
   autoTranscribeChunks: true,
 };

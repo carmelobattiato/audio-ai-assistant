@@ -2,7 +2,6 @@
 
 
 import { llmService } from './geminiService';
-import { whisperService } from './whisperService';
 import { blobToBase64, getMimeTypeFromBlob } from '../utils/audioUtils';
 import { TranscriptionQuality, SupportedLanguage, TranscriptionSettings, AppSettings } from '../types';
 
@@ -14,28 +13,6 @@ export const transcriptionService = {
     signal?: AbortSignal,
     transcriptionPromptTemplate?: string,
   ): Promise<{ transcription: string, usageMetadata?: { inputTokens: number, outputTokens: number, totalTokens: number } }> => {
-    if (settings.transcriptionEngine === 'whisper') {
-      const model = (settings.whisperModel ?? 'Xenova/whisper-tiny')
-        .replace('openai/whisper-', 'Xenova/whisper-');
-      console.log(`transcriptionService: Using local Whisper engine (${model}).`);
-      try {
-        // If not in memory yet, auto-load from browser cache before transcribing
-        if (!whisperService.isLoaded()) {
-          const cached = await whisperService.checkModelCached(model);
-          if (!cached) {
-            return { transcription: 'Whisper model not downloaded. Go to Settings → Transcription to download it.' };
-          }
-          console.log('transcriptionService: Loading Whisper model from cache…');
-          await whisperService.loadModel(model, () => {});
-        }
-        const text = await whisperService.transcribe(audioBlob, settings.language, signal);
-        return { transcription: text };
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return { transcription: 'Error: Transcription was cancelled.' };
-        return { transcription: `Whisper error: ${err instanceof Error ? err.message : String(err)}` };
-      }
-    }
-
     const { language, quality, attemptSpeakerDiarization, approximateSpeakerCount, fileName } = settings;
     console.log(`transcriptionService: Starting transcription. Language: ${language}, Quality: ${quality}, Diarization: ${attemptSpeakerDiarization}, Approx Speakers: ${approximateSpeakerCount}, FileName: ${fileName}`);
     try {

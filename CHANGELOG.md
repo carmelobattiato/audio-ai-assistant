@@ -8,6 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.106] — 2026-06-19
+
+- Rimosso Whisper locale: `workers/whisperWorker.ts`, `services/whisperService.ts`, `utils/whisperLanguages.ts`, `hooks/recorder/useWhisperLiveLogic.ts` eliminati
+- Rimossa Emotion Analysis: `hooks/recorder/useEmotionAnalysisLogic.ts` eliminato, `analyzeEmotion` da `geminiService`, `EmotionEvent`/`Emotion`/`EMOTION_LIST` da types
+- Waveform throttled a 25fps in `FreqWaveform.tsx` e `useAudioVisualizer.ts` — riduce CPU draw loop da 60fps
+- Rimossi da types: `transcriptionEngine`, `whisperModel`, `realtimeLanguage`, `enableEmotionAnalysis`, `currentEmotion`, `emotionHistory` da AudioRecorderProps/UseAudioRecorderResult/AudioSettings
+- `transcriptionLabel` semplificato — mostra direttamente `appSettings.llm.model`
+- Dependency `@huggingface/transformers` non più usata (rimovibile da package.json)
+
+---
+
 ## [1.105] — 2026-06-19
 
 - Performance: `handleChunkComplete`, `handleRecordingComplete`, `handleRecordingStop` ora usano `scheduleDbUpdate`+`flushDbUpdate` invece di `db.updateSessionIncremental` diretto — elimina write storm su IndexedDB durante registrazione

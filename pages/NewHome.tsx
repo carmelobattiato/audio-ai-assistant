@@ -40,7 +40,6 @@ import {
   BubbleNote,
   RecordingState,
   AudioRecorderRef,
-  EmotionEvent,
   LlmUsageStats,
   SavedSessionData,
   SupportedLanguage,
@@ -112,7 +111,6 @@ export const NewHome: React.FC = () => {
   const [recordingState, setRecordingState] = useState<RecordingState>(RecordingState.IDLE);
   const [recordingTitle, setRecordingTitle] = useState<string>('');
   const [recordingTimestampSuffix, setRecordingTimestampSuffix] = useState<string>(getCurrentTimestampSuffix());
-  const [emotionHistory, setEmotionHistory] = useState<EmotionEvent[]>([]);
   const [pipelineStep, setPipelineStep] = useState<PipelineStep>(PipelineStep.IDLE);
   const [llmAutoTrigger, setLlmAutoTrigger] = useState<number>(0);
   const wasTranscribingRef = useRef(false);
@@ -258,7 +256,7 @@ export const NewHome: React.FC = () => {
     }
     setLlmProcessedText(''); setLlmProcessingType(''); setLlmUsageHistory([]); setLlmResultsHistory([]);
     setMeetingChatHistory([]);
-    setEmotionHistory([]); setAppUserMessage(null);
+    setAppUserMessage(null);
     setCoherenceAssessment(null); setCoherenceStatus(CoherenceAssessmentStatus.IDLE);
     setPipelineStep(PipelineStep.IDLE);
     setRecordingChunks([]);
@@ -385,7 +383,6 @@ export const NewHome: React.FC = () => {
         setUploadedTextFileContent(data.uploadedTextFileContent || null);
         setLlmProcessedText(data.llmProcessedText || '');
         setLlmProcessingType(data.llmProcessingType || '');
-        setEmotionHistory(data.emotionHistory || []);
         setLlmUsageHistory(data.llmUsageHistory || []);
         setLlmResultsHistory(data.llmResultsHistory || []);
         setMeetingChatHistory(data.meetingChatHistory || []);
@@ -451,8 +448,8 @@ export const NewHome: React.FC = () => {
   useEffect(() => { scheduleDbUpdate({ name: finalEffectiveTitle }); }, [finalEffectiveTitle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    scheduleDbUpdate({ bubbleNotes, emotionHistory, llmUsageHistory });
-  }, [bubbleNotes, emotionHistory, llmUsageHistory]); // eslint-disable-line react-hooks/exhaustive-deps
+    scheduleDbUpdate({ bubbleNotes, llmUsageHistory });
+  }, [bubbleNotes, llmUsageHistory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     scheduleDbUpdate({ transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory });
@@ -665,8 +662,7 @@ export const NewHome: React.FC = () => {
   }, [pipelineStep, transLogic]);
 
   // ── Shared AudioRecorder callbacks ────────────────────────────────────────
-  const handleRecordingComplete = useCallback((blob: Blob, name: string, start: Date | null, emo?: EmotionEvent[]) => {
-    setEmotionHistory(emo || []);
+  const handleRecordingComplete = useCallback((blob: Blob, name: string, start: Date | null) => {
     if (appendModeRef.current && !appSettings.transcription.enableChunkedRecording) {
       // Append a non-chunked recording as an extra segment in the transcription queue
       const ext = blob.type.split('/')[1]?.split(';')[0] || 'webm';
@@ -726,15 +722,13 @@ export const NewHome: React.FC = () => {
     }
   }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks, appSettings.transcription.enableAutoPipeline]);
 
-  const handleRecordingStop = useCallback(async (id: string, wasChunked: boolean, transcript?: string | null, emo?: EmotionEvent[]) => {
+  const handleRecordingStop = useCallback(async (id: string, wasChunked: boolean, transcript?: string | null) => {
     let finalTranscript = transcribedText;
     if (transcript) { finalTranscript = transcript.replace(/\n/g, '<br />'); setTranscribedText(finalTranscript); }
-    if (emo) setEmotionHistory(emo);
 
     const finalUpdates = {
       status: 'Success' as const,
       bubbleNotes,
-      emotionHistory: emo || emotionHistory,
       llmUsageHistory,
       transcribedText: finalTranscript,
       chunks: recordingChunksRef.current,
@@ -764,7 +758,7 @@ export const NewHome: React.FC = () => {
       flushDbUpdate();
       setPipelineStep(PipelineStep.IDLE);
     }
-  }, [transcribedText, bubbleNotes, emotionHistory, llmUsageHistory, appSettings.transcription, transLogic, finalEffectiveTitle]);
+  }, [transcribedText, bubbleNotes, llmUsageHistory, appSettings.transcription, transLogic, finalEffectiveTitle]);
 
   const handleRecordingSessionStart = useCallback(async (): Promise<boolean> => {
     const hasExistingData =
@@ -829,7 +823,7 @@ export const NewHome: React.FC = () => {
           : [],
         transcribedText: '', uploadedTextFileContent: null,
         llmProcessedText: '', llmProcessingType: '',
-        settings: appSettings, emotionHistory: [], llmUsageHistory: [], llmResultsHistory: [],
+        settings: appSettings, llmUsageHistory: [], llmResultsHistory: [],
       },
     };
     await db.saveSession(initialSession);
@@ -1305,9 +1299,7 @@ export const NewHome: React.FC = () => {
         isBusy={isBusy}
         canSaveZip={!!activeSessionIdRef.current}
         statsDisabled={!audioBlob && !activeSourceText && bubbleNotes.length === 0}
-        transcriptionLabel={appSettings.transcription.transcriptionEngine === 'whisper'
-          ? `Whisper (${(appSettings.transcription.whisperModel ?? 'Xenova/whisper-tiny').split('/').pop() ?? 'tiny'})`
-          : appSettings.llm.model}
+        transcriptionLabel={appSettings.llm.model}
         analysisLabel={appSettings.llm.model}
         onManageSessions={() => { fetchSessions(); setShowLoadSessionModal(true); }}
         onSaveAll={() => { if (activeSessionIdRef.current) sessLogic.handleExportSessionJson(activeSessionIdRef.current); }}
@@ -1372,7 +1364,6 @@ export const NewHome: React.FC = () => {
             onPendingNoteHtmlChange={setPendingNoteHtml}
             externalAudioUrl={playbackUrl}
             onStopPlayback={() => transLogic.setPlaybackFile(null)}
-            emotionHistory={emotionHistory}
             viewingBubbleNoteId={viewingBubbleNoteId}
             recordingTitle={recordingTitle}
             onRecordingTitleChange={setRecordingTitle}

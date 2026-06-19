@@ -3,7 +3,6 @@ import React, { useRef, useEffect } from 'react';
 import { useAudioVisualizer } from '../hooks/useAudioVisualizer';
 import { formatTime } from '../utils/textUtils';
 import { AutoPauseState } from '../hooks/useAudioRecorder';
-import { Emotion, EmotionEvent } from '../types';
 
 interface AudioVisualizerCanvasProps {
   micAnalyserNode: AnalyserNode | null;
@@ -19,8 +18,6 @@ interface AudioVisualizerCanvasProps {
   autoPauseSensitivityDb?: number;
   autoPauseState?: AutoPauseState;
   onSeek?: (time: number) => void;
-  currentEmotion?: Emotion;
-  emotionHistory?: EmotionEvent[];
   hideLegend?: boolean;
 }
 
@@ -47,8 +44,6 @@ export const AudioVisualizerCanvas: React.FC<AudioVisualizerCanvasProps> = ({
   autoPauseSensitivityDb,
   autoPauseState,
   onSeek,
-  currentEmotion,
-  emotionHistory,
   hideLegend = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,7 +59,6 @@ export const AudioVisualizerCanvas: React.FC<AudioVisualizerCanvasProps> = ({
     autoPauseEnabled,
     autoPauseSensitivityDb,
     autoPauseState,
-    currentEmotion,
   );
 
   useEffect(() => {

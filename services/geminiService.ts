@@ -3,7 +3,7 @@ import { GoogleGenAI, GenerateContentResponse, GenerateContentParameters, Part }
 
 // Narrows a raw `Part` from the SDK to one that carries a text field
 const partText = (p: Part): string | undefined => ('text' in p ? (p as { text: string }).text : undefined);
-import { GroundingMetadata, LlmSettings, Emotion, EMOTION_LIST } from '../types';
+import { GroundingMetadata, LlmSettings } from '../types';
 import { loggingService } from './loggingService';
 
 interface UsageMetadata {
@@ -172,19 +172,6 @@ export const llmService = {
         }
     }
     return { text: "Error: LLM failed after retries." };
-  },
-
-  analyzeEmotion: async (audioBase64: string, mimeType: string, llmSettings: LlmSettings): Promise<{ emotion: Emotion, usageMetadata?: UsageMetadata }> => {
-    if (llmSettings.provider === 'Custom OpenAI-compatible') return { emotion: 'Unknown' };
-    try {
-      const { text: result, usageMetadata } = await llmService.generateText(
-        [{ inlineData: { mimeType, data: audioBase64 } }, { text: `Analyze emotion: ${EMOTION_LIST.join(', ')}. One word response.` }],
-        { ...llmSettings, model: 'gemini-3-flash-preview', maxRetries: 1, timeout: 15 },
-        "Analyze audio emotion. Response must be single word from list."
-      );
-      const found = EMOTION_LIST.find(e => result.toLowerCase().includes(e.toLowerCase()));
-      return { emotion: found || 'Neutral', usageMetadata };
-    } catch { return { emotion: 'Unknown' }; }
   },
 
   transcribeAudio: async (audioBase64: string, mimeType: string, language: string, llmSettings: LlmSettings, customInstruction?: string, attemptDiarization?: boolean, approximateSpeakerCount?: number, signal?: AbortSignal, promptTemplate?: string): Promise<{ transcription: string, usageMetadata?: UsageMetadata }> => {

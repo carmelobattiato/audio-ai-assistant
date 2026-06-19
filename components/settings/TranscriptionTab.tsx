@@ -53,8 +53,8 @@ export const TranscriptionTab: React.FC<TranscriptionTabProps> = ({ settings, on
     <div className="p-3 bg-gray-700 rounded-lg space-y-3 border border-gray-600">
       <Checkbox 
         label="Real-time Live Transcript (Google Only)" 
-        checked={settings.enableRealtimeTranscription} 
-        onChange={(e) => onChange('enableRealtimeTranscription', e.target.checked)} 
+        checked={settings.enableRealtimeTranscription ?? false}
+        onChange={(e) => onChange('enableRealtimeTranscription', e.target.checked)}
       />
       <p className="text-[10px] text-gray-400 pl-6">Uses high-speed streaming for instant feedback during recording.</p>
     </div>
