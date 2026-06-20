@@ -1,4 +1,4 @@
-# Audio AI Assistant — v1.109
+# Audio AI Assistant — v1.110
 
 A **client-side-only** web app for audio recording, automatic transcription via Google Gemini, and LLM-powered analysis. Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.
 
@@ -74,7 +74,7 @@ Two coexisting UIs, switchable from the topbar:
 | AI / Speech | Google Gemini API (`@google/genai` v1) |
 | Persistence | IndexedDB via `idb` v8 |
 | Document parsing | `mammoth` (DOCX), `pdfjs-dist` (PDF) |
-| Outlook bridge | Vite dev-only plugin → PowerShell COM automation |
+| Outlook bridge | Three sources: PowerShell COM (Windows) · ICS feed · Chrome/Edge Extension |
 
 **No backend. No server database. All data stays in the browser (IndexedDB).** The only outbound network calls are to the Google Gemini API.
 
@@ -220,22 +220,35 @@ sequenceDiagram
 
 ---
 
-### Outlook Calendar Bridge (Windows only)
+### Outlook Calendar Bridge — three sources
 
 ```mermaid
 sequenceDiagram
-    participant Browser
+    participant App
     participant VitePlugin
     participant PowerShell
     participant OutlookCOM
 
-    Browser->>VitePlugin: GET /api/outlook/appointments
+    Note over App,OutlookCOM: Source 1 — Windows COM (Windows only)
+    App->>VitePlugin: GET /api/outlook/appointments
     VitePlugin->>PowerShell: spawn ps1 script
-    PowerShell->>OutlookCOM: Application.Session\n.GetDefaultFolder(9)\n.Items (today)
-    OutlookCOM-->>PowerShell: appointment objects\n(subject, start, end, attendees,\nresponseStatus, onlineMeetingUrl)
-    PowerShell-->>VitePlugin: JSON array
-    VitePlugin-->>Browser: JSON response
-    Browser->>Browser: render Day View / List View
+    PowerShell->>OutlookCOM: GetDefaultFolder(9).Items (today)
+    OutlookCOM-->>PowerShell: appointments (subject, start, end,\nattendees, responseStatus, Teams URL)
+    PowerShell-->>App: JSON array
+
+    Note over App: Source 2 — ICS Feed (cross-platform)
+    App->>App: fetch ICS URL (Outlook publish link)
+    App->>App: parse RFC5545, filter to today
+
+    Note over App: Source 3 — Browser Extension (Chrome/Edge)
+    participant Extension
+    participant OutlookTab
+    Extension->>OutlookTab: intercept window.fetch (MAIN world)
+    OutlookTab-->>Extension: capture MSAuth1.0 token + timezone
+    Extension->>OutlookTab: POST GetCalendarView (OWA API, today)
+    OutlookTab-->>Extension: Body.Items[] (today's appointments)
+    Extension->>App: BroadcastChannel('calendar-sync-v1')\n{ type: 'appointments', appointments: [] }
+    App->>App: render Day View / List View
 ```
 
 ---
@@ -278,14 +291,14 @@ Click **"Rec without headphones"** in the dialog footer to skip screen share and
 
 ### Transcription
 
-Powered by Google Gemini multimodal speech-to-text or local Whisper (offline).
+Powered by Google Gemini multimodal speech-to-text.
 
 | Setting | Options |
 |---------|---------|
 | Language | Italian (default), English |
 | Quality | 5 levels — Fast/Basic → Best/Slow |
 | Output format | TXT, SRT, CSV, HTML |
-| Engine | Gemini (cloud) / Whisper (local, offline) |
+| Model | Configurable per function (Analysis / Transcription / Chat) |
 
 - Transcription queue with multi-file sequencing
 - **Smart Pipeline**: when active, auto-starts transcription → LLM analysis on recording stop; when disabled, chunks appear in the queue but are never auto-transcribed
@@ -360,9 +373,23 @@ Contextual annotation system synchronized with the recording.
 
 ### Outlook Calendar (Neo UI)
 
-Integration with Microsoft Outlook via a PowerShell bridge (Windows with Outlook installed only).
+The **Calendar** button in the topbar opens a modal that reads today's meetings from one of three configurable sources (Settings → Integrations):
 
-The **Calendar** button in the topbar opens a modal with two switchable views:
+| Source | Platform | Notes |
+|--------|----------|-------|
+| **Windows COM bridge** | Windows only | Full data: attendees, Teams URL, response status, body. Requires Outlook desktop. |
+| **ICS feed** | Cross-platform | Public ICS URL published from Outlook. Read-only, 1–3h refresh latency (Microsoft-managed). |
+| **Browser Extension** | Chrome / Edge | Reads from an already-open `outlook.live.com` tab. Works regardless of tenant policy. No OAuth. |
+
+**Browser Extension setup:**
+1. Settings → Integrations → Browser Extension → download `calendar-extension.zip`
+2. Extract, then load in `chrome://extensions` (Developer mode → Load unpacked)
+3. Open `outlook.live.com/calendar` — the extension captures the OWA auth token and calls `GetCalendarView` directly
+4. The badge "Outlook Live ● Connessa" appears in the calendar header within 30 s
+
+The extension popup shows connection status, a 15-minute countdown to next auto-sync, and buttons to force a re-fetch or reload the Outlook tab.
+
+The modal has two switchable views:
 
 **Calendar View (Day View)**
 - Outlook-style layout with 00:00–24:00 time slots

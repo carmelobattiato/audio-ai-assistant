@@ -73,6 +73,33 @@ chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     sendResponse({ ok: true });
     return;
   }
+
+  if (msg.type === 'TRIGGER_RESYNC') {
+    let found = false;
+    chrome.tabs.query({}, function (tabs) {
+      for (const t of tabs) {
+        if (!t.id || !t.url) continue;
+        if (t.url.includes('outlook.live.com') || t.url.includes('outlook.office.com')) {
+          found = true;
+          console.log('[CAL-BRIDGE bg] TRIGGER_RESYNC → iniettando resync in tab', t.id, t.url.split('?')[0]);
+          chrome.scripting.executeScript({
+            target: { tabId: t.id },
+            world: 'MAIN',
+            func: function () {
+              console.log('[CAL-BRIDGE] 🔄 Resync iniettato da background');
+              window.postMessage({ type: '__CAL_BRIDGE_RESYNC__' }, window.location.origin);
+            },
+          }).catch(function (e) {
+            console.warn('[CAL-BRIDGE bg] executeScript fallito:', e && e.message);
+          });
+          break;
+        }
+      }
+      if (!found) console.warn('[CAL-BRIDGE bg] TRIGGER_RESYNC: nessun tab Outlook trovato');
+      sendResponse({ ok: true, outlookFound: found });
+    });
+    return true;
+  }
 });
 
 // ── Broadcast to app tabs ─────────────────────────────────────────────────────

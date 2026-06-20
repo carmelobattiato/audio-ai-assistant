@@ -1,17 +1,18 @@
 'use strict';
 
+const RESYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 min
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtTime(ts) {
+function fmtCountdown(ts) {
   if (!ts) return '—';
-  const diff = Math.floor((Date.now() - ts) / 1000);
-  if (diff < 5)  return 'adesso';
-  if (diff < 60) return diff + 's fa';
-  if (diff < 3600) return Math.floor(diff / 60) + 'min fa';
-  const d = new Date(ts);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return hh + ':' + mm;
+  const elapsed  = Date.now() - ts;
+  const remaining = Math.max(0, RESYNC_INTERVAL_MS - elapsed);
+  if (remaining === 0) return 'prossimo sync…';
+  const secs = Math.floor(remaining / 1000);
+  const mm   = Math.floor(secs / 60);
+  const ss   = secs % 60;
+  return String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
 }
 
 function setDot(id, on, blue) {
@@ -41,7 +42,7 @@ function renderStatus(s) {
     outlookOk ? 'badge badge-green' : 'badge badge-gray',
     outlookOk ? '● Connesso' : 'Non rilevato');
   setText('outlookCount',  s.outlookCount ? s.outlookCount + ' riunioni' : '—');
-  setText('outlookSeenAt', fmtTime(s.outlookSeenAt));
+  setText('outlookSeenAt', fmtCountdown(s.outlookSeenAt));
 
   const appOk = s.appSeenAt && (Date.now() - s.appSeenAt < 90 * 1000);
   setDot('dotApp', appOk, true);
@@ -49,7 +50,7 @@ function renderStatus(s) {
     appOk ? 'badge badge-blue' : 'badge badge-gray',
     appOk ? '● Rilevata' : 'Non trovata');
   setText('syncedCount',  s.syncedCount ? s.syncedCount + ' riunioni' : '—');
-  setText('syncedAt',     fmtTime(s.syncedAt));
+  setText('syncedAt',     fmtCountdown(s.syncedAt));
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (s.appUrl) appUrlInput.value = s.appUrl;
   });
 
-  // Refresh status every 2s while popup is open
+  // Refresh status every 2s while popup is open (also updates countdowns)
   var refreshInterval = setInterval(function () {
     chrome.runtime.sendMessage({ type: 'GET_STATUS' }, function (s) {
       if (s) renderStatus(s);
@@ -77,11 +78,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
   window.addEventListener('unload', function () { clearInterval(refreshInterval); });
 
-  // Sync now
+  // Sync now — trigger a real re-fetch from Outlook then also re-broadcast cache
   syncBtn.addEventListener('click', function () {
     syncBtn.disabled = true;
     syncBtn.textContent = 'Sincronizzazione…';
-    chrome.runtime.sendMessage({ type: 'SYNC_NOW' }, function () {
+    console.log('[CAL-BRIDGE popup] 🔄 Sincronizza ora premuto — invio TRIGGER_RESYNC');
+
+    // 1. Trigger a fresh fetch from the Outlook content script
+    chrome.runtime.sendMessage({ type: 'TRIGGER_RESYNC' }, function (r) {
+      console.log('[CAL-BRIDGE popup] TRIGGER_RESYNC risposta:', r);
+    });
+
+    // 2. Also immediately re-broadcast cached data so the app tab refreshes now
+    chrome.runtime.sendMessage({ type: 'SYNC_NOW' }, function (r) {
+      console.log('[CAL-BRIDGE popup] SYNC_NOW risposta:', r);
       syncBtn.disabled = false;
       syncBtn.innerHTML =
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">'
@@ -96,6 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Reload Outlook tab
   reloadOutlookBtn.addEventListener('click', function () {
     reloadOutlookBtn.disabled = true;
+    console.log('[CAL-BRIDGE popup] 🔄 Ricarica Outlook tab');
     chrome.runtime.sendMessage({ type: 'RELOAD_OUTLOOK' }, function () {
       setTimeout(function () { reloadOutlookBtn.disabled = false; }, 3000);
     });

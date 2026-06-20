@@ -157,6 +157,7 @@ export const NewHome: React.FC = () => {
   const [calError, setCalError] = useState<string | null>(null);
   const [calRefreshing, setCalRefreshing] = useState(false);
   const [calExtensionConnected, setCalExtensionConnected] = useState(false);
+  const [calSource, setCalSource] = useState<string>(() => localStorage.getItem('calendar:source') || 'windows');
   const [meetingAttendees, setMeetingAttendees] = useState<Attendee[]>([]);
 
   const [leftWidthPct, setLeftWidthPct] = useState<number>(28);
@@ -879,7 +880,7 @@ export const NewHome: React.FC = () => {
       const msg = ev.data;
       if (!msg || typeof msg !== 'object') return;
       if (msg.type === 'appointments' && Array.isArray(msg.appointments)) {
-        setCalAppointments(msg.appointments);
+        setCalAppointments(msg.appointments as OutlookAppointment[]);
         setCalBridgeAvailable(true);
         setCalError(null);
       }
@@ -889,6 +890,19 @@ export const NewHome: React.FC = () => {
       }
     };
     return () => { bc.close(); calBcRef.current = null; };
+  }, []);
+
+  // Poll extension heartbeat staleness + source changes (every 5s)
+  useEffect(() => {
+    const STALE = 90_000;
+    const check = () => {
+      const ts = localStorage.getItem('calendar:extension-heartbeat');
+      setCalExtensionConnected(!!ts && Date.now() - parseInt(ts, 10) < STALE);
+      setCalSource(localStorage.getItem('calendar:source') || 'windows');
+    };
+    check();
+    const id = setInterval(check, 5_000);
+    return () => clearInterval(id);
   }, []);
 
   const fetchCalendarData = useCallback(async (isRetry = false, bypassThrottle = false) => {
@@ -921,8 +935,11 @@ export const NewHome: React.FC = () => {
     const source = loadCalendarSource();
 
     if (source === 'extension') {
-      // Data arrives passively via BroadcastChannel from the extension.
-      // The listener at bc.onmessage handles it — nothing to fetch here.
+      // Notify the extension content script to re-fetch from Outlook Live.
+      // The result arrives passively via BroadcastChannel (bc.onmessage).
+      if (calBcRef.current) {
+        calBcRef.current.postMessage({ type: 'request-sync' });
+      }
       setCalBridgeAvailable(true);
       setCalError(null);
       setCalRefreshing(false);
@@ -1658,6 +1675,7 @@ export const NewHome: React.FC = () => {
         isBackgroundRefreshing={calRefreshing}
         onRequestRefresh={() => fetchCalendarData(true)}
         extensionConnected={calExtensionConnected}
+        calSource={calSource}
         onConfigureIcs={() => {
           setIsCalendarOpen(false);
           setSettingsInitialTab('integrations');

@@ -24,6 +24,11 @@
       "js": ["content-outlook.js"],
       "run_at": "document_start",
       "world": "MAIN"
+    },
+    {
+      "matches": ["http://localhost:*/*", "http://127.0.0.1:*/*"],
+      "js": ["content-app.js"],
+      "run_at": "document_idle"
     }
   ],
   "action": {

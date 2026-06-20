@@ -68,19 +68,14 @@
     // Use captured OWA timezone or fall back to UTC
     var tz = capturedTimezone || 'UTC';
 
-    // Range: Mon–Sun of current week (±7 days from today to always include the workweek)
+    // Range: today only — consistent with Windows COM bridge and ICS behavior
     var now = new Date();
-    var dayOfWeek = now.getDay(); // 0=Sun
-    var monday = new Date(now);
-    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    var sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-
     function fmtDate(d) {
       return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
     }
-    var rangeStart = fmtDate(monday) + 'T00:00:00.000';
-    var rangeEnd   = fmtDate(sunday) + 'T23:59:59.999';
+    var today      = fmtDate(now);
+    var rangeStart = today + 'T00:00:00.000';
+    var rangeEnd   = today + 'T23:59:59.999';
 
     var reqBody = JSON.stringify({
       __type: 'GetCalendarViewJsonRequest:#Exchange',
@@ -322,6 +317,15 @@
     return new _Worker(url, options);
   };
   window.Worker.prototype = _Worker.prototype;
+
+  // ── Resync request from app tab ───────────────────────────────────────────────
+  window.addEventListener('message', function (e) {
+    if (e.source !== window) return;
+    if (!e.data || e.data.type !== '__CAL_BRIDGE_RESYNC__') return;
+    console.log(PREFIX, '🔄 Resync requested by app');
+    directCallDone = false;
+    maybeTriggerDirectCall();
+  });
 
   console.log(PREFIX, '✅ all patches applied');
 

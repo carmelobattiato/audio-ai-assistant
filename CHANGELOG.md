@@ -8,6 +8,26 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.110] — 2026-06-20
+
+- Extension v5: strategia **direct OWA call** — cattura token `MSAuth1.0` e timezone da `window.fetch` intercettato, poi chiama `GetCalendarView` direttamente dal main thread con `DistinguishedFolderId: "calendar"`; elimina dipendenza dal Web Worker Outlook (non iniettabile)
+- Extension: delay 800ms prima del direct call per attendere `GetTimeZone`; retry automatico se il primo call usa UTC e il timezone arriva dopo
+- Extension: range fetch cambiato da Mon-Sun a **solo oggi** — comportamento coerente con COM bridge e ICS (no overlap di giorni multipli nella griglia oraria)
+- Extension: fix risposta OWA con `Body.Items = []` — era `null`, ora restituisce `{events: [], fmt: 'OWA'}` senza bloccare il flusso
+- Extension popup: countdown **"Prossimo auto-sync"** (MM:SS da 15:00) sostituisce timestamp "Nfa" per ultimo rilevamento e ultima sincronizzazione
+- Extension popup: "Sincronizza ora" invia `TRIGGER_RESYNC` (re-fetch da Outlook) + `SYNC_NOW` (re-broadcast cache immediato) invece di solo cache
+- Extension `background.js`: `CALENDAR_SYNC` non sovrascrive `calendarData` con array vuoto — aggiorna solo `outlookSeenAt`; previene cancellazione dati validi da risposte `service.svc` intermedie
+- Extension `background.js`: nuovo handler `TRIGGER_RESYNC` — inietta `window.postMessage(__CAL_BRIDGE_RESYNC__)` nel tab Outlook via `scripting.executeScript` world MAIN
+- Extension `content-outlook.js`: listener `__CAL_BRIDGE_RESYNC__` — resetta `directCallDone` e ritriggera `doDirectGetCalendarView` su richiesta dell'app
+- Extension `content-app.js` (nuovo): content script su `localhost/*` e `127.0.0.1/*` — fa da bridge tra BroadcastChannel `calendar-sync-v1` e `chrome.runtime.sendMessage(TRIGGER_RESYNC)`
+- Extension `manifest.json`: aggiunto content script `content-app.js` su pattern `http://localhost:*/*` e `http://127.0.0.1:*/*`
+- Calendar header: indicatore sorgente connessione — pill verde "Outlook Live" (extension), giallo "ICS Feed", viola "Outlook COM" con dot colorato
+- `NewHome.tsx`: `calExtensionConnected` ora driven da polling localStorage ogni 5s con stale threshold 90s — il badge torna grigio 90s dopo la disinstallazione del plugin
+- `NewHome.tsx`: stato `calSource` sincronizzato da localStorage ogni 5s — aggiornamento automatico se l'utente cambia sorgente in Settings
+- `NewHome.tsx`: tasto "Aggiorna" nel calendario posta `{type: 'request-sync'}` su BroadcastChannel quando sorgente è extension
+
+---
+
 ## [1.109] — 2026-06-20
 
 - Calendar: nuova sorgente **Browser Extension** affiancata a Windows COM e ICS feed — legge il calendario da Outlook Live già aperto nel browser senza policy tenant, OAuth o installazioni Azure

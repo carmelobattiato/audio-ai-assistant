@@ -356,13 +356,14 @@ interface NeoCalendarDayViewProps {
   onRequestRefresh?: () => void;
   onConfigureIcs?: () => void;
   extensionConnected?: boolean;
+  calSource?: string;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
   isOpen, onClose, onImport, onImportAndSchedule, onOpenTeamsAndRecord,
   externalAppointments, externalBridgeAvailable, externalError,
-  isBackgroundRefreshing = false, onRequestRefresh, onConfigureIcs, extensionConnected,
+  isBackgroundRefreshing = false, onRequestRefresh, onConfigureIcs, extensionConnected, calSource = 'windows',
 }) => {
   const isExternal = externalAppointments !== undefined;
 
@@ -546,6 +547,31 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
               </div>
               {isBackgroundRefreshing && (
                 <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              )}
+              {/* Source status indicator */}
+              {calSource === 'extension' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                  style={extensionConnected
+                    ? { background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7' }
+                    : { background: 'rgba(100,116,139,0.12)', border: '1px solid rgba(100,116,139,0.25)', color: '#64748b' }
+                  }>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', background: extensionConnected ? '#10b981' : '#475569' }} />
+                  Outlook Live
+                </span>
+              )}
+              {calSource === 'ics' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                  style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', color: '#fcd34d' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', background: '#f59e0b' }} />
+                  ICS Feed
+                </span>
+              )}
+              {calSource === 'windows' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                  style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#c4b5fd' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', background: '#8b5cf6' }} />
+                  Outlook COM
+                </span>
               )}
             </div>
 
