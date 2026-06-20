@@ -16,10 +16,11 @@
   console.log(PREFIX, '✅ v5 loaded');
 
   // ── Auth / timezone context captured from main-thread requests ────────────────
-  var capturedAuth      = null;
-  var capturedSessionId = null;
-  var capturedTimezone  = null;   // e.g. "W. Europe Standard Time"
-  var directCallDone    = false;
+  var capturedAuth       = null;
+  var capturedSessionId  = null;
+  var capturedTimezone   = null;   // e.g. "W. Europe Standard Time"
+  var capturedServiceUrl = null;   // actual OWA service.svc URL (captured from page requests)
+  var directCallDone     = false;
 
   function getHeaderValue(headers, name) {
     if (!headers) return null;
@@ -108,9 +109,10 @@
     };
     if (capturedSessionId) fetchHeaders['x-owa-sessionid'] = capturedSessionId;
 
-    console.log(PREFIX, '📡 Direct GetCalendarView — tz:', tz, '| range:', rangeStart);
+    var serviceUrl = (capturedServiceUrl || '/owa/service.svc') + '?action=GetCalendarView&app=Calendar&n=cal_bridge_direct';
+    console.log(PREFIX, '📡 Direct GetCalendarView — tz:', tz, '| range:', rangeStart, '| url:', serviceUrl);
 
-    _fetch('/owa/service.svc?action=GetCalendarView&app=Calendar&n=cal_bridge_direct', {
+    _fetch(serviceUrl, {
       method:  'POST',
       headers: fetchHeaders,
       body:    reqBody,
@@ -224,6 +226,12 @@
         var ct = response.headers.get('content-type') || '';
         if (ct.indexOf('application/json') !== -1) {
           var url = typeof input === 'string' ? input : (input && input.url) || '';
+          // Capture the real OWA service URL from page requests
+          if (!capturedServiceUrl && url.indexOf('service.svc') !== -1) {
+            var qIdx = url.indexOf('?');
+            capturedServiceUrl = qIdx >= 0 ? url.substring(0, qIdx) : url;
+            console.log(PREFIX, '🔗 Service URL captured:', capturedServiceUrl);
+          }
           response.clone().json().then(function (json) {
             // Capture timezone from GetTimeZone response
             if (url.indexOf('GetTimeZone') !== -1 && json && json.CurrentTimeZone) {
@@ -247,6 +255,12 @@
   var _xhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
     var _url = String(url || '');
+    // Capture OWA service URL early (at request time, before response)
+    if (!capturedServiceUrl && _url.indexOf('service.svc') !== -1) {
+      var _qIdx = _url.indexOf('?');
+      capturedServiceUrl = _qIdx >= 0 ? _url.substring(0, _qIdx) : _url;
+      console.log(PREFIX, '🔗 Service URL captured (XHR):', capturedServiceUrl);
+    }
     var self = this;
 
     // Capture auth from XHR request headers

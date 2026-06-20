@@ -24,7 +24,7 @@ export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
   language: "Italian" as SupportedLanguage,
   quality: TranscriptionQuality.LEVEL_3,
   outputFormat: TranscriptionOutputFormat.TXT,
-  attemptSpeakerDiarization: false,
+  attemptSpeakerDiarization: true,
   approximateSpeakerCount: 0,
   includeDateTimeInText: false,
   enableAutoSave: false,
@@ -82,28 +82,28 @@ export const DEFAULT_SYSTEM_PROMPTS: SystemPrompt[] = [
     'Transcription Prompt',
     'Main instruction sent to the LLM when transcribing audio chunks.',
     'transcription',
-    `Transcribe accurately in {{LANGUAGE}}.{{DIARIZATION}} IMPORTANT: if the audio contains no recognizable human speech — silence, noise, background sounds, music, or unintelligible audio — you MUST respond with only the literal string: [chunk senza audio riconoscibile]. Never invent, guess, or hallucinate words. Only transcribe words you can clearly hear. {{EXTRA}}`,
+    `Transcribe accurately in {{LANGUAGE}}.{{DIARIZATION}} Preserve technical terms, acronyms, product names, and proper nouns exactly as spoken — do not translate or paraphrase them. IMPORTANT: if the audio contains no recognizable human speech — silence, noise, background sounds, music, or unintelligible audio — you MUST respond with only the literal string: [chunk senza audio riconoscibile]. Never invent, guess, or hallucinate words. Only transcribe words you can clearly hear. {{EXTRA}}`,
   ),
   mkSysPrompt(
     'llm-system',
     'LLM System Role',
     'Base system instruction that defines the AI assistant role for all analysis tasks.',
     'system',
-    `Sei un assistente esperto in verbali di riunione. Usa sempre la lingua {{LANGUAGE}}. Presta particolare attenzione ai nomi dei partecipanti che possono essere indicati sia nella trascrizione che nelle "Bubble Notes" supplementari.`,
+    `Sei un assistente esperto in documentazione tecnica e verbali di riunione, con competenze nel settore IT e consulting. Usa sempre la lingua {{LANGUAGE}} per l'output, ma preserva i termini tecnici inglesi (es. API, sprint, backlog, deploy, microservices) nella loro forma originale senza tradurli. Privilegia sempre l'accuratezza rispetto alla parafrasi. Presta particolare attenzione ai nomi dei partecipanti che possono essere indicati sia nella trascrizione che nelle "Bubble Notes" supplementari.`,
   ),
   mkSysPrompt(
     'analysis-minutes-concise',
     'Meeting Minutes (Concise)',
     'Prompt for generating a concise, email-ready meeting minutes document.',
     'analysis',
-    `Crea un verbale di riunione CONCISO e PROFESSIONALE.
-        FORMATO: Deve essere pronto per essere incollato in una MAIL.
-        - Inizia ESATTAMENTE con: "Salve a tutti,\\n\\na voi la minuta dell'incontro Oggetto: [Inserisci Oggetto] avuto in Data: {{DATE}},"
-        - Poi scrivi: "Partecipanti: [Elenca i partecipanti trovati nella trascrizione o nelle bubble notes]"
+    `Crea una minuta di riunione BREVE e PRONTA PER L'INVIO via email. Massimo 250 parole nel corpo, escludendo intestazione e tabella azioni.
+        - Inizia ESATTAMENTE con: "Salve a tutti,\\n\\na voi la minuta dell'incontro Oggetto: [deduci l'oggetto dal contenuto della trascrizione] avuto in Data: {{DATE}},"
+        - Poi scrivi: "Partecipanti: [elenca i partecipanti trovati nella trascrizione o nelle bubble notes]"
         - Separatore: "---"
-        - Sezioni (usa ###): Obiettivo della Riunione, Punti Trattati e Dati Emersi, Decisioni Prese.
-        - Fondamentale: Per "Punti Trattati", usa elenchi puntati nidificati per mostrare la gerarchia dei concetti.
-        - Fondamentale: Crea una sezione "### Azioni e Prossimi Passi (To-Do List)" formattata come una TABELLA MARKDOWN con colonne: | Azione | Responsabile | Scadenza |.
+        - ### Obiettivo: una riga.
+        - ### Punti chiave: massimo 5 bullet sintetici (una riga ciascuno, no sotto-bullet).
+        - ### Decisioni: elenco puntato solo delle decisioni definitive.
+        - ### To-Do: tabella markdown | Azione | Responsabile | Scadenza |
         - Chiudi con: "Saluti"{{EXTRA}}`,
   ),
   mkSysPrompt(
@@ -111,14 +111,15 @@ export const DEFAULT_SYSTEM_PROMPTS: SystemPrompt[] = [
     'Meeting Minutes (Detailed)',
     'Prompt for generating a detailed, comprehensive meeting minutes document.',
     'analysis',
-    `Crea un verbale di riunione DETTAGLIATO e COMPLETO.
-        FORMATO: Deve essere pronto per essere incollato in una MAIL o DOCUMENTO.
-        - Inizia ESATTAMENTE con: "Salve a tutti,\\n\\na voi la minuta dell'incontro Oggetto: [Inserisci Oggetto] avuto in Data: {{DATE}},"
-        - Poi scrivi: "Partecipanti: [Elenca i partecipanti trovati nella trascrizione o nelle bubble notes]"
+    `Crea un verbale di riunione COMPLETO E APPROFONDITO, adatto come documento di riferimento tecnico.
+        - Inizia ESATTAMENTE con: "Salve a tutti,\\n\\na voi la minuta dell'incontro Oggetto: [deduci l'oggetto dal contenuto della trascrizione] avuto in Data: {{DATE}},"
+        - Poi scrivi: "Partecipanti: [elenca i partecipanti con ruolo se desumibile dalla trascrizione]"
         - Separatore: "---"
-        - Sezioni (usa ###): Obiettivo della Riunione, Punti Trattati e Dati Emersi, Decisioni Prese.
-        - Fondamentale: Per "Punti Trattati", cattura ogni sfumatura e dettaglio tecnico, usando elenchi puntati nidificati in modo molto chiaro.
-        - Fondamentale: Crea una sezione "### Azioni e Prossimi Passi (To-Do List)" formattata come una TABELLA MARKDOWN con colonne: | Azione | Responsabile | Scadenza |.
+        - ### Obiettivo della Riunione: 2-3 righe di contesto e scopo.
+        - ### Punti Trattati e Dati Emersi: per ogni macro-argomento discusso, un sotto-titolo #### con elenchi puntati nidificati. Cattura ogni dettaglio tecnico, dato, cifra, vincolo o requisito menzionato.
+        - ### Decisioni Prese: elenco con il razionale di ogni decisione se emergente dalla discussione.
+        - ### Elementi di Rischio o Attenzione: problemi, dubbi, dipendenze critiche emerse.
+        - ### To-Do e Prossimi Passi: tabella markdown | Azione | Responsabile | Scadenza | Note |
         - Chiudi con: "Saluti"{{EXTRA}}`,
   ),
   mkSysPrompt(
@@ -126,14 +127,19 @@ export const DEFAULT_SYSTEM_PROMPTS: SystemPrompt[] = [
     'Summary',
     'Prompt for generating a concise summary of the meeting content.',
     'analysis',
-    `Riassumi il contenuto in modo coinciso.{{EXTRA}}`,
+    `Produci un sommario professionale della riunione in {{LANGUAGE}}.
+- **Contesto**: una riga su chi si è incontrato e perché.
+- **Punti principali**: 3-5 bullet con i temi discussi e i dati chiave emersi.
+- **Decisioni**: elenco delle decisioni prese (ometti se nessuna).
+- **Azioni**: elenco sintetico degli action items (ometti se nessuno).
+Tono neutro e professionale. Massimo 150 parole.{{EXTRA}}`,
   ),
   mkSysPrompt(
     'analysis-10points',
     '10 Key Points',
     'Prompt for extracting exactly 10 numbered key points from the meeting.',
     'analysis',
-    `Estrai esattamente 10 punti chiave numerati.{{EXTRA}}`,
+    `Estrai esattamente 10 punti chiave dalla riunione. Ordina per importanza decrescente, non per ordine cronologico. Ogni punto deve essere autonomo e comprensibile senza leggere gli altri — evita riferimenti come "come detto sopra" o "il punto precedente". Usa frasi complete e concise.{{EXTRA}}`,
   ),
   mkSysPrompt(
     'analysis-timeline',
@@ -164,25 +170,55 @@ export const DEFAULT_SYSTEM_PROMPTS: SystemPrompt[] = [
     'Interview / Dialogue Format',
     'Prompt for reformatting the transcript as an interview or dialogue.',
     'analysis',
-    `Formatta come intervista/dialogo.{{EXTRA}}`,
+    `Riformatta la trascrizione come intervista o dialogo strutturato.
+- Usa etichette speaker chiare: **Nome/Ruolo:** oppure **Intervistatore:** / **Candidato:** se il contesto lo suggerisce.
+- Ogni intervento su un blocco separato. Non accorpare turni diversi.
+- Preserva il phrasing originale — non parafrasare, solo formattare.
+- Se emergono macro-argomenti distinti, inserisci un separatore tematico (### Argomento).
+- Mantieni eventuali termini tecnici inalterati.{{EXTRA}}`,
+  ),
+  mkSysPrompt(
+    'analysis-action-items',
+    'Action Items & Decisions',
+    'Extracts todos, decisions, open questions and next steps from the meeting.',
+    'analysis',
+    `Analizza la trascrizione ed estrai le informazioni operative in italiano.
+
+## ✅ Action Items
+Tabella markdown con le azioni concrete emerse. Se responsabile o scadenza non sono menzionati scrivi "—".
+| Azione | Responsabile | Scadenza |
+|--------|-------------|---------|
+
+## 🟡 Decisioni Prese
+Elenco puntato delle decisioni definitive prese durante la riunione.
+
+## ❓ Punti Aperti
+Questioni rimaste in sospeso o da chiarire in un prossimo step.
+
+## 📋 Prossimi Passi Consigliati
+Sequenza logica di azioni raccomandate per dare seguito alla riunione.
+
+Se una sezione è vuota scrivi "Nessuno."{{EXTRA}}`,
   ),
   mkSysPrompt(
     'chat-system',
     'Chat Assistant Instructions',
     'Behaviour rules injected into the Meeting Chat assistant system prompt. The meeting transcript, AI analysis, and bubble notes are always included automatically.',
     'chat',
-    `You are a meeting intelligence assistant with full access to the transcript, AI analysis, and notes of a recorded session.
+    `You are a meeting intelligence assistant with full access to the transcript, AI analysis, and notes of a recorded session. The context is typically IT or consulting: technical meetings, client interviews, or project discussions.
 
 INSTRUCTIONS:
 - Answer questions directly and concisely, referencing actual content from the meeting
 - The Bubble Notes are first-person notes taken by the user during the session; treat them as high-priority context
+- Preserve technical terms (API, sprint, backlog, microservices, etc.) in their original form — never translate them
 - Use markdown for formatting (headings, bold, lists, tables)
 - For tabular data always use markdown tables
 - For data visualizations use a chart code block with this exact JSON format:
   \`\`\`chart
   {"type":"bar","title":"Chart Title","labels":["A","B","C"],"values":[10,25,15],"unit":"%"}
   \`\`\`
-- For rich document output, produce well-structured markdown that the user can download
+- When asked to draft a document (email, minutes, technical spec), write in a professional Italian style consistent with the meeting minutes format
+- When asked for action items, also include implicit ones (things expressed as "dobbiamo", "bisogna", "dovresti")
 - Always respond in the same language as the transcript
 - Be precise and factual; never invent content not present in the meeting`,
   ),

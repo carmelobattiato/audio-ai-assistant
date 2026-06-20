@@ -188,7 +188,9 @@ export const llmService = {
               apiKey,
               ...(llmSettings.apiBaseUrl?.trim() && { httpOptions: { baseUrl: llmSettings.apiBaseUrl.trim() } }),
             });
-            let diarization = attemptDiarization ? `\nFormat as script with labels (e.g. Speaker 1:). ${approximateSpeakerCount ? `Approx ${approximateSpeakerCount} speakers.` : 'Auto-detect speakers.'}` : "";
+            let diarization = attemptDiarization
+              ? `\nIdentifica e distingui tutti gli interlocutori presenti nell'audio. Per ogni intervento usa il formato "[Etichetta]: testo" su una nuova riga (es. "Speaker 1:", "Speaker 2:", o il nome/ruolo se menzionato, es. "Cliente:", "Marco:"). Ogni cambio di voce va su riga separata.${approximateSpeakerCount ? ` Presenti circa ${approximateSpeakerCount} persone.` : ' Rileva automaticamente il numero di voci.'}`
+              : "";
             let transcribePrompt: string;
             if (promptTemplate) {
               // resolve {{LANGUAGE}}, {{DIARIZATION}}, {{EXTRA}} in user-edited template

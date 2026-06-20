@@ -42,9 +42,17 @@ const DEFAULT_ACTIONS = [
   { key: 'default-summary', title: 'Generate Summary' },
   { key: 'default-minutes-concise', title: 'Write Minutes (Concise - Email Style)' },
   { key: 'default-minutes-detailed', title: 'Write Minutes (Detailed - Email Style)' },
+  { key: 'default-action-items', title: 'Extract Action Items & Decisions' },
   { key: 'default-10points', title: 'List in 10 Brief Points' },
   { key: 'default-interview', title: 'Format as Interview/Dialogue' },
   { key: 'default-timeline', title: 'Create HTML Timeline Report' },
+];
+
+const MEETING_TEMPLATES = [
+  { key: 'technical', label: '🔧 Riunione Tecnica', analysisKey: 'default-action-items', context: 'Riunione tecnica con cliente. Focus su requisiti raccolti, decisioni architetturali e action item per la documentazione tecnica.' },
+  { key: 'interview', label: '🎤 Colloquio', analysisKey: 'default-interview', context: 'Sessione di colloquio o intervista. Identifica domande poste, risposte e valutazioni emerse.' },
+  { key: 'presentation', label: '📊 Presentazione', analysisKey: 'default-summary', context: 'Sessione di presentazione. Riassumi i punti chiave presentati e le domande del pubblico.' },
+  { key: 'standup', label: '⚡ Standup', analysisKey: 'default-10points', context: 'Daily standup. Estrai: cosa è stato fatto, cosa si farà, eventuali blocchi.' },
 ];
 
 export interface LlmProcessorRef {
@@ -82,6 +90,7 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
   const [groundingChunks, setGroundingChunks] = useState<GroundingChunk[]>([]);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState<boolean>(false);
   const [selectedProcessingActionKey, setSelectedProcessingActionKey] = useState<string>('default-minutes-concise');
+  const [selectedMeetingTemplate, setSelectedMeetingTemplate] = useState<string>('');
   const [copyButtonText, setCopyButtonText] = useState<string>("Copy Text");
   const lastProcessedAutoTrigger = useRef<number>(-1);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -220,33 +229,41 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
     switch (selectedProcessingActionKey) {
       case 'default-minutes-concise':
         prompt = resolveAnalysis('analysis-minutes-concise',
-          `Crea un verbale di riunione CONCISO e PROFESSIONALE.
-        FORMATO: Deve essere pronto per essere incollato in una MAIL.
-        - Inizia ESATTAMENTE con: "Salve a tutti,\n\na voi la minuta dell'incontro Oggetto: [Inserisci Oggetto] avuto in Data: ${formattedDate},"
-        - Poi scrivi: "Partecipanti: [Elenca i partecipanti trovati nella trascrizione o nelle bubble notes]"
+          `Crea una minuta di riunione BREVE e PRONTA PER L'INVIO via email. Massimo 250 parole nel corpo, escludendo intestazione e tabella azioni.
+        - Inizia ESATTAMENTE con: "Salve a tutti,\n\na voi la minuta dell'incontro Oggetto: [deduci l'oggetto dal contenuto della trascrizione] avuto in Data: ${formattedDate},"
+        - Poi scrivi: "Partecipanti: [elenca i partecipanti trovati nella trascrizione o nelle bubble notes]"
         - Separatore: "---"
-        - Sezioni (usa ###): Obiettivo della Riunione, Punti Trattati e Dati Emersi, Decisioni Prese.
-        - Fondamentale: Per "Punti Trattati", usa elenchi puntati nidificati per mostrare la gerarchia dei concetti.
-        - Fondamentale: Crea una sezione "### Azioni e Prossimi Passi (To-Do List)" formattata come una TABELLA MARKDOWN con colonne: | Azione | Responsabile | Scadenza |.
+        - ### Obiettivo: una riga.
+        - ### Punti chiave: massimo 5 bullet sintetici (una riga ciascuno, no sotto-bullet).
+        - ### Decisioni: elenco puntato solo delle decisioni definitive.
+        - ### To-Do: tabella markdown | Azione | Responsabile | Scadenza |
         - Chiudi con: "Saluti"${defaultCustomContextAddition}`);
         break;
       case 'default-minutes-detailed':
         prompt = resolveAnalysis('analysis-minutes-detailed',
-          `Crea un verbale di riunione DETTAGLIATO e COMPLETO.
-        FORMATO: Deve essere pronto per essere incollato in una MAIL o DOCUMENTO.
-        - Inizia ESATTAMENTE con: "Salve a tutti,\n\na voi la minuta dell'incontro Oggetto: [Inserisci Oggetto] avuto in Data: ${formattedDate},"
-        - Poi scrivi: "Partecipanti: [Elenca i partecipanti trovati nella trascrizione o nelle bubble notes]"
+          `Crea un verbale di riunione COMPLETO E APPROFONDITO, adatto come documento di riferimento tecnico.
+        - Inizia ESATTAMENTE con: "Salve a tutti,\n\na voi la minuta dell'incontro Oggetto: [deduci l'oggetto dal contenuto della trascrizione] avuto in Data: ${formattedDate},"
+        - Poi scrivi: "Partecipanti: [elenca i partecipanti con ruolo se desumibile dalla trascrizione]"
         - Separatore: "---"
-        - Sezioni (usa ###): Obiettivo della Riunione, Punti Trattati e Dati Emersi, Decisioni Prese.
-        - Fondamentale: Per "Punti Trattati", cattura ogni sfumatura e dettaglio tecnico, usando elenchi puntati nidificati in modo molto chiaro.
-        - Fondamentale: Crea una sezione "### Azioni e Prossimi Passi (To-Do List)" formattata come una TABELLA MARKDOWN con colonne: | Azione | Responsabile | Scadenza |.
+        - ### Obiettivo della Riunione: 2-3 righe di contesto e scopo.
+        - ### Punti Trattati e Dati Emersi: per ogni macro-argomento un sotto-titolo #### con elenchi nidificati. Cattura ogni dettaglio tecnico, dato, cifra, vincolo o requisito menzionato.
+        - ### Decisioni Prese: elenco con il razionale di ogni decisione se emergente dalla discussione.
+        - ### Elementi di Rischio o Attenzione: problemi, dubbi, dipendenze critiche emerse.
+        - ### To-Do e Prossimi Passi: tabella markdown | Azione | Responsabile | Scadenza | Note |
         - Chiudi con: "Saluti"${defaultCustomContextAddition}`);
         break;
       case 'default-summary':
-        prompt = resolveAnalysis('analysis-summary', `Riassumi il contenuto in modo coinciso.${defaultCustomContextAddition}`);
+        prompt = resolveAnalysis('analysis-summary',
+          `Produci un sommario professionale della riunione.
+- **Contesto**: una riga su chi si è incontrato e perché.
+- **Punti principali**: 3-5 bullet con i temi discussi e i dati chiave emersi.
+- **Decisioni**: elenco delle decisioni prese (ometti se nessuna).
+- **Azioni**: elenco sintetico degli action items (ometti se nessuno).
+Tono neutro e professionale. Massimo 150 parole.${defaultCustomContextAddition}`);
         break;
       case 'default-10points':
-        prompt = resolveAnalysis('analysis-10points', `Estrai esattamente 10 punti chiave numerati.${defaultCustomContextAddition}`);
+        prompt = resolveAnalysis('analysis-10points',
+          `Estrai esattamente 10 punti chiave dalla riunione. Ordina per importanza decrescente, non per ordine cronologico. Ogni punto deve essere autonomo e comprensibile senza leggere gli altri — evita riferimenti come "come detto sopra". Usa frasi complete e concise.${defaultCustomContextAddition}`);
         break;
       case 'default-timeline':
         prompt = resolveAnalysis('analysis-timeline',
@@ -268,6 +285,26 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
         - Restituisci SOLO il codice HTML contenuto in un div con classe "timeline-report".
         - Non includere blocchi di codice markdown (\`\`\`html).
         - Assicurati che l'HTML sia ben strutturato e leggibile.${defaultCustomContextAddition}`);
+        break;
+      case 'default-action-items':
+        prompt = resolveAnalysis('analysis-action-items',
+          `Analizza la trascrizione ed estrai le informazioni operative in italiano.
+
+## ✅ Action Items
+Tabella markdown con le azioni concrete emerse. Se responsabile o scadenza non sono menzionati scrivi "—".
+| Azione | Responsabile | Scadenza |
+|--------|-------------|---------|
+
+## 🟡 Decisioni Prese
+Elenco puntato delle decisioni definitive prese durante la riunione.
+
+## ❓ Punti Aperti
+Questioni rimaste in sospeso o da chiarire in un prossimo step.
+
+## 📋 Prossimi Passi Consigliati
+Sequenza logica di azioni raccomandate per dare seguito alla riunione.
+
+Se una sezione è vuota scrivi "Nessuno."${defaultCustomContextAddition}`);
         break;
       case 'default-interview':
         prompt = resolveAnalysis('analysis-interview', `Formatta come intervista/dialogo.${defaultCustomContextAddition}`);
@@ -455,6 +492,33 @@ export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>
     <div className="p-4 bg-gray-800 rounded-lg shadow-lg space-y-6">
       <h3 className="text-xl font-semibold text-sky-400">LLM Processing (Provider: {settings.provider} | Model: {settings.model})</h3>
       
+      <div className="space-y-1">
+        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tipo riunione</p>
+        <div className="flex flex-wrap gap-2">
+          {MEETING_TEMPLATES.map(t => (
+            <button
+              key={t.key}
+              onClick={() => {
+                const isActive = selectedMeetingTemplate === t.key;
+                setSelectedMeetingTemplate(isActive ? '' : t.key);
+                if (!isActive) {
+                  setSelectedProcessingActionKey(t.analysisKey);
+                  setCustomContext(t.context);
+                }
+              }}
+              disabled={isProcessing || disabled}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                selectedMeetingTemplate === t.key
+                  ? 'bg-sky-600 border-sky-500 text-white'
+                  : 'bg-gray-700/60 border-gray-600 text-gray-300 hover:border-sky-600 hover:text-sky-300'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
         <div className="sm:col-span-2">
             <Select

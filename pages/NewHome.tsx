@@ -582,16 +582,22 @@ export const NewHome: React.FC = () => {
       const stored = localStorage.getItem(APP_SETTINGS_KEY);
       let settings: AppSettings = stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
 
-      // Migrate: fill missing audio/llm fields with defaults (handles newly added fields)
+      // Migrate: fill missing audio/llm/transcription fields with defaults (handles newly added fields)
       settings = {
         ...settings,
         audio: { ...DEFAULT_SETTINGS.audio, ...settings.audio },
         llm: { ...DEFAULT_SETTINGS.llm, ...settings.llm },
+        transcription: { ...DEFAULT_SETTINGS.transcription, ...settings.transcription },
       };
 
       // Migrate: ensure transcription language defaults to Italian
       if (!settings.transcription?.language) {
         settings = { ...settings, transcription: { ...settings.transcription, language: 'Italian' } };
+      }
+
+      // Migrate v1.112: enable speaker diarization (new default ON)
+      if (!settings.transcription.attemptSpeakerDiarization) {
+        settings = { ...settings, transcription: { ...settings.transcription, attemptSpeakerDiarization: true } };
       }
 
       // Migrate: add systemPrompts if missing from old saved settings

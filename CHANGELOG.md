@@ -8,6 +8,26 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.112] — 2026-06-20
+
+
+- Diarizzazione speaker: `attemptSpeakerDiarization` attivato per default — tutte le nuove trascrizioni identificano gli interlocutori
+- Diarizzazione: prompt aggiornato in italiano con formato `[Etichetta]: testo` per ogni cambio voce
+- Extension `content-outlook.js`: fix "Direct call failed: Failed to fetch" — cattura l'URL reale di `service.svc` dai request intercettati (fetch + XHR) invece di usare `/owa/service.svc` hardcoded
+- Nuovo tipo analisi LLM "Extract Action Items & Decisions": tabella action items, decisioni, punti aperti, prossimi passi
+- Ricerca full-text cross-sessione nel modale sessioni: filtra per nome, trascrizione e analisi
+- Template tipo riunione in LlmProcessor: pill selector (Riunione Tecnica / Colloquio / Presentazione / Standup) pre-configura analisi e contesto
+- Prompt trascrizione: aggiunta istruzione per preservare termini tecnici, acronimi e nomi propri inalterati
+- System role LLM: ampliato con contesto IT/consulting, preservazione terminologia inglese, accuratezza > parafrasi
+- Minuta concisa: riscritta per essere davvero breve (max 250 parole), oggetto dedotto automaticamente dalla trascrizione
+- Minuta dettagliata: differenziata dalla concisa — sezioni ####  per macro-argomento, razionale decisioni, rischi, colonna Note nella to-do
+- Summary: strutturato in 4 sezioni (contesto, punti, decisioni, azioni) invece di riga singola
+- 10 punti chiave: ordinati per importanza decrescente, ogni punto autonomo
+- Intervista/dialogo: aggiunto formato strutturato con etichette speaker e separatori tematici
+- Chat assistant: aggiunto contesto IT/consulting, gestione action items impliciti, bozza documenti nello stile della minuta
+
+---
+
 ## [1.111] — 2026-06-20
 
 

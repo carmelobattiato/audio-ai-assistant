@@ -48,7 +48,17 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
   const [viewingSession, setViewingSession] = useState<SavedSession | null>(null);
   const [isMergeMode, setIsMergeMode] = useState(false);
   const [selectedToMerge, setSelectedToMerge] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const filteredSessions = searchQuery.trim()
+    ? sessions.filter(s => {
+        const q = searchQuery.toLowerCase();
+        return s.name.toLowerCase().includes(q)
+          || (s.data.transcribedText || '').toLowerCase().includes(q)
+          || htmlToPlainText(s.data.llmProcessedText || '').toLowerCase().includes(q);
+      })
+    : sessions;
 
   const handleProceedToMerge = () => {
     if (selectedToMerge.length === 2) {
@@ -60,9 +70,18 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
 
   const renderSessionList = () => (
     <>
+      <div className="mb-3">
+        <input
+          type="text"
+          placeholder="Cerca in titolo, trascrizioni e analisi..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="w-full bg-gray-700/60 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-sky-500"
+        />
+      </div>
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
         <p className="text-gray-400 text-sm">
-          {isMergeMode ? `Select two sessions to merge (${selectedToMerge.length}/2).` : `Manage your last ${sessions.length} sessions.`}
+          {isMergeMode ? `Select two sessions to merge (${selectedToMerge.length}/2).` : searchQuery.trim() ? `${filteredSessions.length} / ${sessions.length} sessioni` : `Manage your last ${sessions.length} sessions.`}
         </p>
         <div className="flex gap-2">
           {!isMergeMode && (
@@ -92,6 +111,8 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
 
       {sessions.length === 0 ? (
         <p className="text-gray-400 text-center py-8">No saved sessions found in this browser.</p>
+      ) : filteredSessions.length === 0 ? (
+        <p className="text-gray-400 text-center py-8">Nessuna sessione trovata per "{searchQuery}".</p>
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-700 max-h-[60vh] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-700 bg-gray-800/50">
@@ -105,7 +126,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
-              {sessions.map((session) => {
+              {filteredSessions.map((session) => {
                 const chunksCount = session.data.chunks?.length || 0;
                 return (
                 <tr 
