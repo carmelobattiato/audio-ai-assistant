@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.109] — 2026-06-20
+
+- Calendar: nuova sorgente **Browser Extension** affiancata a Windows COM e ICS feed — legge il calendario da Outlook Live già aperto nel browser senza policy tenant, OAuth o installazioni Azure
+- Extension Chrome/Edge (Manifest V3) in `extension/`: due content script — `content-outlook.js` (world: MAIN) intercetta `window.fetch` Outlook, `content-bridge.js` (ISOLATED) fa da relay via `window.postMessage` → `chrome.runtime.sendMessage` (fix: MAIN world non ha accesso a `chrome.runtime`); background propagaga dati via `BroadcastChannel('calendar-sync-v1')` con `chrome.scripting.executeScript`
+- Extension popup: 4 sezioni stato (Outlook Live connesso + timestamp, riunioni rilevate, App AI Assistant rilevata + timestamp, riunioni sincronizzate), pulsante "Sincronizza ora", pulsante "Ricarica" tab Outlook, campo App URL con salvataggio automatico (debounce 600ms, nessun pulsante "Salva" manuale)
+- `npm run build:ext` → `public/calendar-extension.zip` (12 KB, pronto per "Carica estensione non pacchettizzata")
+- Settings → Integrations: terza opzione radio "Browser Extension" con badge connessione live (heartbeat 30s via localStorage), pulsante download .zip, guida installazione 7 passi
+- Fix: migrazione settings al caricamento — `audio` e `llm` mergiati con defaults per garantire che nuovi campi (es. `enableAutoStop`) non risultino `undefined` da settings pre-esistenti in localStorage
+- Timer pausa: status auto-pause mostra "Auto-paused da M:SS — in ascolto per riprendere…" con contatore secondi
+
+---
+
 ## [1.108] — 2026-06-20
 
 - Auto-stop registrazione dopo silenzio prolungato: notifica toast con pulsante Stop a 5 min, banner countdown + auto-stop a 15 min (configurabili in Settings → Audio Recording)

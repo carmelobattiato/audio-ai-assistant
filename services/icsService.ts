@@ -4,11 +4,11 @@ import type { IcsAppointment, Calendar2Settings } from '../types';
 const CFG_KEY = 'calendar2:ics';
 const SOURCE_KEY = 'calendar:source';
 
-export type CalendarSource = 'windows' | 'ics';
+export type CalendarSource = 'windows' | 'ics' | 'extension';
 
 export function loadCalendarSource(): CalendarSource {
   const v = localStorage.getItem(SOURCE_KEY);
-  if (v === 'windows' || v === 'ics') return v;
+  if (v === 'windows' || v === 'ics' || v === 'extension') return v;
   return 'windows';
 }
 

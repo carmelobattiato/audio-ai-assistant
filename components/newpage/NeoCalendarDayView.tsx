@@ -355,13 +355,14 @@ interface NeoCalendarDayViewProps {
   isBackgroundRefreshing?: boolean;
   onRequestRefresh?: () => void;
   onConfigureIcs?: () => void;
+  extensionConnected?: boolean;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
   isOpen, onClose, onImport, onImportAndSchedule, onOpenTeamsAndRecord,
   externalAppointments, externalBridgeAvailable, externalError,
-  isBackgroundRefreshing = false, onRequestRefresh, onConfigureIcs,
+  isBackgroundRefreshing = false, onRequestRefresh, onConfigureIcs, extensionConnected,
 }) => {
   const isExternal = externalAppointments !== undefined;
 
@@ -641,6 +642,13 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                       className="px-4 py-2 text-xs font-medium rounded-lg transition-all hover:scale-105"
                       style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(52,211,153,0.45)', color: '#6EE7B7' }}>
                       Configure ICS feed →
+                    </button>
+                  )}
+                  {onConfigureIcs && (
+                    <button onClick={onConfigureIcs}
+                      className="px-4 py-2 text-xs font-medium rounded-lg transition-all hover:scale-105"
+                      style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(139,92,246,0.45)', color: '#C4B5FD' }}>
+                      Browser Extension →
                     </button>
                   )}
                 </div>

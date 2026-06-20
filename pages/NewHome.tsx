@@ -156,6 +156,7 @@ export const NewHome: React.FC = () => {
   const [calBridgeAvailable, setCalBridgeAvailable] = useState<boolean | null>(null);
   const [calError, setCalError] = useState<string | null>(null);
   const [calRefreshing, setCalRefreshing] = useState(false);
+  const [calExtensionConnected, setCalExtensionConnected] = useState(false);
   const [meetingAttendees, setMeetingAttendees] = useState<Attendee[]>([]);
 
   const [leftWidthPct, setLeftWidthPct] = useState<number>(28);
@@ -577,6 +578,13 @@ export const NewHome: React.FC = () => {
       const stored = localStorage.getItem(APP_SETTINGS_KEY);
       let settings: AppSettings = stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
 
+      // Migrate: fill missing audio/llm fields with defaults (handles newly added fields)
+      settings = {
+        ...settings,
+        audio: { ...DEFAULT_SETTINGS.audio, ...settings.audio },
+        llm: { ...DEFAULT_SETTINGS.llm, ...settings.llm },
+      };
+
       // Migrate: ensure transcription language defaults to Italian
       if (!settings.transcription?.language) {
         settings = { ...settings, transcription: { ...settings.transcription, language: 'Italian' } };
@@ -875,6 +883,10 @@ export const NewHome: React.FC = () => {
         setCalBridgeAvailable(true);
         setCalError(null);
       }
+      if (msg.type === 'extension-heartbeat') {
+        setCalExtensionConnected(true);
+        localStorage.setItem('calendar:extension-heartbeat', String(Date.now()));
+      }
     };
     return () => { bc.close(); calBcRef.current = null; };
   }, []);
@@ -907,6 +919,17 @@ export const NewHome: React.FC = () => {
 
     const { loadCalendarSource, loadIcsConfig, fetchIcs } = await import('../services/icsService');
     const source = loadCalendarSource();
+
+    if (source === 'extension') {
+      // Data arrives passively via BroadcastChannel from the extension.
+      // The listener at bc.onmessage handles it — nothing to fetch here.
+      setCalBridgeAvailable(true);
+      setCalError(null);
+      setCalRefreshing(false);
+      calInFlightRef.current = false;
+      localStorage.removeItem(CAL_LOCK_KEY);
+      return;
+    }
 
     if (source === 'ics') {
       try {
@@ -1634,6 +1657,7 @@ export const NewHome: React.FC = () => {
         externalError={calError}
         isBackgroundRefreshing={calRefreshing}
         onRequestRefresh={() => fetchCalendarData(true)}
+        extensionConnected={calExtensionConnected}
         onConfigureIcs={() => {
           setIsCalendarOpen(false);
           setSettingsInitialTab('integrations');

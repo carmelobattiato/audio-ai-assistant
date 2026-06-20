@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "build:ext": "bash scripts/build-extension.sh"
   },
   "dependencies": {
     "@google/genai": "^1.0.1",
