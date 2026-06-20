@@ -30,11 +30,18 @@ export function usePipWindow() {
       pip.document.head.appendChild(s.cloneNode(true))
     );
 
+    // Copy bundled Tailwind script into PiP document (works offline)
     await new Promise<void>(resolve => {
-      const s = pip.document.createElement('script');
-      s.src = 'https://cdn.tailwindcss.com';
-      s.onload = () => resolve();
-      pip.document.head.appendChild(s);
+      const mainScript = document.querySelector<HTMLScriptElement>('script[src="/tailwind.min.js"]');
+      if (mainScript) {
+        const s = pip.document.createElement('script');
+        s.src = mainScript.src;
+        s.onload = () => resolve();
+        s.onerror = () => resolve(); // non-blocking if fails
+        pip.document.head.appendChild(s);
+      } else {
+        resolve();
+      }
     });
 
     pip.document.body.className = document.body.className;

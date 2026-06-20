@@ -5,6 +5,7 @@ import { db } from '../utils/db';
 import { NeoRecordingPanel } from '../components/newpage/NeoRecordingPanel';
 import { AppModals } from '../components/AppModals';
 import { NeoTopbar } from '../components/newpage/NeoTopbar';
+import { useIsOnline } from '../hooks/useIsOnline';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
 import { NeoTabs } from '../components/newpage/NeoTabs';
 import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
@@ -150,6 +151,8 @@ export const NewHome: React.FC = () => {
   const [activeRightTab, setActiveRightTab] = useState<string>('notes');
   const [recordingElapsedTime, setRecordingElapsedTime] = useState<number>(0);
   const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false);
+
+  const isOnline = useIsOnline();
 
   // ── Calendar background-sync state ───────────────────────────────────────
   const [calAppointments, setCalAppointments] = useState<OutlookAppointment[]>([]);
@@ -1286,6 +1289,12 @@ export const NewHome: React.FC = () => {
       className="neo-ctx flex flex-col"
       style={{ background: 'var(--neo-bg)', minHeight: '100vh', color: 'var(--neo-text)', fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="px-4 py-1.5 text-center text-xs" style={{ background: 'rgba(120,53,15,0.85)', borderBottom: '1px solid rgba(217,119,6,0.4)', color: '#fcd34d' }}>
+          Modalità offline — Registrazione attiva · Trascrizione ripresa automaticamente al ripristino della connessione
+        </div>
+      )}
       {/* Auto-start countdown banner */}
       {pendingAutoStart && autoStartCountdownMs !== null && (
         <div

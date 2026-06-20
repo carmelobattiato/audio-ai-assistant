@@ -8,6 +8,19 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.111] — 2026-06-20
+
+
+- Offline lite mode: Tailwind CDN (`cdn.tailwindcss.com`) sostituito con copia locale `public/tailwind.min.js` — UI funziona anche senza connessione al boot
+- Rimossa `importmap` esm.sh da `index.html` (ridondante con Vite build)
+- Rimosso link a `/index.css` inesistente da `index.html`
+- `usePipWindow.ts`: PiP window usa `/tailwind.min.js` locale invece di CDN
+- `useIsOnline` hook: rileva `navigator.onLine` + eventi `online`/`offline`
+- Banner "Modalità offline" in `NewHome.tsx`: visibile quando rete assente, scompare al ripristino
+- Coda trascrizione pausa automaticamente offline, riprende sull'evento `online`
+
+---
+
 ## [1.110] — 2026-06-20
 
 - Extension v5: strategia **direct OWA call** — cattura token `MSAuth1.0` e timezone da `window.fetch` intercettato, poi chiama `GetCalendarView` direttamente dal main thread con `DistinguishedFolderId: "calendar"`; elimina dipendenza dal Web Worker Outlook (non iniettabile)

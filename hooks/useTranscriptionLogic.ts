@@ -186,6 +186,12 @@ export const useTranscriptionLogic = (
 
   const drainAutoQueue = useCallback(async () => {
     if (autoQueueRunningRef.current) return;
+    // ponytail: pause + auto-resume on network restore; no retry loop needed
+    if (!navigator.onLine) {
+      const resume = () => { window.removeEventListener('online', resume); drainAutoQueue(); };
+      window.addEventListener('online', resume);
+      return;
+    }
     autoQueueRunningRef.current = true;
 
     while (autoQueueRef.current.length > 0) {
