@@ -6,6 +6,7 @@ import { NeoRecordingPanel } from '../components/newpage/NeoRecordingPanel';
 import { AppModals } from '../components/AppModals';
 import { NeoTopbar } from '../components/newpage/NeoTopbar';
 import { useIsOnline } from '../hooks/useIsOnline';
+import { useCalBridgeV2 } from '../hooks/useCalBridgeV2';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
 import { NeoTabs } from '../components/newpage/NeoTabs';
 import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
@@ -167,6 +168,9 @@ export const NewHome: React.FC = () => {
   const [calRefreshing, setCalRefreshing] = useState(false);
   const [calExtensionConnected, setCalExtensionConnected] = useState(false);
   const [calSource, setCalSource] = useState<string>(() => localStorage.getItem('calendar:source') || 'windows');
+
+  // Calendar Bridge v2 — localStorage-based, parallel to v1
+  const calV2 = useCalBridgeV2();
   const [meetingAttendees, setMeetingAttendees] = useState<Attendee[]>([]);
 
   const [leftWidthPct, setLeftWidthPct] = useState<number>(28);
@@ -1146,6 +1150,19 @@ export const NewHome: React.FC = () => {
     db.deleteStaleCalendarEvents().catch(console.error);
     db.deleteAudioOlderThan(10).catch(console.error);
   }, [isNewCalendarOpen, calAppointments]);
+
+  // Calendar Bridge v2 — sync dati dal localStorage al DB quando arrivano eventi freschi
+  useEffect(() => {
+    if (calV2.events.length === 0) return;
+    // Aggiorna stato connessione extension
+    setCalExtensionConnected(calV2.connected);
+    // Upsert nel DB (preserva linkedSessionId grazie alla logica in db.upsertCalendarEvents)
+    db.upsertCalendarEvents(calV2.events).catch(console.error);
+    // Aggiorna view se NewCalendar è aperto
+    if (isNewCalendarOpen) {
+      db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
+    }
+  }, [calV2.events, calV2.connected, isNewCalendarOpen]);
 
   // Fetch once silently on page load
   useEffect(() => { fetchCalendarData(); }, [fetchCalendarData]);

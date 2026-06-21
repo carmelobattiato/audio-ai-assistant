@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "build:ext": "bash scripts/build-extension.sh"
+    "build:ext": "bash scripts/build-extension.sh",
+    "build:ext-v2": "bash scripts/build-extension-v2.sh"
   },
   "dependencies": {
     "@google/genai": "^1.0.1",

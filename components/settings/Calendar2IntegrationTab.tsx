@@ -216,22 +216,37 @@ export const Calendar2IntegrationTab: React.FC = () => {
 
           {/* Download */}
           <div className="bg-violet-900/20 border border-violet-700/40 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <p className="text-sm font-semibold text-violet-200">Calendar Bridge Extension</p>
-                <p className="text-xs text-gray-400 mt-0.5">Chrome / Edge · Manifest V3 · ~20 KB</p>
+                <p className="text-xs text-gray-400 mt-0.5">Chrome / Edge · Manifest V3</p>
               </div>
-              <a
-                href="/calendar-extension.zip"
-                download="calendar-extension.zip"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:scale-105 flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #7C3AED, #C026D3)', boxShadow: '0 0 16px rgba(124,58,237,0.35)' }}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Scarica .zip
-              </a>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href="/calendar-extension.zip"
+                  download="calendar-extension.zip"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-white transition-all hover:scale-105 border border-violet-600/40"
+                  style={{ background: 'rgba(124,58,237,0.25)' }}
+                  title="v1 — stabile"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  v1
+                </a>
+                <a
+                  href="/calendar-bridge-v2.zip"
+                  download="calendar-bridge-v2.zip"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:scale-105"
+                  style={{ background: 'linear-gradient(135deg, #7C3AED, #C026D3)', boxShadow: '0 0 16px rgba(124,58,237,0.35)' }}
+                  title="v2 — nuova architettura, più stabile"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  v2 · Scarica .zip
+                </a>
+              </div>
             </div>
           </div>
 

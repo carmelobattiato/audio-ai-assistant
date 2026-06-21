@@ -8,6 +8,23 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.115] — 2026-06-21
+
+
+
+- Extension Calendar Bridge v2.4: popup redesign con sezione Operazioni — dot GET/POST colorati (arancio=in corso, verde=ok, rosso=errore)
+- Extension v2.4: `background.js` state machine GET (`v2_getState`) e POST (`v2_postState`) con timestamp
+- Extension v2.4: `V2_SYNC_NOW` imposta `getState=fetching` prima di iniettare; `CAL_V2_EVENTS` imposta `getState=ok`
+- Extension v2.4: `pushToApp` imposta `postState=sending` prima di `scripting.executeScript`, poi `ok`/`error` sul risultato
+- Extension v2.4: `content-outlook.js` invia `__CAL_V2_GET_ERROR__` su fallimento HTTP o catch del direct call
+- Extension v2.4: `content-bridge.js` rilancia `CAL_V2_GET_ERROR` a background.js
+- Extension v2.4: lista eventi scrollabile (max 140px) con subject, day, time range, badge Teams
+- Extension v2.4: tasto `{ }` mostra/nasconde textarea JSON con array eventi raw
+- Extension v2.4: bottoni rinominati "Forza Sync" vs "Ricarica Outlook" con tooltip esplicativi
+- Extension v2.4: timeout guard popup — `fetching` > 30s visualizzato come `error`
+
+---
+
 ## [1.114] — 2026-06-21
 
 

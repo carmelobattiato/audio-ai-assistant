@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Calendar Bridge v2",
+  "version": "2.4",
+  "description": "Sincronizza Outlook Live con Audio AI Assistant — v2 passiva, zero direct calls",
+  "permissions": ["storage", "alarms", "scripting", "tabs"],
+  "host_permissions": [
+    "https://outlook.live.com/*",
+    "https://outlook.office.com/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://outlook.live.com/*", "https://outlook.office.com/*"],
+      "js": ["content-outlook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://outlook.live.com/*", "https://outlook.office.com/*"],
+      "js": ["content-bridge.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Calendar Bridge v2"
+  },
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
