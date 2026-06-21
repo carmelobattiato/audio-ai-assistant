@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from './common/Modal';
 import { Button } from './common/Button';
 import { ConfirmModal } from './common/ConfirmModal';
@@ -17,6 +17,7 @@ interface LoadSessionModalProps {
   onStartMerge: (sessionIds: [string, string]) => void;
   onExportSessionJson: (sessionId: string) => void;
   onImportSessionJson: (file: File) => void;
+  initialViewSessionId?: string;
 }
 
 const StatusBadge: React.FC<{ status: SessionStatus }> = ({ status }) => {
@@ -43,9 +44,18 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
   onStartMerge,
   onExportSessionJson,
   onImportSessionJson,
+  initialViewSessionId,
 }) => {
   const [sessionToDelete, setSessionToDelete] = useState<SavedSession | null>(null);
   const [viewingSession, setViewingSession] = useState<SavedSession | null>(null);
+
+  useEffect(() => {
+    if (isOpen && initialViewSessionId) {
+      const s = sessions.find(x => x.id === initialViewSessionId) ?? null;
+      setViewingSession(s);
+    }
+    if (!isOpen) setViewingSession(null);
+  }, [isOpen, initialViewSessionId, sessions]);
   const [isMergeMode, setIsMergeMode] = useState(false);
   const [selectedToMerge, setSelectedToMerge] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -261,7 +271,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title={viewingSession ? "Session Details" : "Session History (IndexedDB)"} maxWidth={viewingSession ? 'max-w-[90vw]' : 'max-w-4xl'}>
+      <Modal isOpen={isOpen} onClose={onClose} title={viewingSession ? "Session Details" : "Session History (IndexedDB)"} maxWidth={viewingSession ? 'max-w-[90vw]' : 'max-w-4xl'} zIndex="z-[60]">
         {viewingSession ? (
             <div>
                 <Button onClick={() => setViewingSession(null)} variant="ghost" size="sm" className="mb-2 text-gray-400 hover:text-white">

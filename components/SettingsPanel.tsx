@@ -21,6 +21,7 @@ import { LogsTab } from './settings/LogsTab';
 import { CustomInstructionsTab } from './settings/CustomInstructionsTab';
 import { SystemPromptsTab } from './settings/SystemPromptsTab';
 import { Calendar2IntegrationTab } from './settings/Calendar2IntegrationTab';
+import { StorageTab } from './settings/StorageTab';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ const TABS = [
   { id: 'transcription', label: 'Transcription & Notes' },
   { id: 'custom-instructions', label: 'AI Rules' },
   { id: 'integrations', label: 'Integrations' },
+  { id: 'storage', label: 'Storage' },
   { id: 'logs', label: 'Logs & Monitoring' },
 ];
 
@@ -1016,6 +1018,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {activeTab === 'integrations' && (
           <section>
             <Calendar2IntegrationTab />
+          </section>
+        )}
+
+        {activeTab === 'storage' && (
+          <section>
+            <StorageTab />
           </section>
         )}
 

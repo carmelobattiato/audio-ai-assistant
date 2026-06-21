@@ -395,6 +395,8 @@ export interface SavedSessionData {
   llmUsageHistory?: LlmUsageStats[];
   llmResultsHistory?: ProcessedResult[];
   meetingChatHistory?: MeetingChatMessage[];
+  linkedCalendarEventId?: string;
+  linkedCalendarEventSubject?: string;
 }
 
 export interface SavedSession {
@@ -436,5 +438,44 @@ export interface IcsAppointment {
 
 export interface Calendar2Settings {
   icsUrl: string;
+}
+
+export interface Attendee {
+  name: string;
+  email: string;
+  type?: 'required' | 'optional';
+}
+
+export interface CalendarEventRecord {
+  id: string;
+  subject: string;
+  start: string;                 // ISO 8601
+  end: string;
+  location?: string;
+  organizer?: string;
+  attendees?: Attendee[];
+  onlineMeetingUrl?: string;
+  body?: string;
+  responseStatus?: string;
+  source: 'windows' | 'ics' | 'extension';
+  linkedSessionId?: string;      // FK → sessions.id
+  createdAt: number;             // epoch ms (per cleanup)
+}
+
+export interface SessionEmbedding {
+  sessionId: string;
+  vector: number[];
+  textSnippet: string;
+  generatedAt: number;
+}
+
+export interface StorageStats {
+  totalMb: number;
+  audioMb: number;
+  textMb: number;
+  embeddingsMb: number;
+  sessionCount: number;
+  sessionWithAudioCount: number;
+  calendarEventCount: number;
 }
 

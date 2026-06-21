@@ -29,6 +29,7 @@ interface AppModalsProps {
   handleDeleteSession: (id: string) => void;
   handleExportSessionJson: (id: string) => void;
   handleImportSessionJson: (file: File) => void;
+  initialViewSessionId?: string;
   showLoadChunksModal: boolean;
   setShowLoadChunksModal: (v: boolean) => void;
   recordingChunksCount: number;
@@ -75,6 +76,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       onExportSessionJson={props.handleExportSessionJson}
       onImportSessionJson={props.handleImportSessionJson}
       onStartMerge={() => {}}
+      initialViewSessionId={props.initialViewSessionId}
     />
 
     <ConfirmModal

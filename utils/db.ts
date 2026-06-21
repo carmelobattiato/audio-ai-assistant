@@ -1,15 +1,17 @@
 
 import { openDB, DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
-import { SavedSession, InProgressSessionData } from '../types';
+import { SavedSession, InProgressSessionData, CalendarEventRecord, SessionEmbedding, StorageStats } from '../types';
 import { MAX_SESSIONS } from '../constants';
 import type { EncryptedBlob } from './crypto';
 
 const DB_NAME = 'AudioAIAssistantDB';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const SESSIONS_STORE_NAME = 'sessions';
 const IN_PROGRESS_STORE_NAME = 'inProgressSessions';
 const SECRETS_STORE_NAME = 'appSecrets';
 const MEETING_NOTIF_STORE_NAME = 'meetingNotifications';
+const CALENDAR_EVENTS_STORE_NAME = 'calendarEvents';
+const SESSION_EMBEDDINGS_STORE_NAME = 'sessionEmbeddings';
 const API_KEY_RECORD_ID = 'googleApiKey';
 
 interface SecretRecord extends EncryptedBlob {
@@ -53,9 +55,18 @@ interface AppDB extends DBSchema {
     value: MeetingNotificationRecord;
     indexes: { 'by-expiresAt': number };
   };
+  [CALENDAR_EVENTS_STORE_NAME]: {
+    key: string;
+    value: CalendarEventRecord;
+    indexes: { 'by-start': string; 'by-session': string };
+  };
+  [SESSION_EMBEDDINGS_STORE_NAME]: {
+    key: string;
+    value: SessionEmbedding;
+  };
 }
 
-type AppStoreName = 'sessions' | 'inProgressSessions' | 'appSecrets' | 'meetingNotifications';
+type AppStoreName = 'sessions' | 'inProgressSessions' | 'appSecrets' | 'meetingNotifications' | 'calendarEvents' | 'sessionEmbeddings';
 
 const dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
   upgrade(db: IDBPDatabase<AppDB>, oldVersion: number, _newVersion: number | null, tx: IDBPTransaction<AppDB, AppStoreName[], 'versionchange'>) {
@@ -79,6 +90,14 @@ const dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
     if (!db.objectStoreNames.contains(MEETING_NOTIF_STORE_NAME)) {
       const store = db.createObjectStore(MEETING_NOTIF_STORE_NAME, { keyPath: 'id' });
       store.createIndex('by-expiresAt', 'expiresAt');
+    }
+    if (!db.objectStoreNames.contains(CALENDAR_EVENTS_STORE_NAME)) {
+      const calStore = db.createObjectStore(CALENDAR_EVENTS_STORE_NAME, { keyPath: 'id' });
+      calStore.createIndex('by-start', 'start');
+      calStore.createIndex('by-session', 'linkedSessionId');
+    }
+    if (!db.objectStoreNames.contains(SESSION_EMBEDDINGS_STORE_NAME)) {
+      db.createObjectStore(SESSION_EMBEDDINGS_STORE_NAME, { keyPath: 'sessionId' });
     }
   },
 });
@@ -257,5 +276,177 @@ export const db = {
         }
     }
     return marked;
-  }
+  },
+
+  // ── Calendar Events ─────────────────────────────────────────────────────────
+  async upsertCalendarEvent(event: CalendarEventRecord): Promise<void> {
+    const dbInstance = await dbPromise;
+    await dbInstance.put(CALENDAR_EVENTS_STORE_NAME, event);
+  },
+
+  async upsertCalendarEvents(events: CalendarEventRecord[]): Promise<void> {
+    const dbInstance = await dbPromise;
+    const tx = dbInstance.transaction(CALENDAR_EVENTS_STORE_NAME, 'readwrite');
+    await Promise.all(events.map(async e => {
+      const existing = await tx.store.get(e.id);
+      // Preserve linked session if already set — sync must not break existing links
+      const record = existing?.linkedSessionId
+        ? { ...e, linkedSessionId: existing.linkedSessionId }
+        : e;
+      return tx.store.put(record);
+    }));
+    await tx.done;
+  },
+
+  async getCalendarEventsByRange(from: Date, to: Date): Promise<CalendarEventRecord[]> {
+    const dbInstance = await dbPromise;
+    const all = await dbInstance.getAll(CALENDAR_EVENTS_STORE_NAME);
+    const fromIso = from.toISOString();
+    const toIso = to.toISOString();
+    return all.filter(e => e.start >= fromIso && e.start <= toIso);
+  },
+
+  async getAllCalendarEvents(): Promise<CalendarEventRecord[]> {
+    const dbInstance = await dbPromise;
+    const all = await dbInstance.getAll(CALENDAR_EVENTS_STORE_NAME);
+    return all.sort((a, b) => a.start.localeCompare(b.start));
+  },
+
+  async linkSessionToEvent(eventId: string, sessionId: string, sessionSubject?: string): Promise<void> {
+    const dbInstance = await dbPromise;
+    const event = await dbInstance.get(CALENDAR_EVENTS_STORE_NAME, eventId);
+    if (event) {
+      event.linkedSessionId = sessionId;
+      await dbInstance.put(CALENDAR_EVENTS_STORE_NAME, event);
+    }
+    const session = await dbInstance.get(SESSIONS_STORE_NAME, sessionId);
+    if (session) {
+      session.data.linkedCalendarEventId = eventId;
+      session.data.linkedCalendarEventSubject = sessionSubject ?? event?.subject;
+      await dbInstance.put(SESSIONS_STORE_NAME, session);
+    }
+  },
+
+  async unlinkSessionFromEvent(eventId: string): Promise<void> {
+    const dbInstance = await dbPromise;
+    const event = await dbInstance.get(CALENDAR_EVENTS_STORE_NAME, eventId);
+    if (event?.linkedSessionId) {
+      const session = await dbInstance.get(SESSIONS_STORE_NAME, event.linkedSessionId);
+      if (session) {
+        delete session.data.linkedCalendarEventId;
+        delete session.data.linkedCalendarEventSubject;
+        await dbInstance.put(SESSIONS_STORE_NAME, session);
+      }
+      delete event.linkedSessionId;
+      await dbInstance.put(CALENDAR_EVENTS_STORE_NAME, event);
+    }
+  },
+
+  async deleteStaleCalendarEvents(): Promise<number> {
+    const dbInstance = await dbPromise;
+    const tx = dbInstance.transaction(CALENDAR_EVENTS_STORE_NAME, 'readwrite');
+    const all = await tx.store.getAll();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(23, 59, 59, 999);
+    const yesterdayIso = yesterday.toISOString();
+    let deleted = 0;
+    for (const ev of all) {
+      if (ev.end < yesterdayIso && !ev.linkedSessionId) {
+        await tx.store.delete(ev.id);
+        deleted++;
+      }
+    }
+    await tx.done;
+    return deleted;
+  },
+
+  async deleteCalendarEvent(eventId: string): Promise<void> {
+    const dbInstance = await dbPromise;
+    await dbInstance.delete(CALENDAR_EVENTS_STORE_NAME, eventId);
+  },
+
+  // ── Retention ───────────────────────────────────────────────────────────────
+  async deleteAudioOlderThan(days: number): Promise<number> {
+    const dbInstance = await dbPromise;
+    const sessions = await dbInstance.getAll(SESSIONS_STORE_NAME);
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    let count = 0;
+    for (const s of sessions) {
+      if (s.timestamp < cutoff && (s.data.audioBlob || (s.data.chunks && s.data.chunks.length > 0))) {
+        s.data.audioBlob = null;
+        s.data.chunks = [];
+        s.totalSizeMb = 0;
+        await dbInstance.put(SESSIONS_STORE_NAME, s);
+        count++;
+      }
+    }
+    return count;
+  },
+
+  async deleteSessionsOlderThan(days: number): Promise<number> {
+    const dbInstance = await dbPromise;
+    const sessions = await dbInstance.getAll(SESSIONS_STORE_NAME);
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    let count = 0;
+    for (const s of sessions) {
+      if (s.timestamp < cutoff) {
+        await dbInstance.delete(SESSIONS_STORE_NAME, s.id);
+        count++;
+      }
+    }
+    return count;
+  },
+
+  async getStorageStats(): Promise<StorageStats> {
+    const dbInstance = await dbPromise;
+    const sessions = await dbInstance.getAll(SESSIONS_STORE_NAME);
+    const events = await dbInstance.getAll(CALENDAR_EVENTS_STORE_NAME);
+    const embeddings = await dbInstance.getAll(SESSION_EMBEDDINGS_STORE_NAME);
+
+    let audioBytes = 0;
+    let textBytes = 0;
+    let sessionsWithAudio = 0;
+
+    for (const s of sessions) {
+      if (s.data.audioBlob) audioBytes += s.data.audioBlob.size;
+      if (s.data.chunks) s.data.chunks.forEach(c => audioBytes += c.size);
+      if (s.data.audioBlob || (s.data.chunks && s.data.chunks.length > 0)) sessionsWithAudio++;
+      const textLen = (s.data.transcribedText?.length || 0) + (s.data.llmProcessedText?.length || 0);
+      textBytes += textLen * 2; // UTF-16 approx
+    }
+    const embeddingBytes = embeddings.reduce((acc, e) => acc + e.vector.length * 4, 0);
+    const toMb = (b: number) => Number((b / (1024 * 1024)).toFixed(2));
+
+    return {
+      totalMb: toMb(audioBytes + textBytes + embeddingBytes),
+      audioMb: toMb(audioBytes),
+      textMb: toMb(textBytes),
+      embeddingsMb: toMb(embeddingBytes),
+      sessionCount: sessions.length,
+      sessionWithAudioCount: sessionsWithAudio,
+      calendarEventCount: events.length,
+    };
+  },
+
+  // ── Semantic Embeddings ─────────────────────────────────────────────────────
+  async upsertEmbedding(embedding: SessionEmbedding): Promise<void> {
+    const dbInstance = await dbPromise;
+    await dbInstance.put(SESSION_EMBEDDINGS_STORE_NAME, embedding);
+  },
+
+  async getEmbeddingBySessionId(sessionId: string): Promise<SessionEmbedding | undefined> {
+    const dbInstance = await dbPromise;
+    return dbInstance.get(SESSION_EMBEDDINGS_STORE_NAME, sessionId);
+  },
+
+  async getAllEmbeddings(): Promise<SessionEmbedding[]> {
+    const dbInstance = await dbPromise;
+    return dbInstance.getAll(SESSION_EMBEDDINGS_STORE_NAME);
+  },
+
+  async deleteEmbedding(sessionId: string): Promise<void> {
+    const dbInstance = await dbPromise;
+    await dbInstance.delete(SESSION_EMBEDDINGS_STORE_NAME, sessionId);
+  },
 };

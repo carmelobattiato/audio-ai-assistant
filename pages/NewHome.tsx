@@ -15,12 +15,14 @@ import { Button } from '../components/common/Button';
 // Type-only imports (no runtime cost)
 import type { LlmProcessorRef } from '../components/LlmProcessor';
 import type { Attendee, OutlookAppointment } from '../components/OutlookCalendarModal';
+import type { CalendarEventRecord } from '../types';
 // Tab content — lazy-loaded on first render of each tab
 const BubbleNotes       = lazy(() => import('../components/BubbleNotes').then(m => ({ default: m.BubbleNotes })));
 const TranscriptionView = lazy(() => import('../components/TranscriptionView').then(m => ({ default: m.TranscriptionView })));
 const LlmProcessor      = lazy(() => import('../components/LlmProcessor').then(m => ({ default: m.LlmProcessor as React.ComponentType<React.ComponentProps<typeof m.LlmProcessor>> })));
 const MeetingChatPanel  = lazy(() => import('../components/MeetingChatPanel').then(m => ({ default: m.MeetingChatPanel })));
 const NeoCalendarDayView = lazy(() => import('../components/newpage/NeoCalendarDayView').then(m => ({ default: m.NeoCalendarDayView })));
+const NewCalendarView = lazy(() => import('../components/newcalendar/NewCalendarView').then(m => ({ default: m.NewCalendarView })));
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
 import { useSessionLogic } from '../hooks/useSessionLogic';
@@ -120,6 +122,7 @@ export const NewHome: React.FC = () => {
   const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
   const [showLoadSessionModal, setShowLoadSessionModal] = useState(false);
+  const [sessionToPreview, setSessionToPreview] = useState<string | undefined>(undefined);
   const [showLoadChunksModal, setShowLoadChunksModal] = useState(false);
   const [startChoiceModal, setStartChoiceModal] = useState<{
     resolve: (mode: 'new' | 'append' | 'cancel') => void;
@@ -134,6 +137,8 @@ export const NewHome: React.FC = () => {
   const [coherenceAssessment, setCoherenceAssessment] = useState<string | null>(null);
   const [coherenceStatus, setCoherenceStatus] = useState<CoherenceAssessmentStatus>(CoherenceAssessmentStatus.IDLE);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isNewCalendarOpen, setIsNewCalendarOpen] = useState(false);
+  const [calendarEventsDb, setCalendarEventsDb] = useState<CalendarEventRecord[]>([]);
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isInitialLoadingRef = useRef(false);
@@ -146,6 +151,7 @@ export const NewHome: React.FC = () => {
   const llmProcessorRef = useRef<LlmProcessorRef>(null);
   const hasLiveTranscriptRef = useRef(false);
   const clearTranscriptionQueueRef = useRef<() => void>(() => {});
+  const pendingLinkAppointmentRef = useRef<{ id: string; subject: string } | null>(null);
 
   // ── New UI state ──────────────────────────────────────────────────────────
   const [activeRightTab, setActiveRightTab] = useState<string>('notes');
@@ -281,7 +287,12 @@ export const NewHome: React.FC = () => {
     setAppUserMessage(`📅 Meeting "${title}" imported from Outlook`);
     if (appUserMessageTimerRef.current) clearTimeout(appUserMessageTimerRef.current);
     appUserMessageTimerRef.current = setTimeout(() => setAppUserMessage(null), 4000);
-  }, []);
+    // Store appointment reference for auto-link when recording session starts
+    const matchedApt = calAppointments.find(apt => apt.subject === title);
+    if (matchedApt) {
+      pendingLinkAppointmentRef.current = { id: matchedApt.id, subject: matchedApt.subject };
+    }
+  }, [calAppointments]);
 
   const handleOutlookOpenTeams = useCallback((title: string, noteHtml: string, teamsUrl: string, attendees: Attendee[] = []) => {
     handleOutlookImport(title, noteHtml, attendees);
@@ -296,6 +307,19 @@ export const NewHome: React.FC = () => {
     if (systemAudioGuideTimerRef.current) clearTimeout(systemAudioGuideTimerRef.current);
     systemAudioGuideTimerRef.current = setTimeout(() => audioRecorderRef.current?.triggerSystemAudioGuide(), 150);
   }, [handleOutlookImport]);
+
+  const handleLinkSessionToEvent = useCallback(async (eventId: string, sessionId: string) => {
+    const event = calendarEventsDb.find(e => e.id === eventId);
+    await db.linkSessionToEvent(eventId, sessionId, event?.subject);
+    const updated = await db.getAllCalendarEvents();
+    setCalendarEventsDb(updated);
+  }, [calendarEventsDb]);
+
+  const handleUnlinkSessionFromEvent = useCallback(async (eventId: string) => {
+    await db.unlinkSessionFromEvent(eventId);
+    const updated = await db.getAllCalendarEvents();
+    setCalendarEventsDb(updated);
+  }, []);
 
   const handleGenerateSummaryForBubble = useCallback(async (note: BubbleNote) => {
     const plain = htmlToPlainText(note.contentHtml);
@@ -845,6 +869,12 @@ export const NewHome: React.FC = () => {
       },
     };
     await db.saveSession(initialSession);
+    // Auto-link: se si parte da un evento calendario, collegalo alla sessione corrente
+    if (pendingLinkAppointmentRef.current) {
+      const { id: aptId, subject: aptSubject } = pendingLinkAppointmentRef.current;
+      db.linkSessionToEvent(aptId, newSessionId, aptSubject).catch(console.error);
+      pendingLinkAppointmentRef.current = null;
+    }
     if (pendingNoteHtml.trim()) {
       setBubbleNotes(initialSession.data.bubbleNotes);
       setPendingNoteHtml('');
@@ -964,19 +994,17 @@ export const NewHome: React.FC = () => {
           throw new Error('ICS feed not configured. Open Settings → Integrations and paste the published Outlook ICS URL.');
         }
         const events = await fetchIcs(cfg.icsUrl);
-        // Filter to today (LOCAL date) and map to OutlookAppointment shape
+        // Filter today → today+7 days (LOCAL date) and map to OutlookAppointment shape
         const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const todayKey = `${yyyy}-${mm}-${dd}`;
+        const weekLater = new Date(now);
+        weekLater.setDate(now.getDate() + 7);
+        weekLater.setHours(23, 59, 59, 999);
         const teamsRe = /https:\/\/teams\.microsoft\.com\/l\/[^\s<>"']+/;
         const mapped: OutlookAppointment[] = events
           .filter(ev => {
             if (!ev.start) return false;
             const d = new Date(ev.start);
-            const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            return k === todayKey;
+            return d >= now && d <= weekLater;
           })
           .sort((a, b) => a.start.localeCompare(b.start))
           .map(ev => ({
@@ -1084,6 +1112,40 @@ export const NewHome: React.FC = () => {
       setCalRefreshing(false);
     }
   }, []);
+
+  // Sync calAppointments → IndexedDB (next 7 days window)
+  useEffect(() => {
+    if (calAppointments.length === 0) return;
+    const now = new Date();
+    const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const toSync = calAppointments.filter(apt => {
+      const start = new Date(apt.start);
+      return start >= now && start <= oneWeekLater;
+    });
+    const records: CalendarEventRecord[] = toSync.map(apt => ({
+      id: apt.id,
+      subject: apt.subject,
+      start: apt.start,
+      end: apt.end,
+      location: apt.location || undefined,
+      organizer: apt.organizer || undefined,
+      attendees: apt.attendees,
+      onlineMeetingUrl: apt.onlineMeetingUrl,
+      body: apt.body || undefined,
+      responseStatus: apt.responseStatus || undefined,
+      source: calSource as 'windows' | 'ics' | 'extension',
+      createdAt: Date.now(),
+    }));
+    db.upsertCalendarEvents(records).catch(console.error);
+  }, [calAppointments, calSource]);
+
+  // Carica eventi calendario dal DB all'apertura di NewCalendar
+  useEffect(() => {
+    if (!isNewCalendarOpen) return;
+    db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
+    db.deleteStaleCalendarEvents().catch(console.error);
+    db.deleteAudioOlderThan(10).catch(console.error);
+  }, [isNewCalendarOpen]);
 
   // Fetch once silently on page load
   useEffect(() => { fetchCalendarData(); }, [fetchCalendarData]);
@@ -1372,6 +1434,19 @@ export const NewHome: React.FC = () => {
           />
         }
       />
+      {/* NewCalendar button — calendar integrato con sessioni */}
+      <div className="flex items-center px-5 py-1" style={{ borderBottom: '1px solid var(--neo-border)', background: 'var(--neo-overlay-bg)' }}>
+        <button
+          onClick={() => setIsNewCalendarOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-purple-900/40 hover:bg-purple-800/50 text-purple-300 border border-purple-700/50 transition-colors"
+          title="NewCalendar — calendar con sessioni integrate"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          NewCalendar
+        </button>
+      </div>
 
       {/* Pipeline bar */}
       <NeoPipelineBar
@@ -1653,8 +1728,9 @@ export const NewHome: React.FC = () => {
         isStatisticsModalOpen={isStatisticsModalOpen} setIsStatisticsModalOpen={setIsStatisticsModalOpen}
         appStatistics={appStatistics}
         coherenceAssessment={coherenceAssessment} coherenceStatus={coherenceStatus}
-        showLoadSessionModal={showLoadSessionModal} setShowLoadSessionModal={setShowLoadSessionModal}
+        showLoadSessionModal={showLoadSessionModal} setShowLoadSessionModal={(v) => { setShowLoadSessionModal(v); if (!v) setSessionToPreview(undefined); }}
         savedSessions={savedSessions}
+        initialViewSessionId={sessionToPreview}
         handleLoadSession={handleLoadSession}
         handleLoadAndRecord={handleLoadAndRecord}
         handleDeleteSession={sessLogic.handleDeleteSession}
@@ -1670,6 +1746,57 @@ export const NewHome: React.FC = () => {
         handleGenerateSummaryForBubble={handleGenerateSummaryForBubble}
         handleAssessCoherence={handleAssessCoherence}
       />
+
+      {isNewCalendarOpen && (
+        <div className="fixed inset-0 z-50 bg-gray-900 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(17,24,39,0.95)' }}>
+            <span className="text-sm font-semibold text-purple-300">NewCalendar</span>
+            <button
+              onClick={() => setIsNewCalendarOpen(false)}
+              className="text-gray-400 hover:text-white transition-colors p-1 rounded"
+              title="Chiudi"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Caricamento…</div>}>
+              <NewCalendarView
+                events={calendarEventsDb}
+                sessions={savedSessions}
+                onLinkSession={handleLinkSessionToEvent}
+                onUnlinkSession={handleUnlinkSessionFromEvent}
+                onOpenSession={(sessionId) => {
+                  setSessionToPreview(sessionId);
+                  setShowLoadSessionModal(true);
+                }}
+                onLoadInfo={(eventId, title, noteHtml, attendees) => {
+                  setIsNewCalendarOpen(false);
+                  handleOutlookImport(title, noteHtml, attendees);
+                  pendingLinkAppointmentRef.current = { id: eventId, subject: title };
+                }}
+                onLoadAndSchedule={(eventId, title, noteHtml, attendees, startIso) => {
+                  setIsNewCalendarOpen(false);
+                  handleOutlookImport(title, noteHtml, attendees);
+                  pendingLinkAppointmentRef.current = { id: eventId, subject: title };
+                  const startMs = new Date(startIso).getTime();
+                  if (Number.isFinite(startMs)) {
+                    autoStartFiredRef.current = false;
+                    setPendingAutoStart({ startMs, subject: title });
+                  }
+                }}
+                onOpenTeamsAndRecord={(eventId, title, noteHtml, teamsUrl, attendees) => {
+                  setIsNewCalendarOpen(false);
+                  pendingLinkAppointmentRef.current = { id: eventId, subject: title };
+                  handleOutlookOpenTeams(title, noteHtml, teamsUrl, attendees);
+                }}
+              />
+            </Suspense>
+          </div>
+        </div>
+      )}
 
       <Suspense fallback={null}>
       <NeoCalendarDayView

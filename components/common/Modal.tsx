@@ -8,16 +8,18 @@ interface ModalProps {
   footer?: React.ReactNode;
   /** Tailwind max-width class, e.g. "max-w-5xl". Defaults to "max-w-2xl". */
   maxWidth?: string;
+  /** Tailwind z-index class, e.g. "z-[60]". Defaults to "z-50". */
+  zIndex?: string;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidth }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidth, zIndex }) => {
   if (!isOpen) return null;
 
   console.log(`Modal: Rendering modal with title "${title}".`);
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 transition-opacity duration-300 ease-in-out"
+      className={`fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 ${zIndex ?? 'z-50'} transition-opacity duration-300 ease-in-out`}
       onClick={onClose}
     >
       <div 

@@ -1,10 +1,13 @@
 /**
- * Audio AI Assistant — Calendar Bridge  v5
+ * Audio AI Assistant — Calendar Bridge  v6
  * Content script (world: MAIN)
  *
- * Strategy: capture the MSAuth token + timezone from intercepted main-thread
- * OWA requests, then call GetCalendarView directly using the same credentials.
- * Worker injection kept as secondary fallback.
+ * Strategy:
+ * 1. Intercept outgoing GetCalendarView requests from the page → extend range to 7 days.
+ *    The page already has valid auth (cookies); we just widen the date window.
+ * 2. If no page call is seen within 800ms of auth capture, make a direct call.
+ *    - Consumer accounts (/owa/published/service.svc): NO Authorization header, rely on cookies.
+ *    - Corporate accounts (/owa/service.svc): use captured MSAuth1.0 token.
  */
 (function () {
   'use strict';
@@ -13,19 +16,25 @@
   var TEAMS_RE = /https:\/\/teams\.microsoft\.com\/l\/[^\s<>"']+/;
   var WORKER_BC = '__cal_bridge_worker_v1__';
 
-  console.log(PREFIX, '✅ v5 loaded');
+  console.log(PREFIX, '✅ v6 loaded');
 
   // ── Auth / timezone context captured from main-thread requests ────────────────
   var capturedAuth       = null;
   var capturedSessionId  = null;
-  var capturedTimezone   = null;   // e.g. "W. Europe Standard Time"
-  var capturedServiceUrl = null;   // actual OWA service.svc URL (captured from page requests)
+  var capturedTimezone   = null;
+  var capturedServiceUrl = null;   // actual OWA service.svc URL
   var directCallDone     = false;
+  var pageCallSeen       = false;  // page made its own GetCalendarView call
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function fmtDate(d) {
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
 
   function getHeaderValue(headers, name) {
     if (!headers) return null;
     if (typeof headers.get === 'function') return headers.get(name);
-    // plain object
     var lc = name.toLowerCase();
     for (var k in headers) {
       if (Object.prototype.hasOwnProperty.call(headers, k) && k.toLowerCase() === lc) return headers[k];
@@ -49,16 +58,13 @@
 
   // ── Direct GetCalendarView call ───────────────────────────────────────────────
 
-  function pad2(n) { return String(n).padStart(2, '0'); }
-
   var _directCallTimer = null;
 
   function maybeTriggerDirectCall() {
     if (directCallDone || !capturedAuth) return;
-    // Delay 800ms to let GetTimeZone response arrive before the call
     clearTimeout(_directCallTimer);
     _directCallTimer = setTimeout(function () {
-      if (!directCallDone && capturedAuth) {
+      if (!directCallDone && capturedAuth && !pageCallSeen) {
         directCallDone = true;
         doDirectGetCalendarView();
       }
@@ -66,17 +72,13 @@
   }
 
   function doDirectGetCalendarView() {
-    // Use captured OWA timezone or fall back to UTC
     var tz = capturedTimezone || 'UTC';
 
-    // Range: today only — consistent with Windows COM bridge and ICS behavior
     var now = new Date();
-    function fmtDate(d) {
-      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-    }
-    var today      = fmtDate(now);
-    var rangeStart = today + 'T00:00:00.000';
-    var rangeEnd   = today + 'T23:59:59.999';
+    var weekLater = new Date(now);
+    weekLater.setDate(weekLater.getDate() + 7);
+    var rangeStart = fmtDate(now) + 'T00:00:00.000';
+    var rangeEnd   = fmtDate(weekLater) + 'T23:59:59.999';
 
     var reqBody = JSON.stringify({
       __type: 'GetCalendarViewJsonRequest:#Exchange',
@@ -99,33 +101,86 @@
       },
     });
 
+    // Consumer accounts (/published/) use cookie-based auth — NO Authorization header.
+    // Corporate accounts use the MSAuth1.0 token.
+    var isConsumer = !capturedServiceUrl || capturedServiceUrl.indexOf('/published/') !== -1;
+
     var fetchHeaders = {
       'content-type':       'application/json; charset=utf-8',
-      'authorization':      capturedAuth,
       'action':             'GetCalendarView',
       'x-owa-actionsource': 'GetCalendarView',
       'x-owa-hosted-ux':    'false',
       'x-req-source':       'Calendar',
     };
-    if (capturedSessionId) fetchHeaders['x-owa-sessionid'] = capturedSessionId;
+    if (!isConsumer && capturedAuth) {
+      fetchHeaders['authorization'] = capturedAuth;
+      if (capturedSessionId) fetchHeaders['x-owa-sessionid'] = capturedSessionId;
+    }
 
-    var serviceUrl = (capturedServiceUrl || '/owa/service.svc') + '?action=GetCalendarView&app=Calendar&n=cal_bridge_direct';
-    console.log(PREFIX, '📡 Direct GetCalendarView — tz:', tz, '| range:', rangeStart, '| url:', serviceUrl);
+    var serviceUrl = (capturedServiceUrl || '/owa/published/service.svc') + '?action=GetCalendarView&app=Calendar&n=cal_bridge_direct';
+    console.log(PREFIX, '📡 Direct GetCalendarView —', isConsumer ? 'consumer(cookies)' : 'corporate(token)', '| tz:', tz, '| range:', rangeStart, '| url:', serviceUrl);
 
     _fetch(serviceUrl, {
       method:  'POST',
       headers: fetchHeaders,
       body:    reqBody,
     })
-    .then(function (r) { return r.json(); })
+    .then(function (r) {
+      if (!r.ok) {
+        console.warn(PREFIX, '📡 GetCalendarView HTTP', r.status, '— url:', serviceUrl);
+        if (r.status === 400 || r.status === 401) {
+          console.warn(PREFIX, '📡 Resetting capturedServiceUrl for retry');
+          capturedServiceUrl = null;
+        }
+        directCallDone = false;
+        return null;
+      }
+      return r.json();
+    })
     .then(function (json) {
+      if (!json) return;
       console.log(PREFIX, '📡 Response keys:', Object.keys(json).join(', '));
       dispatch('direct-GetCalendarView', json);
     })
     .catch(function (e) {
       console.warn(PREFIX, '📡 Direct call failed:', e.message);
-      directCallDone = false; // allow retry next auth capture
+      directCallDone = false;
     });
+  }
+
+  // ── Extend range of outgoing GetCalendarView requests ────────────────────────
+  // The page makes today-only calls; we widen to 7 days using the page's own auth.
+
+  function tryExtendCalendarViewRange(init) {
+    if (!init || !init.body) return init;
+    try {
+      var parsed = JSON.parse(String(init.body));
+      var bodyNode = (parsed && parsed.Body) ? parsed.Body : parsed;
+      if (!bodyNode || typeof bodyNode !== 'object') return init;
+
+      // Log what fields we see (once) for diagnostics
+      console.log(PREFIX, '📋 GetCalendarView outgoing body keys:', Object.keys(bodyNode).join(', '));
+
+      var now2 = new Date();
+      var wl2  = new Date(now2); wl2.setDate(wl2.getDate() + 7);
+      var rs2  = fmtDate(now2) + 'T00:00:00.000';
+      var re2  = fmtDate(wl2)  + 'T23:59:59.999';
+
+      var startKeys = ['RangeStart', 'StartDate', 'CalendarViewStart', 'ViewWindowStart', 'StartTime'];
+      var endKeys   = ['RangeEnd',   'EndDate',   'CalendarViewEnd',   'ViewWindowEnd',   'EndTime'];
+      var modded = false;
+      startKeys.forEach(function (k) { if (k in bodyNode) { bodyNode[k] = rs2; modded = true; } });
+      endKeys.forEach(function   (k) { if (k in bodyNode) { bodyNode[k] = re2; modded = true; } });
+
+      // If no date fields were found, inject them anyway
+      if (!modded) { bodyNode.RangeStart = rs2; bodyNode.RangeEnd = re2; }
+
+      console.log(PREFIX, '📅 Range extended to 7d:', rs2, '—', re2, modded ? '(existing fields)' : '(injected)');
+      return Object.assign({}, init, { body: JSON.stringify(parsed) });
+    } catch (e) {
+      console.warn(PREFIX, '📅 Body modification failed:', e.message);
+      return init;
+    }
   }
 
   // ── Mapping ───────────────────────────────────────────────────────────────────
@@ -181,7 +236,6 @@
   function tryExtract(json) {
     if (!json || typeof json !== 'object') return null;
 
-    // Graph: root array or { value: [{subject, start}] }
     var arr = Array.isArray(json) ? json : json.value;
     if (Array.isArray(arr) && arr.length > 0) {
       var f = arr[0];
@@ -190,12 +244,10 @@
       }
     }
 
-    // OWA: { Body: { Items|CalendarEvents: [{Subject, Start}] } }
     var body = json.Body;
     if (body && (body.ResponseCode === 'NoError' || body.ResponseClass === 'Success' || body.Items !== undefined || body.CalendarEvents !== undefined)) {
       var owaArr = body.Items || body.CalendarEvents || [];
       if (owaArr.length === 0) {
-        // Valid empty response (no events in range)
         return { events: [], fmt: 'OWA' };
       }
       var fo = owaArr[0];
@@ -218,26 +270,31 @@
   // ── Main-thread fetch intercept ───────────────────────────────────────────────
   var _fetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
-    // Capture auth token from outgoing requests
     captureRequestContext(init);
+
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+
+    // Capture the real OWA service URL from the first service.svc request
+    if (!capturedServiceUrl && url.indexOf('service.svc') !== -1) {
+      var qIdx = url.indexOf('?');
+      capturedServiceUrl = qIdx >= 0 ? url.substring(0, qIdx) : url;
+      console.log(PREFIX, '🔗 Service URL captured:', capturedServiceUrl);
+    }
+
+    // Intercept outgoing GetCalendarView requests → extend to 7-day range
+    if (url.indexOf('GetCalendarView') !== -1) {
+      init = tryExtendCalendarViewRange(init);
+      pageCallSeen = true;  // page is making its own call, no need for direct call
+    }
 
     return _fetch(input, init).then(function (response) {
       try {
         var ct = response.headers.get('content-type') || '';
         if (ct.indexOf('application/json') !== -1) {
-          var url = typeof input === 'string' ? input : (input && input.url) || '';
-          // Capture the real OWA service URL from page requests
-          if (!capturedServiceUrl && url.indexOf('service.svc') !== -1) {
-            var qIdx = url.indexOf('?');
-            capturedServiceUrl = qIdx >= 0 ? url.substring(0, qIdx) : url;
-            console.log(PREFIX, '🔗 Service URL captured:', capturedServiceUrl);
-          }
           response.clone().json().then(function (json) {
-            // Capture timezone from GetTimeZone response
             if (url.indexOf('GetTimeZone') !== -1 && json && json.CurrentTimeZone) {
               capturedTimezone = json.CurrentTimeZone;
               console.log(PREFIX, '🕐 Timezone captured:', capturedTimezone);
-              // Retry the direct call with correct timezone if it was already done with UTC
               if (directCallDone) {
                 directCallDone = false;
                 maybeTriggerDirectCall();
@@ -255,15 +312,13 @@
   var _xhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
     var _url = String(url || '');
-    // Capture OWA service URL early (at request time, before response)
+
     if (!capturedServiceUrl && _url.indexOf('service.svc') !== -1) {
       var _qIdx = _url.indexOf('?');
       capturedServiceUrl = _qIdx >= 0 ? _url.substring(0, _qIdx) : _url;
       console.log(PREFIX, '🔗 Service URL captured (XHR):', capturedServiceUrl);
     }
-    var self = this;
 
-    // Capture auth from XHR request headers
     var _setReqHeader = this.setRequestHeader.bind(this);
     this.setRequestHeader = function (name, value) {
       if (name && name.toLowerCase() === 'authorization' && value && value.indexOf('MSAuth1.0') !== -1) {
@@ -338,6 +393,8 @@
     if (!e.data || e.data.type !== '__CAL_BRIDGE_RESYNC__') return;
     console.log(PREFIX, '🔄 Resync requested by app');
     directCallDone = false;
+    pageCallSeen   = false;
+    capturedServiceUrl = null;  // force re-capture on next request
     maybeTriggerDirectCall();
   });
 

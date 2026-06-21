@@ -8,6 +8,31 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.113] — 2026-06-21
+
+
+- NewCalendar: bottoni "Load Info", "Load & Schedule", "Teams + Rec" nel pannello dettaglio evento — stessa funzionalità del calendario esistente
+- Extension Calendar Bridge v6: intercetta le chiamate uscenti di Outlook Live e ne estende il range a 7 giorni; rimosso Authorization header per endpoint consumer (`/published/`), ora usa cookie-based auth
+- `CalendarEventRecord`: aggiunti campi `body?` e `responseStatus?`; sincronizzati dal mapping `OutlookAppointment` → IndexedDB
+
+
+- NewCalendar: nuovo calendario integrato con sessioni audio — bottone accanto al Calendar esistente
+- NewCalendar: viste mensile, settimanale, workdays, giornaliera stile Outlook con mini-calendario laterale navigabile
+- NewCalendar: vista mensile — griglia 7×5 (lun-dom), pill evento con badge 🎙 verde per sessioni collegate
+- NewCalendar: vista settimanale/workdays — time-grid con overlap layout, linea ora corrente, badge sessione
+- NewCalendar: pannello dettaglio evento — metadata, Teams link, sezione "Registrazione" con link/unlink sessione
+- NewCalendar: collegamento automatico sessione↔evento al lancio registrazione da un evento calendario
+- NewCalendar: collegamento manuale dal pannello dettaglio evento con dropdown sessioni filtrate per data
+- NewCalendar: ricerca keyword real-time su soggetto eventi e contenuto sessioni
+- NewCalendar: ricerca AI semantica tramite Gemini embeddings (`text-embedding-004`) con indicizzazione lazy e cosine similarity
+- IndexedDB v8: nuovi store `calendarEvents` (con indici `by-start`, `by-session`) e `sessionEmbeddings`
+- Retention automatica: audio blob eliminati dopo 10 giorni all'apertura di NewCalendar; eventi senza sessione rimossi il giorno successivo
+- Sync calendari Outlook/ICS/Extension → store locale per range [oggi, oggi+7gg]
+- Settings → nuova tab Storage: breakdown MB (audio/testo/embeddings), tabella sessioni con scadenza audio, slider bulk delete con preview MB liberabili
+- `types.ts`: nuovi tipi `CalendarEventRecord`, `SessionEmbedding`, `StorageStats`, `Attendee`
+
+---
+
 ## [1.112] — 2026-06-20
 
 
