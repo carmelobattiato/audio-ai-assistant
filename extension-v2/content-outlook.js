@@ -114,7 +114,7 @@
           console.warn(V, '📡 HTTP', r.status);
           if (r.status === 400 || r.status === 401) capturedServiceUrl = null;
           directCallDone = false;
-          window.postMessage({ type: '__CAL_V2_GET_ERROR__', ts: Date.now() }, '*');
+          window.postMessage({ type: '__CAL_V2_GET_ERROR__', ts: Date.now(), reason: 'HTTP ' + r.status }, '*');
           return null;
         }
         return r.json();
@@ -123,7 +123,7 @@
       .catch(function (e) {
         console.warn(V, '📡 fail:', e.message);
         directCallDone = false;
-        window.postMessage({ type: '__CAL_V2_GET_ERROR__', ts: Date.now() }, '*');
+        window.postMessage({ type: '__CAL_V2_GET_ERROR__', ts: Date.now(), reason: e.message || 'fetch failed' }, '*');
       });
   }
 

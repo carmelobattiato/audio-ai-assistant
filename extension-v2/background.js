@@ -14,6 +14,7 @@ var K = {
   interval:  'v2_interval',
   getState:  'v2_getState',
   getTs:     'v2_getTs',
+  getError:  'v2_getError',
   postState: 'v2_postState',
   postTs:    'v2_postTs',
 };
@@ -117,6 +118,7 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
     if (msg.events.length > 0) {
       update[K.getState] = 'ok';
       update[K.getTs]    = now;
+      update[K.getError] = '';
     }
     chrome.storage.local.set(update);
     if (msg.events.length > 0) pushToApp(msg.events);
@@ -126,7 +128,11 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
 
   // Errore GET da content-outlook.js
   if (msg.type === 'CAL_V2_GET_ERROR') {
-    chrome.storage.local.set({ [K.getState]: 'error', [K.getTs]: msg.ts || Date.now() });
+    chrome.storage.local.set({
+      [K.getState]: 'error',
+      [K.getTs]:    msg.ts || Date.now(),
+      [K.getError]: msg.reason || 'errore sconosciuto',
+    });
     sendResponse({ ok: true });
     return;
   }
@@ -165,6 +171,7 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
         events:    r[K.events]    || [],
         getState:  r[K.getState]  || 'idle',
         getTs:     r[K.getTs]     || null,
+        getError:  r[K.getError]  || '',
         postState: r[K.postState] || 'idle',
         postTs:    r[K.postTs]    || null,
       });

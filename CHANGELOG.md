@@ -8,9 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.116] — 2026-06-21
+
+
+
+
+- Extension v2.4: tasto `i` accanto a GET Outlook e POST App — pannello dettaglio con stato, timestamp, messaggio errore, URL, timeout
+- Extension v2.4: `content-outlook.js` passa `reason` nell'errore (`HTTP 400`, `Failed to fetch`, ecc.) via `__CAL_V2_GET_ERROR__`
+- Extension v2.4: `background.js` salva `v2_getError` in storage; azzerato al successo
+---
+
 ## [1.115] — 2026-06-21
-
-
 
 - Extension Calendar Bridge v2.4: popup redesign con sezione Operazioni — dot GET/POST colorati (arancio=in corso, verde=ok, rosso=errore)
 - Extension v2.4: `background.js` state machine GET (`v2_getState`) e POST (`v2_postState`) con timestamp

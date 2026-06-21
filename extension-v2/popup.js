@@ -1,7 +1,10 @@
 'use strict';
 
-var _events     = [];
-var _jsonVisible = false;
+var _events      = [];
+var _jsonVisible  = false;
+var _getInfoOpen  = false;
+var _postInfoOpen = false;
+var _lastStatus   = {};
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -41,6 +44,46 @@ function showSaved(id) {
   var e = el(id); if (!e) return;
   e.classList.add('show');
   setTimeout(function() { e.classList.remove('show'); }, 1500);
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────────
+
+function fmtTs(ts) {
+  if (!ts) return '—';
+  var d = new Date(ts);
+  return d.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    + ' — ' + fmtAgo(ts);
+}
+
+function buildDetailRows(rows) {
+  return rows.map(function(r) {
+    return '<div class="op-detail-row">'
+      + '<span class="op-detail-key">' + escHtml(r[0]) + '</span>'
+      + '<span class="op-detail-val">' + escHtml(r[1]) + '</span>'
+      + '</div>';
+  }).join('');
+}
+
+function updateGetDetail(s) {
+  var rows = [
+    ['stato',     s.getState || 'idle'],
+    ['quando',    fmtTs(s.getTs)],
+    ['errore',    s.getError || (s.getState === 'ok' ? '—' : '—')],
+    ['URL',       s.seenAt ? 'outlook.live.com/owa/service.svc' : '—'],
+    ['timeout',   s.getState === 'fetching' && s.getTs && Date.now() - s.getTs > 30000 ? 'sì (>30s)' : 'no'],
+  ];
+  if (s.getError) rows[2][1] = s.getError;
+  el('getDetail').innerHTML = buildDetailRows(rows);
+}
+
+function updatePostDetail(s) {
+  var rows = [
+    ['stato',     s.postState || 'idle'],
+    ['quando',    fmtTs(s.postTs)],
+    ['app URL',   s.appUrl || '(non impostato)'],
+    ['last sync', fmtTs(s.syncedAt)],
+  ];
+  el('postDetail').innerHTML = buildDetailRows(rows);
 }
 
 // ── Operation status renderer ─────────────────────────────────────────────────
@@ -122,6 +165,11 @@ function render(s) {
   // Operations: POST
   renderOp('dotPost', 'postLabel', 'postTsEl', s.postState || 'idle', 'post', s.postTs);
 
+  // Operation details (update if open)
+  _lastStatus = s;
+  if (_getInfoOpen)  updateGetDetail(s);
+  if (_postInfoOpen) updatePostDetail(s);
+
   // Events
   renderEvents(_events);
 
@@ -166,6 +214,22 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.sendMessage({ type: 'V2_RELOAD_OUTLOOK' }, function() {
       setTimeout(function() { el('reloadBtn').disabled = false; }, 3000);
     });
+  });
+
+  // GET info toggle
+  el('getInfoBtn').addEventListener('click', function() {
+    _getInfoOpen = !_getInfoOpen;
+    el('getInfoBtn').classList.toggle('active', _getInfoOpen);
+    el('getDetail').classList.toggle('visible', _getInfoOpen);
+    if (_getInfoOpen) updateGetDetail(_lastStatus);
+  });
+
+  // POST info toggle
+  el('postInfoBtn').addEventListener('click', function() {
+    _postInfoOpen = !_postInfoOpen;
+    el('postInfoBtn').classList.toggle('active', _postInfoOpen);
+    el('postDetail').classList.toggle('visible', _postInfoOpen);
+    if (_postInfoOpen) updatePostDetail(_lastStatus);
   });
 
   // JSON toggle

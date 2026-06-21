@@ -15,7 +15,7 @@ window.addEventListener('message', function(e) {
   }
 
   if (e.data.type === '__CAL_V2_GET_ERROR__') {
-    chrome.runtime.sendMessage({ type: 'CAL_V2_GET_ERROR', ts: e.data.ts });
+    chrome.runtime.sendMessage({ type: 'CAL_V2_GET_ERROR', ts: e.data.ts, reason: e.data.reason });
     return;
   }
 
