@@ -70,6 +70,16 @@
     .url-saved-icon.show { opacity: 1; }
     .url-hint { font-size: 10px; color: rgba(226,232,240,0.35); margin-top: 4px; }
 
+    /* Interval input */
+    .interval-row { display: flex; align-items: center; gap: 8px; }
+    .interval-input {
+      width: 60px; padding: 5px 8px; border-radius: 6px; font-size: 12px; text-align: center;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(139,92,246,0.25);
+      color: #e2e8f0; outline: none; transition: border-color .15s;
+    }
+    .interval-input:focus { border-color: rgba(139,92,246,0.6); }
+    .interval-label { font-size: 12px; color: rgba(226,232,240,0.65); }
+
     /* Divider */
     hr { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 0; }
   </style>
@@ -78,7 +88,7 @@
   <div class="header">
     <div class="header-icon">🗓</div>
     <div>
-      <div class="header-title">Calendar Bridge</div>
+      <div class="header-title">Calendar Bridge <span style="font-size:10px;opacity:.55;font-weight:400">v1.1</span></div>
       <div class="header-sub">Audio AI Assistant</div>
     </div>
   </div>
@@ -129,7 +139,18 @@
         Ricarica
       </button>
     </div>
-    <div class="auto-label" id="autoLabel">Auto-sync: ogni 15 min</div>
+    <div class="auto-label" id="autoLabel">Auto-sync: ogni <span id="intervalDisplay">1</span> min</div>
+  </div>
+
+  <!-- Sync interval -->
+  <div class="section">
+    <div class="section-title">Intervallo auto-sync</div>
+    <div class="interval-row">
+      <input class="interval-input" id="intervalInput" type="number" min="1" max="60" step="1" value="1" />
+      <span class="interval-label">minuti</span>
+      <span class="url-saved-icon" id="intervalSavedIcon" style="position:static;transform:none;margin-left:4px">✓</span>
+    </div>
+    <div class="url-hint">Modifica e premi Invio per salvare · min 1 min</div>
   </div>
 
   <!-- App URL -->

@@ -1139,13 +1139,13 @@ export const NewHome: React.FC = () => {
     db.upsertCalendarEvents(records).catch(console.error);
   }, [calAppointments, calSource]);
 
-  // Carica eventi calendario dal DB all'apertura di NewCalendar
+  // Carica eventi calendario dal DB all'apertura di NewCalendar e ad ogni sync
   useEffect(() => {
     if (!isNewCalendarOpen) return;
     db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
     db.deleteStaleCalendarEvents().catch(console.error);
     db.deleteAudioOlderThan(10).catch(console.error);
-  }, [isNewCalendarOpen]);
+  }, [isNewCalendarOpen, calAppointments]);
 
   // Fetch once silently on page load
   useEffect(() => { fetchCalendarData(); }, [fetchCalendarData]);
@@ -1157,7 +1157,7 @@ export const NewHome: React.FC = () => {
   // window/tab focus or visibility (throttled to once per 60s to avoid storming
   // the COM bridge when the user alt-tabs frequently).
   useEffect(() => {
-    const intervalId = window.setInterval(() => { fetchCalendarData(false, true); }, 15 * 60 * 1000);
+    const intervalId = window.setInterval(() => { fetchCalendarData(false, true); }, 60 * 1000);
     const onFocus = () => { fetchCalendarData(); };
     const onVisibility = () => { if (document.visibilityState === 'visible') fetchCalendarData(); };
     window.addEventListener('focus', onFocus);
@@ -1423,6 +1423,7 @@ export const NewHome: React.FC = () => {
         onOpenStats={() => setIsStatisticsModalOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenCalendar={() => setIsCalendarOpen(true)}
+        onOpenNewCalendar={() => setIsNewCalendarOpen(true)}
         calendarSyncing={calRefreshing}
         notificationBell={
           <MeetingNotificationBell
@@ -1434,20 +1435,6 @@ export const NewHome: React.FC = () => {
           />
         }
       />
-      {/* NewCalendar button — calendar integrato con sessioni */}
-      <div className="flex items-center px-5 py-1" style={{ borderBottom: '1px solid var(--neo-border)', background: 'var(--neo-overlay-bg)' }}>
-        <button
-          onClick={() => setIsNewCalendarOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-purple-900/40 hover:bg-purple-800/50 text-purple-300 border border-purple-700/50 transition-colors"
-          title="NewCalendar — calendar con sessioni integrate"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          NewCalendar
-        </button>
-      </div>
-
       {/* Pipeline bar */}
       <NeoPipelineBar
         pipelineStep={pipelineStep}
@@ -1792,6 +1779,11 @@ export const NewHome: React.FC = () => {
                   pendingLinkAppointmentRef.current = { id: eventId, subject: title };
                   handleOutlookOpenTeams(title, noteHtml, teamsUrl, attendees);
                 }}
+                onSync={() => fetchCalendarData(true, true)}
+                isSyncing={calRefreshing}
+                syncError={calError}
+                calSource={calSource}
+                calExtensionConnected={calExtensionConnected}
               />
             </Suspense>
           </div>

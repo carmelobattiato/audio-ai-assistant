@@ -8,6 +8,26 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.114] — 2026-06-21
+
+
+- NewCalendar: "Apri Sessione" apre Session Details modal invece di caricare nel main — calendar rimane aperto in background
+- NewCalendar: risultati ricerca keyword e AI aprono Session Details modal (non caricano la sessione)
+- Session Details modal: z-index elevato (`z-[60]`) — rimane sopra NewCalendar overlay (`z-50`)
+- `LoadSessionModal`: prop `initialViewSessionId` — apre direttamente la vista dettaglio su sessione specifica
+- Pulsante NewCalendar spostato nell'header accanto a Calendar; pulsante Calendar grigio con popup deprecazione
+- Popup deprecazione Calendar: avvisa dismissione imminente, offre "Apri NewCalendar" o "Usa il vecchio"
+- NewCalendar: vista default cambiata da Mese a Giorno
+- NewCalendar toolbar: orologio live HH:MM:SS, pill sorgente (Outlook Live/ICS/COM) con stato connessione
+- NewCalendar: pulsante Sincronizza con stati arancione/verde/rosso (syncing/success/error) e minimum display 800ms
+- Sincronizza: dopo sync `calAppointments` aggiorna `calendarEventsDb` immediatamente senza riaprire NewCalendar
+- Extension Calendar Bridge v1.1: versione visibile nel popup
+- Extension: intervallo auto-sync configurabile dal popup (default 1 min, era 15 min)
+- Extension: alarm `resync` usa valore salvato in storage, ricreato via messaggio `SET_SYNC_INTERVAL`
+- App: auto-refresh calendario ogni 1 min (era 15 min)
+
+---
+
 ## [1.113] — 2026-06-21
 
 

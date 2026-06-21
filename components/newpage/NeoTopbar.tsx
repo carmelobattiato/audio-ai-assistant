@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NeoTooltip } from './NeoTooltip';
 import { APP_TITLE, APP_VERSION } from '../../constants';
 import appIcon from '../../img/AiRecordIco.png';
@@ -86,15 +86,95 @@ interface NeoTopbarProps {
   onOpenStats: () => void;
   onOpenSettings: () => void;
   onOpenCalendar: () => void;
+  onOpenNewCalendar: () => void;
   calendarSyncing?: boolean;
   notificationBell?: React.ReactNode;
 }
+
+const CalendarDeprecatedButton: React.FC<{
+  onOpenCalendar: () => void;
+  onOpenNewCalendar: () => void;
+  disabled?: boolean;
+  calendarSyncing?: boolean;
+}> = ({ onOpenCalendar, onOpenNewCalendar, disabled, calendarSyncing }) => {
+  const [showPopup, setShowPopup] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPopup) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setShowPopup(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showPopup]);
+
+  return (
+    <div ref={ref} className="relative">
+      <NeoTooltip text="Outlook calendar (in dismissione)">
+        <button
+          onClick={() => !disabled && setShowPopup(p => !p)}
+          disabled={disabled}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+          style={disabled ? { color: 'var(--neo-muted)', opacity: 0.4, cursor: 'not-allowed' } : {
+            background: 'rgba(55,65,81,0.4)',
+            border: '1px solid var(--neo-border)',
+            color: 'var(--neo-muted)',
+          }}
+        >
+          <CalendarIcon />
+          <span style={calendarSyncing ? { animation: 'caveman-cal-sync-pulse 1.5s ease-in-out infinite' } : undefined}>
+            Calendar
+          </span>
+        </button>
+      </NeoTooltip>
+
+      {showPopup && (
+        <div
+          className="absolute top-full mt-2 left-0 rounded-xl p-4 shadow-2xl z-50"
+          style={{
+            width: 280,
+            background: '#1F2937',
+            border: '1px solid rgba(245,158,11,0.4)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          }}
+        >
+          <div className="flex items-start gap-2 mb-3">
+            <span className="text-amber-400 text-base flex-shrink-0">⚠️</span>
+            <div>
+              <p className="text-xs font-semibold text-amber-300 mb-1">Funzione in dismissione</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Questo calendario sarà rimosso nelle prossime versioni. Ti consigliamo di usare <strong className="text-purple-300">NewCalendar</strong>, la nuova versione integrata con le sessioni.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setShowPopup(false); onOpenNewCalendar(); }}
+              className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-[1.02]"
+              style={{ background: 'linear-gradient(135deg,#7C3AED,#C026D3)', color: 'white' }}
+            >
+              Apri NewCalendar
+            </button>
+            <button
+              onClick={() => { setShowPopup(false); onOpenCalendar(); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-700"
+              style={{ color: '#9CA3AF', border: '1px solid #374151' }}
+            >
+              Usa il vecchio
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const NeoTopbar: React.FC<NeoTopbarProps> = ({
   appUserMessage, isBusy, canSaveZip, statsDisabled,
   transcriptionLabel, analysisLabel,
   onManageSessions, onSaveAll, onOpenStats, onOpenSettings,
-  onOpenCalendar, calendarSyncing, notificationBell,
+  onOpenCalendar, onOpenNewCalendar, calendarSyncing, notificationBell,
 }) => (
   <header
     className="sticky top-0 z-40 flex items-center justify-between px-5 py-3 neo-topbar-border"
@@ -133,8 +213,14 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
     {/* Nav buttons — center */}
     <nav className="flex items-center gap-1.5 flex-shrink-0">
       <NeoNavButton
-        icon={<CalendarIcon />} label="Calendar" tooltip="Outlook calendar: day view with time slots and meeting details"
-        onClick={onOpenCalendar} disabled={isBusy} highlight iconPulse={calendarSyncing}
+        icon={<CalendarIcon />} label="NewCalendar" tooltip="NewCalendar — calendario con sessioni integrate"
+        onClick={onOpenNewCalendar} disabled={isBusy} highlight
+      />
+      <CalendarDeprecatedButton
+        onOpenCalendar={onOpenCalendar}
+        onOpenNewCalendar={onOpenNewCalendar}
+        disabled={isBusy}
+        calendarSyncing={calendarSyncing}
       />
       <style>{`@keyframes caveman-cal-sync-pulse { 0%,100% { color: #ffffff; } 50% { color: #fb923c; } }`}</style>
       <NeoNavButton

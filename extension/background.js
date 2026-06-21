@@ -10,7 +10,14 @@ const K = {
   syncedAt:          'syncedAt',
   syncedCount:       'syncedCount',
   appUrl:            'appUrl',
+  syncIntervalMin:   'syncIntervalMin',
 };
+
+const DEFAULT_SYNC_INTERVAL_MIN = 1;
+
+function applyResyncAlarm(minutes) {
+  chrome.alarms.create('resync', { periodInMinutes: Math.max(0.5, Number(minutes) || DEFAULT_SYNC_INTERVAL_MIN) });
+}
 
 // ── Message handler ───────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
@@ -34,15 +41,24 @@ chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
   if (msg.type === 'GET_STATUS') {
     chrome.storage.local.get(Object.values(K), function (r) {
       sendResponse({
-        outlookSeenAt:  r[K.outlookSeenAt]  || null,
-        outlookCount:   r[K.outlookCount]   || 0,
-        appSeenAt:      r[K.appSeenAt]      || null,
-        syncedAt:       r[K.syncedAt]       || null,
-        syncedCount:    r[K.syncedCount]    || 0,
-        appUrl:         r[K.appUrl]         || '',
+        outlookSeenAt:    r[K.outlookSeenAt]    || null,
+        outlookCount:     r[K.outlookCount]     || 0,
+        appSeenAt:        r[K.appSeenAt]        || null,
+        syncedAt:         r[K.syncedAt]         || null,
+        syncedCount:      r[K.syncedCount]      || 0,
+        appUrl:           r[K.appUrl]           || '',
+        syncIntervalMin:  r[K.syncIntervalMin]  || DEFAULT_SYNC_INTERVAL_MIN,
       });
     });
     return true;
+  }
+
+  if (msg.type === 'SET_SYNC_INTERVAL') {
+    const min = Math.max(0.5, Number(msg.minutes) || DEFAULT_SYNC_INTERVAL_MIN);
+    chrome.storage.local.set({ [K.syncIntervalMin]: min });
+    applyResyncAlarm(min);
+    sendResponse({ ok: true, minutes: min });
+    return;
   }
 
   if (msg.type === 'SYNC_NOW') {
@@ -167,8 +183,11 @@ async function periodicResync() {
 }
 
 // ── Alarms ────────────────────────────────────────────────────────────────────
-chrome.alarms.create('heartbeat', { periodInMinutes: 0.5 });   // every 30s
-chrome.alarms.create('resync',    { periodInMinutes: 15 });     // every 15 min
+chrome.alarms.create('heartbeat', { periodInMinutes: 0.5 });
+// Resync interval — read stored value or fall back to default 1 min
+chrome.storage.local.get([K.syncIntervalMin], function (r) {
+  applyResyncAlarm(r[K.syncIntervalMin] || DEFAULT_SYNC_INTERVAL_MIN);
+});
 
 chrome.alarms.onAlarm.addListener(function (alarm) {
   if (alarm.name === 'heartbeat') sendHeartbeat();
@@ -176,6 +195,10 @@ chrome.alarms.onAlarm.addListener(function (alarm) {
 });
 
 chrome.runtime.onInstalled.addListener(function () {
+  // Ensure alarm is set with persisted interval on install/update
+  chrome.storage.local.get([K.syncIntervalMin], function (r) {
+    applyResyncAlarm(r[K.syncIntervalMin] || DEFAULT_SYNC_INTERVAL_MIN);
+  });
   sendHeartbeat();
   // Ensure alarms exist after extension update
   chrome.alarms.create('heartbeat', { periodInMinutes: 0.5 });

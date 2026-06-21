@@ -1,13 +1,13 @@
 'use strict';
 
-const RESYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 min
+var syncIntervalMs = 1 * 60 * 1000; // updated from GET_STATUS
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtCountdown(ts) {
   if (!ts) return '—';
   const elapsed  = Date.now() - ts;
-  const remaining = Math.max(0, RESYNC_INTERVAL_MS - elapsed);
+  const remaining = Math.max(0, syncIntervalMs - elapsed);
   if (remaining === 0) return 'prossimo sync…';
   const secs = Math.floor(remaining / 1000);
   const mm   = Math.floor(secs / 60);
@@ -36,6 +36,13 @@ function setText(id, val) {
 // ── Status render ─────────────────────────────────────────────────────────────
 
 function renderStatus(s) {
+  if (s.syncIntervalMin) {
+    syncIntervalMs = s.syncIntervalMin * 60 * 1000;
+    var disp = document.getElementById('intervalDisplay');
+    if (disp) disp.textContent = s.syncIntervalMin;
+    var inp = document.getElementById('intervalInput');
+    if (inp && document.activeElement !== inp) inp.value = s.syncIntervalMin;
+  }
   const outlookOk = s.outlookSeenAt && (Date.now() - s.outlookSeenAt < 3 * 60 * 60 * 1000);
   setDot('dotOutlook', outlookOk, false);
   setBadge('badgeOutlook',
@@ -56,11 +63,13 @@ function renderStatus(s) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function () {
-  var syncBtn          = document.getElementById('syncBtn');
-  var reloadOutlookBtn = document.getElementById('reloadOutlookBtn');
-  var appUrlInput      = document.getElementById('appUrl');
-  var savedIcon        = document.getElementById('savedIcon');
-  var saveTimer        = null;
+  var syncBtn           = document.getElementById('syncBtn');
+  var reloadOutlookBtn  = document.getElementById('reloadOutlookBtn');
+  var appUrlInput       = document.getElementById('appUrl');
+  var savedIcon         = document.getElementById('savedIcon');
+  var intervalInput     = document.getElementById('intervalInput');
+  var intervalSavedIcon = document.getElementById('intervalSavedIcon');
+  var saveTimer         = null;
 
   // Load initial state
   chrome.runtime.sendMessage({ type: 'GET_STATUS' }, function (s) {
@@ -125,4 +134,20 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }, 600);
   });
+
+  // Save sync interval on Enter or blur
+  function saveInterval() {
+    var min = Math.max(1, Math.min(60, parseInt(intervalInput.value, 10) || 1));
+    intervalInput.value = min;
+    chrome.runtime.sendMessage({ type: 'SET_SYNC_INTERVAL', minutes: min }, function () {
+      syncIntervalMs = min * 60 * 1000;
+      var disp = document.getElementById('intervalDisplay');
+      if (disp) disp.textContent = min;
+      intervalSavedIcon.style.color = '#10b981';
+      intervalSavedIcon.classList.add('show');
+      setTimeout(function () { intervalSavedIcon.classList.remove('show'); }, 1500);
+    });
+  }
+  intervalInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') saveInterval(); });
+  intervalInput.addEventListener('blur', saveInterval);
 });

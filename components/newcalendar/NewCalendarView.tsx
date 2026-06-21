@@ -19,6 +19,11 @@ interface NewCalendarViewProps {
   onLoadAndSchedule?: (eventId: string, title: string, noteHtml: string, attendees: Array<{ name: string; email: string; type?: 'required' | 'optional' }>, startIso: string, subject: string) => void;
   onOpenTeamsAndRecord?: (eventId: string, title: string, noteHtml: string, teamsUrl: string, attendees: Array<{ name: string; email: string; type?: 'required' | 'optional' }>) => void;
   onAiSearchRequest?: (query: string) => void;
+  onSync?: () => void;
+  isSyncing?: boolean;
+  syncError?: string | null;
+  calSource?: string;
+  calExtensionConnected?: boolean;
   apiKey?: string;
 }
 
@@ -266,13 +271,21 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
   onLoadAndSchedule,
   onOpenTeamsAndRecord,
   onAiSearchRequest,
+  onSync,
+  isSyncing,
+  syncError,
+  calSource = 'windows',
+  calExtensionConnected = false,
   apiKey,
 }) => {
-  const [viewMode,       setViewMode]       = useState<ViewMode>('month');
+  const [viewMode,       setViewMode]       = useState<ViewMode>('day');
+  const [now,            setNow]            = useState(new Date());
   const [currentDate,    setCurrentDate]    = useState(new Date());
   const [selectedEvent,  setSelectedEvent]  = useState<CalendarEventRecord | null>(null);
   const [searchQuery,    setSearchQuery]    = useState('');
   const [showAiPanel,    setShowAiPanel]    = useState(false);
+  const [syncState,      setSyncState]      = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const syncTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep selectedEvent in sync with updated events (e.g. after link/unlink)
   useEffect(() => {
@@ -280,6 +293,25 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
     const updated = events.find(e => e.id === selectedEvent.id);
     if (updated && updated !== selectedEvent) setSelectedEvent(updated);
   }, [events]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Drive syncState from parent isSyncing/syncError with minimum 800ms display
+  useEffect(() => {
+    if (isSyncing) {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      setSyncState('syncing');
+      return;
+    }
+    if (syncState === 'syncing') {
+      const next = syncError ? 'error' : 'success';
+      setSyncState(next);
+      syncTimerRef.current = setTimeout(() => setSyncState('idle'), next === 'success' ? 2000 : 4000);
+    }
+  }, [isSyncing, syncError]);
 
   const {
     search: semanticSearch,
@@ -402,8 +434,69 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
           </button>
         </div>
 
-        {/* Spacer */}
-        <div className="w-40" />
+        {/* Right cluster: source pill + clock + sync */}
+        <div className="flex items-center gap-2">
+
+          {/* Source pill */}
+          {calSource === 'extension' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
+              style={calExtensionConnected
+                ? { background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#6EE7B7' }
+                : { background: 'rgba(100,116,139,0.12)', border: '1px solid rgba(100,116,139,0.25)', color: '#64748B' }
+              }>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', background: calExtensionConnected ? '#10B981' : '#475569' }} />
+              Outlook Live{!calExtensionConnected && ' (disconnesso)'}
+            </span>
+          )}
+          {calSource === 'ics' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
+              style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', color: '#FCD34D' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', background: '#F59E0B' }} />
+              ICS Feed
+            </span>
+          )}
+          {calSource === 'windows' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0"
+              style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#C4B5FD' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', background: '#8B5CF6' }} />
+              Outlook COM
+            </span>
+          )}
+
+          {/* Live clock */}
+          <div className="flex flex-col items-end select-none" title="Ora corrente">
+            <span className="font-mono font-bold tabular-nums text-sm leading-none" style={{ color: '#C4B5FD' }}>
+              {now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            <span className="text-[9px] uppercase tracking-widest mt-0.5" style={{ color: 'var(--neo-muted, #6B7280)' }}>
+              ora corrente
+            </span>
+          </div>
+
+          {/* Sync button */}
+          <button
+            onClick={() => { setSyncState('syncing'); onSync?.(); }}
+            disabled={!onSync || syncState === 'syncing'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02] disabled:cursor-not-allowed"
+            style={
+              syncState === 'syncing' ? { border: '1px solid rgba(245,158,11,0.5)', background: 'rgba(245,158,11,0.12)', color: '#FCD34D' } :
+              syncState === 'success' ? { border: '1px solid rgba(16,185,129,0.5)', background: 'rgba(16,185,129,0.12)', color: '#6EE7B7' } :
+              syncState === 'error'   ? { border: '1px solid rgba(239,68,68,0.5)',   background: 'rgba(239,68,68,0.12)',   color: '#FCA5A5' } :
+                                        { border: '1px solid rgba(139,92,246,0.4)', background: 'rgba(124,58,237,0.12)', color: '#C4B5FD' }
+            }
+            title={syncState === 'error' ? `Errore: ${syncError}` : 'Sincronizza calendario'}
+          >
+            <svg
+              className={`w-3.5 h-3.5 ${syncState === 'syncing' ? 'animate-spin' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {syncState === 'syncing' ? 'Sincronizzazione…' :
+             syncState === 'success' ? 'Aggiornato!' :
+             syncState === 'error'   ? 'Errore sync' : 'Sincronizza'}
+          </button>
+        </div>
       </div>
 
       {/* ── Main area: sidebar + content ────────────────────────────────────── */}
