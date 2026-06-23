@@ -1,4 +1,4 @@
-# Audio AI Assistant — v1.117
+# Audio AI Assistant — v1.118
 
 A **client-side-only** web app for audio recording, automatic transcription via Google Gemini, and LLM-powered analysis. Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.
 
@@ -240,12 +240,12 @@ sequenceDiagram
     App->>App: fetch ICS URL (Outlook publish link)
     App->>App: parse RFC5545, filter to today
 
-    Note over App: Source 3 — Browser Extension (Chrome/Edge)
+    Note over App: Source 3 — Browser Extension v2.11 (Chrome/Edge)
     participant Extension
     participant OutlookTab
     Extension->>OutlookTab: intercept window.fetch (MAIN world)
-    OutlookTab-->>Extension: capture MSAuth1.0 token + timezone
-    Extension->>OutlookTab: POST GetCalendarView (OWA API, today)
+    OutlookTab-->>Extension: capture x-owa-canary + MSAuth1.0 + timezone
+    Extension->>OutlookTab: POST /owa/0/service.svc?action=GetCalendarView\n(direct call, no passive interception)
     OutlookTab-->>Extension: Body.Items[] (today's appointments)
     Extension->>App: BroadcastChannel('calendar-sync-v1')\n{ type: 'appointments', appointments: [] }
     App->>App: render Day View / List View
@@ -381,13 +381,13 @@ The **Calendar** button in the topbar opens a modal that reads today's meetings 
 | **ICS feed** | Cross-platform | Public ICS URL published from Outlook. Read-only, 1–3h refresh latency (Microsoft-managed). |
 | **Browser Extension** | Chrome / Edge | Reads from an already-open `outlook.live.com` tab. Works regardless of tenant policy. No OAuth. |
 
-**Browser Extension setup:**
-1. Settings → Integrations → Browser Extension → download `calendar-extension.zip`
+**Browser Extension setup (v2.11):**
+1. Settings → Integrations → Browser Extension → download `calendar-bridge-v2.zip`
 2. Extract, then load in `chrome://extensions` (Developer mode → Load unpacked)
-3. Open `outlook.live.com/calendar` — the extension captures the OWA auth token and calls `GetCalendarView` directly
+3. Open `outlook.live.com/calendar` — the extension makes a direct `GetCalendarView` POST with `x-owa-canary` CSRF token and MSAuth1.0 (no passive interception required)
 4. The badge "Outlook Live ● Connessa" appears in the calendar header within 30 s
 
-The extension popup shows connection status, a 15-minute countdown to next auto-sync, and buttons to force a re-fetch or reload the Outlook tab.
+The extension popup shows GET/POST operation status, a countdown to next auto-sync, and a Sincronizza button that opens Outlook automatically if no tab is found.
 
 The modal has two switchable views:
 

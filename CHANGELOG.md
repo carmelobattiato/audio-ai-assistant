@@ -8,14 +8,19 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
-## [1.117] — 2026-06-23
+## [1.117] — 2026-06-24
 
-+
+
+
+- `Calendar2IntegrationTab`: rimosso pulsante download v1, rimane solo v2.11
+- `Calendar2IntegrationTab`: label bottone aggiornata a `v2.11 · Scarica .zip`, tooltip allineato
+- `Calendar2IntegrationTab`: guida installazione aggiornata — riferimento a `calendar-bridge-v2.zip` (era `calendar-extension.zip`)
+- Rimosso `public/calendar-extension.zip` (plugin v1 deprecato)
+
+
 
 - Extension v2.11: bump versione in manifest, popup, content-outlook.js
 - Extension v2.11: zip `public/calendar-bridge-v2.zip` ricostruito con file v2.11
-
-
 
 - Extension v2.10: fix HTTP 400 su direct call — `x-owa-canary` CSRF token ora letto dal cookie e incluso nel POST `GetCalendarView`
 - Extension v2.10: `captureCtx` cattura `x-owa-canary` dalle request intercettate; fallback `document.cookie` (MAIN world, stessa origine)
