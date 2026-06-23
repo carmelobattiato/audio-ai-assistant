@@ -1,5 +1,5 @@
 'use strict';
-// Calendar Bridge v2.10 — content-outlook.js (MAIN world, document_start)
+// Calendar Bridge v2.11 — content-outlook.js (MAIN world, document_start)
 // Fix 400 su direct call: include x-owa-canary (da cookie) + MSAuth1.0 anche per consumer
 
 (function () {

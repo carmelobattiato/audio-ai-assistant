@@ -10,6 +10,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [1.117] — 2026-06-23
 
++
+
+- Extension v2.11: bump versione in manifest, popup, content-outlook.js
+- Extension v2.11: zip `public/calendar-bridge-v2.zip` ricostruito con file v2.11
+
+
+
 - Extension v2.10: fix HTTP 400 su direct call — `x-owa-canary` CSRF token ora letto dal cookie e incluso nel POST `GetCalendarView`
 - Extension v2.10: `captureCtx` cattura `x-owa-canary` dalle request intercettate; fallback `document.cookie` (MAIN world, stessa origine)
 - Extension v2.10: consumer `outlook.live.com` invia MSAuth1.0 — auth header ora incluso nel direct call anche per consumer

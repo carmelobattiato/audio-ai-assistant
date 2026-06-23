@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var lines = [
       '=== Calendar Bridge Debug Log ===',
       'generato:   ' + new Date().toISOString(),
-      'versione:   v2.10',
+      'versione:   v2.11',
       '',
       '[CONNESSIONE]',
       pad('Outlook Live:', 14) + (s.seenAt ? 'Connesso' : 'Non rilevato') + '  seenAt=' + ts(s.seenAt),
