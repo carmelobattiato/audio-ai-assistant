@@ -3,7 +3,7 @@ import { ModelInfo } from '../types';
 
 export const APP_TITLE = "Audio AI Assistant";
 export const APP_CREATOR = "Carmelo Battiato";
-export const APP_VERSION = "1.116";
+export const APP_VERSION = "1.117";
 export const APP_BUILD_TIMESTAMP = "2025-06-28_00-00-00";
 
 export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl?: boolean; docsUrl?: string, isCustom?: boolean } } = {
@@ -68,7 +68,6 @@ export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl
   },
 };
 
-export const GEMINI_MODEL_TEXT = 'gemini-3-flash-preview';
 export const MAX_SESSIONS = 15;
 export const MAX_SESSION_SIZE_MB = 50;
 export const DEBOUNCE_DELAY = 300;

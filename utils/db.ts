@@ -344,20 +344,28 @@ export const db = {
 
   async deleteStaleCalendarEvents(): Promise<number> {
     const dbInstance = await dbPromise;
-    const tx = dbInstance.transaction(CALENDAR_EVENTS_STORE_NAME, 'readwrite');
-    const all = await tx.store.getAll();
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(23, 59, 59, 999);
-    const yesterdayIso = yesterday.toISOString();
+    const now = Date.now();
+    const cutoff24h = now - 24 * 60 * 60 * 1000;
+    const cutoff10d = now - 10 * 24 * 60 * 60 * 1000;
+    const all = await dbInstance.getAll(CALENDAR_EVENTS_STORE_NAME);
     let deleted = 0;
     for (const ev of all) {
-      if (ev.end < yesterdayIso && !ev.linkedSessionId) {
-        await tx.store.delete(ev.id);
-        deleted++;
+      const endMs = new Date(ev.end || ev.start).getTime();
+      if (!ev.linkedSessionId) {
+        // No recording: delete 24h after event end
+        if (endMs < cutoff24h) {
+          await dbInstance.delete(CALENDAR_EVENTS_STORE_NAME, ev.id);
+          deleted++;
+        }
+      } else {
+        // Session linked: delete only if session is gone AND 10d elapsed
+        const session = await dbInstance.get(SESSIONS_STORE_NAME, ev.linkedSessionId);
+        if (!session && endMs < cutoff10d) {
+          await dbInstance.delete(CALENDAR_EVENTS_STORE_NAME, ev.id);
+          deleted++;
+        }
       }
     }
-    await tx.done;
     return deleted;
   },
 

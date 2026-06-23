@@ -228,7 +228,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const s: AppSettings = JSON.parse(JSON.stringify(settings));
+      const s: AppSettings = structuredClone(settings);
       setLocalSettings(s);
       setCustomKeyInput(
         settings.llm.apiKeySource === 'custom' ? settings.llm.googleApiKey || '' : ''

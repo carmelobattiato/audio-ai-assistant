@@ -19,11 +19,20 @@ window.addEventListener('message', function(e) {
     return;
   }
 
+  if (e.data.type === '__CAL_V2_GET_IDLE__') {
+    chrome.runtime.sendMessage({ type: 'CAL_V2_GET_IDLE' });
+    return;
+  }
+
   if (e.data.type === '__CAL_V2_ENRICH__') {
     chrome.runtime.sendMessage({
       type: 'CAL_V2_ENRICH',
       id: e.data.id,
       onlineMeetingUrl: e.data.onlineMeetingUrl,
     });
+  }
+
+  if (e.data.type === '__CAL_V2_LOG__') {
+    chrome.runtime.sendMessage({ type: 'CAL_V2_LOG', msg: e.data.msg });
   }
 });

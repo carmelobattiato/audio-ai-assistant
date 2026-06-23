@@ -8,6 +8,30 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.117] — 2026-06-23
+
+- Extension v2.10: fix HTTP 400 su direct call — `x-owa-canary` CSRF token ora letto dal cookie e incluso nel POST `GetCalendarView`
+- Extension v2.10: `captureCtx` cattura `x-owa-canary` dalle request intercettate; fallback `document.cookie` (MAIN world, stessa origine)
+- Extension v2.10: consumer `outlook.live.com` invia MSAuth1.0 — auth header ora incluso nel direct call anche per consumer
+- Extension v2.10: rimosso branch GET_IDLE per 400/401 — tutti gli errori HTTP ora loggati come GET_ERROR con dettaglio canary/auth
+- Extension v2.9: fix root cause 0 eventi — consumer (outlook.live.com) ora usa direct call POST `/owa/0/service.svc` con cookie auth invece di aspettare GetCalendarView passivo (Apollo SSR lo elimina)
+- Extension v2.9: `maybeDirect()` non salta più consumer — trigger su `capturedServiceUrl` (non su `capturedAuth` assente nel consumer)
+- Extension v2.9: `DO_SYNC` per consumer imposta `capturedServiceUrl=/owa/0/service.svc` e chiama `maybeDirect()` invece di inviare `GET_IDLE`
+- Extension v2.9: fetch override chiama `maybeDirect()` al primo service.svc catturato
+
+- Extension v2.8: `reloadOutlookTab` apre `outlook.live.com/calendar` se nessuna tab trovata invece di fallire silenziosamente
+- Extension v2.8: Sincronizza attende 8s (era 4s) per dare tempo a Outlook di caricare e fare GetCalendarView
+- Extension v2.8: `V2_RELOAD_OUTLOOK` risponde con `{ found }` — popup mostra "Apertura Outlook…" vs "Attendo eventi…"
+- Extension v2.8: log circolare 30 voci in background (`v2_log`) — traccia ogni EVENTS_RECEIVED, PUSH_OK/FAIL, ALARM, GET_ERROR, GET_IDLE, RELOAD_OUTLOOK, SYNC_NOW
+- Extension v2.8: debug log include sezione `[ATTIVITÀ BACKGROUND]` con timestamp ISO e dettaglio per ogni evento
+- Extension v2.8: fix versione hardcoded nel debug log (era v2.7)
+
+- Fix NewCalendar: sync filter usa `end >= now` — eventi in corso non spariscono al loro orario di inizio
+- Fix `deleteStaleCalendarEvents`: retention corretta — 24h da `end` (no sessione), 10gg se sessione orfana; confronto ms elimina bug UTC/local
+- Fix `deleteStaleCalendarEvents`: eventi collegati a sessione ancora esistente non vengono mai eliminati automaticamente
+
+---
+
 ## [1.116] — 2026-06-21
 
 

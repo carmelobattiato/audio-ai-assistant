@@ -116,7 +116,7 @@ function renderEvents(events) {
 
   if (!events.length) {
     label.textContent = 'nessun evento';
-    list.innerHTML = '<div class="empty-hint">Nessun evento rilevato — clicca Forza Sync</div>';
+    list.innerHTML = '<div class="empty-hint">Nessun evento — clicca Sincronizza (apre Outlook se non aperta)</div>';
     return;
   }
 
@@ -144,7 +144,7 @@ function render(s) {
   _events = s.events || [];
 
   // Connection: Outlook
-  var outlookOk = s.seenAt && (Date.now() - s.seenAt) < 5 * 60 * 1000;
+  var outlookOk = s.seenAt && (Date.now() - s.seenAt) < 30 * 60 * 1000;
   el('dotOutlook').className      = 'dot ' + (outlookOk ? 'dot-on' : 'dot-off');
   el('statusOutlook').textContent = outlookOk ? 'Connesso' : 'Non rilevato';
   el('statusOutlook').style.color = outlookOk ? '#6ee7b7' : '#64748b';
@@ -153,7 +153,7 @@ function render(s) {
   // Connection: App
   var appOk = s.appSeenAt && (Date.now() - s.appSeenAt) < 90 * 1000;
   el('dotApp').className      = 'dot ' + (appOk ? 'dot-app' : 'dot-off');
-  el('statusApp').textContent = appOk ? 'Rilevata' : 'Non trovata';
+  el('statusApp').textContent = appOk ? 'Connessa' : 'Non trovata';
   el('statusApp').style.color = appOk ? '#93c5fd' : '#64748b';
   el('appSeenAgo').textContent = fmtAgo(s.appSeenAt);
 
@@ -192,27 +192,35 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.sendMessage({ type: 'V2_GET_STATUS' }, function(s) {
       if (s) render(s);
     });
-  }, 2000);
+    chrome.alarms.get('v2_resync', function(alarm) {
+      var el2 = el('nextSyncCountdown');
+      if (!el2) return;
+      if (alarm && alarm.scheduledTime) {
+        var secs = Math.max(0, Math.ceil((alarm.scheduledTime - Date.now()) / 1000));
+        el2.textContent = 'prossimo sync: ' + (secs < 60 ? secs + 's' : Math.ceil(secs / 60) + 'min');
+      } else {
+        el2.textContent = '';
+      }
+    });
+  }, 1000);
   window.addEventListener('unload', function() { clearInterval(tick); });
 
-  // Forza Sync
+  // Sincronizza: apre/ricarica Outlook, attende 8s che faccia GetCalendarView, poi push
   el('syncBtn').addEventListener('click', function() {
     el('syncBtn').disabled = true;
-    chrome.runtime.sendMessage({ type: 'V2_SYNC_NOW' }, function() {
+    el('syncBtn').textContent = 'Apertura Outlook…';
+    chrome.runtime.sendMessage({ type: 'V2_RELOAD_OUTLOOK' }, function(res) {
+      el('syncBtn').textContent = (res && res.found) ? 'Attendo eventi…' : 'Apertura Outlook…';
+      setTimeout(function() {
+        chrome.runtime.sendMessage({ type: 'V2_SYNC_NOW' });
+      }, 12000);
       setTimeout(function() {
         chrome.runtime.sendMessage({ type: 'V2_GET_STATUS' }, function(s) {
           if (s) render(s);
         });
-      }, 350);
-      setTimeout(function() { el('syncBtn').disabled = false; }, 2000);
-    });
-  });
-
-  // Ricarica Outlook
-  el('reloadBtn').addEventListener('click', function() {
-    el('reloadBtn').disabled = true;
-    chrome.runtime.sendMessage({ type: 'V2_RELOAD_OUTLOOK' }, function() {
-      setTimeout(function() { el('reloadBtn').disabled = false; }, 3000);
+        el('syncBtn').innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg> Sincronizza';
+        el('syncBtn').disabled = false;
+      }, 14000);
     });
   });
 
@@ -261,5 +269,81 @@ document.addEventListener('DOMContentLoaded', function() {
         showSaved('urlSaved');
       });
     }, 600);
+  });
+
+  // Copia Log Debug
+  el('debugBtn').addEventListener('click', function() {
+    var s  = _lastStatus;
+    var ts = function(ms) { return ms ? new Date(ms).toISOString() : 'n/a'; };
+    var pad = function(v, w) { return String(v).padEnd(w); };
+
+    var rawEvts = s.rawEvents || [];
+    var lines = [
+      '=== Calendar Bridge Debug Log ===',
+      'generato:   ' + new Date().toISOString(),
+      'versione:   v2.10',
+      '',
+      '[CONNESSIONE]',
+      pad('Outlook Live:', 14) + (s.seenAt ? 'Connesso' : 'Non rilevato') + '  seenAt=' + ts(s.seenAt),
+      pad('App AI:', 14)       + (s.appSeenAt ? 'Connessa' : 'Non trovata') + '  seenAt=' + ts(s.appSeenAt),
+      '',
+      '[OPERAZIONI]',
+      pad('GET Outlook:', 14) + (s.getState || 'idle') + '  ts=' + ts(s.getTs) + '  errore=' + (s.getError || '-'),
+      pad('POST App:', 14)    + (s.postState || 'idle') + '  ts=' + ts(s.postTs),
+      '',
+      '[CONFIG]',
+      pad('App URL:', 14)    + (s.appUrl || 'n/a'),
+      pad('Auto-sync:', 14)  + (s.interval || 1) + ' min',
+      '',
+      '[SCARICATI DA OUTLOOK] ' + rawEvts.length + '  (ultimo fetch: ' + ts(s.rawTs) + ')',
+    ];
+
+    rawEvts.sort(function(a,b){ return (a.start||'').localeCompare(b.start||''); });
+    rawEvts.forEach(function(e, i) {
+      lines.push(
+        '  [' + (i + 1) + '] ' + e.subject +
+        ' | start=' + (e.start || '?') +
+        ' | end=' + (e.end || '?') +
+        (e.isTeams ? ' | Teams' : '') +
+        (e.isCancelled ? ' | CANCELLATO' : '') +
+        ' | id=' + (e.id || '?')
+      );
+    });
+
+    lines.push('', '[SINCRONIZZATI ALL\'APP] ' + _events.length + '  (finestra: -1gg / +7gg)');
+    _events.sort(function(a,b){ return (a.start||'').localeCompare(b.start||''); });
+    _events.forEach(function(e, i) {
+      lines.push(
+        '  [' + (i + 1) + '] ' + e.subject +
+        ' | start=' + (e.start || '?') +
+        ' | end=' + (e.end || '?') +
+        (e.isTeams ? ' | Teams' : '') +
+        (e.isCancelled ? ' | CANCELLATO' : '')
+      );
+    });
+
+    var actLog = s.log || [];
+    lines.push('', '[ATTIVITÀ BACKGROUND] ultimi ' + actLog.length + ' eventi');
+    if (actLog.length === 0) {
+      lines.push('  (nessuna attività registrata — extension appena installata/ricaricata)');
+    } else {
+      actLog.slice().reverse().forEach(function(entry, i) {
+        lines.push('  [' + (i + 1) + '] ' + new Date(entry.ts).toISOString() + '  ' + entry.event + '  ' + entry.detail);
+      });
+    }
+
+    lines.push('', '=== fine log ===');
+    var log = lines.join('\n');
+
+    navigator.clipboard.writeText(log).then(function() {
+      var btn = el('debugBtn');
+      var orig = btn.textContent;
+      btn.textContent = 'Copiato ✓';
+      setTimeout(function() { btn.textContent = orig; }, 1500);
+    }).catch(function() {
+      el('debugArea').value = log;
+      el('debugArea').style.display = 'block';
+      el('debugArea').select();
+    });
   });
 });

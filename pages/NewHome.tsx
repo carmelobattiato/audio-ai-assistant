@@ -1124,7 +1124,9 @@ export const NewHome: React.FC = () => {
     const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const toSync = calAppointments.filter(apt => {
       const start = new Date(apt.start);
-      return start >= now && start <= oneWeekLater;
+      const end   = new Date(apt.end || apt.start);
+      // Keep ongoing events (end >= now) and future events (start <= oneWeekLater)
+      return end >= now && start <= oneWeekLater;
     });
     const records: CalendarEventRecord[] = toSync.map(apt => ({
       id: apt.id,

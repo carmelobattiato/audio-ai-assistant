@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Calendar Bridge v2",
-  "version": "2.4",
-  "description": "Sincronizza Outlook Live con Audio AI Assistant — v2 passiva, zero direct calls",
+  "version": "2.10",
+  "description": "Sincronizza Outlook Live con Audio AI Assistant — direct call con x-owa-canary CSRF",
   "permissions": ["storage", "alarms", "scripting", "tabs"],
   "host_permissions": [
     "https://outlook.live.com/*",

@@ -178,6 +178,21 @@
     .saved.show { opacity: 1; }
     .url-field { grid-column: 1 / -1; }
     .input-hint { font-size: 9px; color: rgba(226,232,240,0.22); margin-top: 3px; }
+    .btn-debug {
+      width: 100%; margin-top: 8px; padding: 6px 10px; border-radius: 7px; border: none;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(226,232,240,0.45); font-size: 10px; font-weight: 600; cursor: pointer;
+      letter-spacing: .04em; transition: background .15s, color .15s;
+    }
+    .btn-debug:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+    .debug-area {
+      display: none; width: 100%; margin-top: 6px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px; color: rgba(226,232,240,0.55);
+      font-family: 'SF Mono','Menlo',monospace; font-size: 9px;
+      padding: 6px 8px; resize: none; outline: none;
+      max-height: 100px; overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -189,7 +204,7 @@
       <div class="hd-title">Calendar Bridge</div>
       <div class="hd-sub">Audio AI Assistant</div>
     </div>
-    <div class="hd-ver">v2.4</div>
+    <div class="hd-ver">v2.10</div>
   </div>
 
   <!-- CONNESSIONE -->
@@ -233,19 +248,11 @@
   <!-- Actions -->
   <div class="actions">
     <button class="btn btn-primary" id="syncBtn"
-      title="Ri-chiede gli eventi a Outlook senza ricaricare la pagina">
+      title="Ricarica Outlook e sincronizza gli eventi con l'app">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/>
       </svg>
-      Forza Sync
-    </button>
-    <button class="btn btn-ghost" id="reloadBtn"
-      title="Ricarica il tab Outlook — usa solo se non si connette">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline points="23 4 23 10 17 10"/>
-        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-      </svg>
-      Ricarica Outlook
+      Sincronizza
     </button>
   </div>
 
@@ -267,12 +274,17 @@
         <input class="input input-sm" id="intervalInput" type="number" min="1" max="60" value="1" />
         <span class="unit">min</span>
       </div>
+      <div class="input-hint" id="nextSyncCountdown"></div>
     </div>
     <div></div>
     <div class="url-field">
       <div class="field-label">App URL <span class="saved" id="urlSaved">✓</span></div>
       <input class="input" id="appUrl" type="url" placeholder="http://127.0.0.1:3000/" />
       <div class="input-hint">Salvataggio automatico</div>
+    </div>
+    <div style="grid-column:1/-1">
+      <button class="btn-debug" id="debugBtn">⬟ COPIA LOG DEBUG</button>
+      <textarea class="debug-area" id="debugArea" readonly></textarea>
     </div>
   </div>
 
