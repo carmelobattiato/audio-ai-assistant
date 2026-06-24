@@ -1,25 +1,47 @@
-# Audio AI Assistant — v1.118
+<div align="center">
 
-A **client-side-only** web app for audio recording, automatic transcription via Google Gemini, and LLM-powered analysis. Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.
+# 🎙️ Audio AI Assistant
 
-Built by **Carmelo Battiato**.
+**Record · Transcribe · Analyse — fully in-browser, zero server**
+
+[![Version](https://img.shields.io/badge/version-1.118-6366f1?style=flat-square)](CHANGELOG.md)
+[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-6-646cff?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
+[![Gemini](https://img.shields.io/badge/Gemini_API-Google-4285f4?style=flat-square&logo=google&logoColor=white)](https://aistudio.google.com)
+[![Platform](https://img.shields.io/badge/platform-Browser_only-f97316?style=flat-square&logo=googlechrome&logoColor=white)](https://github.com/carmelobattiato/audio-ai-assistant)
+
+*Designed for recording meetings, interviews, and Teams/Zoom calls — with or without headphones.*
+
+Built by **Carmelo Battiato**
+
+</div>
 
 ---
 
-## Quick Start (Windows)
+## ✨ Highlights
+
+| 🎙️ Recording | 📝 Transcription | 🤖 AI Analysis | 💬 Chat | 📅 Calendar |
+|:---:|:---:|:---:|:---:|:---:|
+| Mic + System Audio | Gemini STT · massima accuratezza | 7 analysis modes | Multi-turn context | Outlook COM · ICS · Extension |
+| Chunked · Auto-pause | Italian / English | Web search grounding | Bubble Notes context | Day View · List View |
+| Live waveform | SRT · CSV · HTML · TXT | Custom system prompts | SVG charts inline | 3 parallel sources |
+
+---
+
+## 🚀 Quick Start
+
+### 🪟 Windows (PowerShell)
 
 The `setup_and_run.ps1` script manages the full application lifecycle: dependency installation, background startup, stop, and reinstall.
 
-### Prerequisites
-
-- **Node.js** v18 or higher — [nodejs.org](https://nodejs.org)
-- **Google Gemini API Key** — [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-- A `.env.local` file in the project root:
-  ```
-  GEMINI_API_KEY=your_api_key_here
-  ```
-
-### PowerShell Commands
+> **Prerequisites**
+> - **Node.js** v18 or higher — [nodejs.org](https://nodejs.org)
+> - **Google Gemini API Key** — [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+> - A `.env.local` file in the project root:
+>   ```
+>   GEMINI_API_KEY=your_api_key_here
+>   ```
 
 ```powershell
 # Start the app in background (installs deps on first run)
@@ -41,7 +63,7 @@ The app is accessible at: **http://127.0.0.1:8090**
 
 To use a different port: `.\setup_and_run.ps1 start -Port 3000`
 
-### Alternative (terminal)
+### 🖥️ macOS / Linux (terminal)
 
 ```bash
 npm install
@@ -52,31 +74,21 @@ npm run lint      # TypeScript type-checking (tsc --noEmit)
 
 ---
 
-## Available Interfaces
 
-Two coexisting UIs, switchable from the topbar:
-
-| URL | Interface |
-|-----|-----------|
-| `/` | **Neo UI** — modern Accenture violet palette, two-panel glassmorphism layout |
-| `/oldui` | **Classic UI** — original monochromatic dark interface |
-
----
-
-## Architecture
+## 🏗️ Architecture
 
 ### Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19 + TypeScript |
-| Build | Vite (OXC transformer) |
-| AI / Speech | Google Gemini API (`@google/genai` v1) |
-| Persistence | IndexedDB via `idb` v8 |
-| Document parsing | `mammoth` (DOCX), `pdfjs-dist` (PDF) |
-| Outlook bridge | Three sources: PowerShell COM (Windows) · ICS feed · Chrome/Edge Extension |
+| Frontend | ![React](https://img.shields.io/badge/React_19-61dafb?logo=react&logoColor=black&style=flat-square) ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white&style=flat-square) |
+| Build | ![Vite](https://img.shields.io/badge/Vite_OXC-646cff?logo=vite&logoColor=white&style=flat-square) |
+| AI / Speech | ![Gemini](https://img.shields.io/badge/Gemini_API_v1-4285f4?logo=google&logoColor=white&style=flat-square) |
+| Persistence | ![IndexedDB](https://img.shields.io/badge/IndexedDB_·_idb_v8-ff6b35?style=flat-square) |
+| Document parsing | `mammoth` (DOCX) · `pdfjs-dist` (PDF) |
+| Outlook bridge | PowerShell COM (Windows) · ICS feed · Chrome/Edge Extension |
 
-**No backend. No server database. All data stays in the browser (IndexedDB).** The only outbound network calls are to the Google Gemini API.
+> **No backend. No server database. All data stays in the browser (IndexedDB).** The only outbound network calls are to the Google Gemini API.
 
 ---
 
@@ -253,9 +265,7 @@ sequenceDiagram
 
 ---
 
-## Features
-
-### Recording
+## 🎙️ Recording
 
 - Start / Pause / Resume
 - Real-time waveform visualizer
@@ -276,7 +286,7 @@ sequenceDiagram
 
 ---
 
-### System Audio Capture (headphones mode)
+## 🔊 System Audio Capture (headphones mode)
 
 When headphones are in use the microphone cannot pick up speaker output. Click **"Rec with headphones"** to open the screen-share guide:
 
@@ -289,14 +299,13 @@ Click **"Rec without headphones"** in the dialog footer to skip screen share and
 
 ---
 
-### Transcription
+## 📝 Transcription
 
 Powered by Google Gemini multimodal speech-to-text.
 
 | Setting | Options |
 |---------|---------|
 | Language | Italian (default), English |
-| Quality | 5 levels — Fast/Basic → Best/Slow |
 | Output format | TXT, SRT, CSV, HTML |
 | Model | Configurable per function (Analysis / Transcription / Chat) |
 
@@ -307,7 +316,7 @@ Powered by Google Gemini multimodal speech-to-text.
 
 ---
 
-### LLM Analysis
+## 🤖 LLM Analysis
 
 Processes the transcript with Google Gemini.
 
@@ -339,7 +348,7 @@ Processes the transcript with Google Gemini.
 
 ---
 
-### Chat with the Meeting Session
+## 💬 Chat with the Meeting Session
 
 Interactive multi-turn chat tab (next to AI Analysis) with full meeting context.
 
@@ -357,7 +366,7 @@ Interactive multi-turn chat tab (next to AI Analysis) with full meeting context.
 
 ---
 
-### Bubble Notes
+## 📌 Bubble Notes
 
 Contextual annotation system synchronized with the recording.
 
@@ -371,7 +380,7 @@ Contextual annotation system synchronized with the recording.
 
 ---
 
-### Outlook Calendar (Neo UI)
+## 📅 Outlook Calendar (Neo UI)
 
 The **Calendar** button in the topbar opens a modal that reads today's meetings from one of three configurable sources (Settings → Integrations):
 
@@ -413,7 +422,7 @@ The modal has two switchable views:
 
 ---
 
-### Session Management
+## 💾 Session Management
 
 - Up to **15 sessions** stored in IndexedDB (browser local storage, no server)
 - Each session: audio chunks, transcript, LLM results, notes, chat history, statistics
@@ -424,7 +433,7 @@ The modal has two switchable views:
 
 ---
 
-### Export
+## 📤 Export
 
 | Format | Content |
 |--------|---------|
@@ -436,7 +445,7 @@ The modal has two switchable views:
 
 ---
 
-### Statistics & Monitoring
+## 📊 Statistics & Monitoring
 
 - Token count (input/output) per API call
 - Text stats: characters, words, estimated tokens, size
@@ -446,7 +455,7 @@ The modal has two switchable views:
 
 ---
 
-### Animated Recording Favicon
+## 🔴 Animated Recording Favicon
 
 While recording, the browser tab favicon is replaced with a **canvas-animated red waveform**:
 
@@ -456,7 +465,10 @@ While recording, the browser tab favicon is replaced with a **canvas-animated re
 
 ---
 
-## Project Structure
+## 🗂️ Project Structure
+
+<details>
+<summary>📁 Click to expand</summary>
 
 ```
 audio-ai-assistant/
@@ -505,9 +517,11 @@ audio-ai-assistant/
 └── index.html                 # CSS variables (--neo-*), tooltip system
 ```
 
+</details>
+
 ---
 
-## Deployment scripts
+## 🛠️ Deployment Scripts
 
 | Script | Platform | Usage |
 |--------|----------|-------|
@@ -518,7 +532,7 @@ audio-ai-assistant/
 
 ---
 
-## Changelog
+## 📋 Changelog
 
 ### v1.93 — 2026-04-29
 
@@ -528,7 +542,8 @@ audio-ai-assistant/
 - Smart Pipeline: auto-transcription of chunks disabled when pipeline is off — chunks appear in queue but are not transcribed automatically
 - github_push.sh renamed to github.sh; added `--pull-force` parameter to overwrite local with remote after confirmation
 
----
+<details>
+<summary>📜 Older versions</summary>
 
 ### v1.91 — 2026-04-29
 
@@ -574,9 +589,12 @@ audio-ai-assistant/
 - Improved ZIP export: includes AI analysis HTML alongside transcript and audio.
 - Various UI polish and bug fixes.
 
+</details>
+
 ---
 
-## Technical Notes
+<details>
+<summary>🔧 Technical Notes</summary>
 
 ### State Management
 All state lives in `App.tsx` (~565 lines) and `pages/NewHome.tsx`. No Redux or Context API — props and callbacks are drilled down. The two page roots share identical hook calls; Neo UI re-renders the same child components inside glassmorphism card wrappers.
@@ -603,3 +621,11 @@ In **Settings → LLM Configuration**, the Google provider section now exposes:
 
 ### Path Alias
 `@/` maps to the project root in both `tsconfig.json` and `vite.config.ts`.
+
+</details>
+
+---
+
+<div align="center">
+<sub>Built with ❤️ by Carmelo Battiato &nbsp;·&nbsp; Powered by Google Gemini &nbsp;·&nbsp; No server, no tracking</sub>
+</div>

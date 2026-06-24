@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.119] — 2026-06-24
+
+- Rimosso `TranscriptionQuality` enum e campo `quality` da `TranscriptionSettings` — era solo variazione di prompt, nessun effetto reale su velocità o modello
+- `transcriptionService`: prompt accuratezza massima sempre fisso (era condizionale su LEVEL_5)
+- `SettingsPanel`, `TranscriptionTab`: rimosso selector "Quality Level"
+- `README.md`: redesign visivo — hero section con badge shields.io, emoji per sezioni, tabelle stack con badge, sezioni collassabili (Project Structure, Changelog, Technical Notes), footer
+
+---
+
 ## [1.118] — 2026-06-24
 
 - Settings > General: card "Aggiornamento App" con verifica versione remota via `raw.githubusercontent.com` e apply via `git fetch + reset --hard`

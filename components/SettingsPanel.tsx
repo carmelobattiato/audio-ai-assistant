@@ -5,7 +5,7 @@ import { Button } from './common/Button';
 import { Select } from './common/Select';
 import { Input } from './common/Input';
 import { Checkbox } from './common/Checkbox';
-import { AppSettings, CustomInstruction, TranscriptionQuality, SupportedLanguage, TranscriptionOutputFormat, ModelInfo, Theme } from '../types';
+import { AppSettings, CustomInstruction, SupportedLanguage, TranscriptionOutputFormat, ModelInfo, Theme } from '../types';
 import { DEFAULT_SETTINGS, LLM_PROVIDERS } from '../constants';
 import { loggingService } from '../services/loggingService';
 
@@ -344,8 +344,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       { value: Theme.DARK_GREY, label: 'Dark Grey Mode' },
   ];
 
-  const transcriptionQualityOptions = Object.values(TranscriptionQuality).map(q => ({ value: q, label: q }));
-  const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l => ({ value: l, label: l }));
+const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l => ({ value: l, label: l }));
   const outputFormatOptions = Object.values(TranscriptionOutputFormat).map(f => ({ value: f, label: f.toUpperCase() }));
 
   const providerOptions = Object.keys(LLM_PROVIDERS).map(p => ({ value: p, label: p }));
@@ -1048,15 +1047,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 value={localSettings.transcription.language}
                 onChange={(e) => handleLocalGenericChange('transcription', 'language', e.target.value as SupportedLanguage)}
               />
-              <Select
-                label="Quality Level (Google Only):"
-                id="transcriptionQuality"
-                options={transcriptionQualityOptions}
-                value={localSettings.transcription.quality}
-                onChange={(e) => handleLocalGenericChange('transcription', 'quality', e.target.value as TranscriptionQuality)}
-                disabled={localSettings.llm.provider !== 'Google'}
-              />
-              <Select
+<Select
                 label="Output Format (for saving):"
                 id="transcriptionOutputFormat"
                 options={outputFormatOptions}

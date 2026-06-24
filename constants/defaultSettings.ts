@@ -1,5 +1,5 @@
 
-import { AppSettings, CustomInstruction, SystemPrompt, SupportedLanguage, TranscriptionQuality, TranscriptionOutputFormat, Theme } from '../types';
+import { AppSettings, CustomInstruction, SystemPrompt, SupportedLanguage, TranscriptionOutputFormat, Theme } from '../types';
 import { LLM_PROVIDERS } from './appConfig';
 
 export const DEFAULT_AUDIO_SETTINGS: AppSettings['audio'] = {
@@ -22,7 +22,6 @@ export const DEFAULT_AUDIO_SETTINGS: AppSettings['audio'] = {
 
 export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
   language: "Italian" as SupportedLanguage,
-  quality: TranscriptionQuality.LEVEL_3,
   outputFormat: TranscriptionOutputFormat.TXT,
   attemptSpeakerDiarization: true,
   approximateSpeakerCount: 0,

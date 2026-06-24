@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TranscriptionSettings, SupportedLanguage, TranscriptionQuality, TranscriptionOutputFormat } from '../../types';
+import { TranscriptionSettings, SupportedLanguage, TranscriptionOutputFormat } from '../../types';
 import { Select } from '../common/Select';
 import { Checkbox } from '../common/Checkbox';
 
@@ -43,14 +43,8 @@ export const TranscriptionTab: React.FC<TranscriptionTabProps> = ({ settings, on
       />
     </div>
 
-    <Select
-      label="Transcription Quality"
-      options={Object.values(TranscriptionQuality).map(q => ({ value: q, label: q }))}
-      value={settings.quality}
-      onChange={(e) => onChange('quality', e.target.value)}
-    />
 
-    <div className="p-3 bg-gray-700 rounded-lg space-y-3 border border-gray-600">
+<div className="p-3 bg-gray-700 rounded-lg space-y-3 border border-gray-600">
       <Checkbox 
         label="Real-time Live Transcript (Google Only)" 
         checked={settings.enableRealtimeTranscription ?? false}

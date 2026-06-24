@@ -127,13 +127,6 @@ export interface UseAudioRecorderResult {
   chunkStartElapsedTime: number;
 }
 
-export enum TranscriptionQuality {
-  LEVEL_1 = "Level 1 (Fastest, Basic)",
-  LEVEL_2 = "Level 2 (Faster, Good)",
-  LEVEL_3 = "Level 3 (Balanced)",
-  LEVEL_4 = "Level 4 (Better, Detailed)",
-  LEVEL_5 = "Level 5 (Best, Slower)",
-}
 
 export type SupportedLanguage = "English" | "Italian";
 
@@ -168,7 +161,6 @@ export interface AudioSettings {
 
 export interface TranscriptionSettings {
   language: SupportedLanguage;
-  quality: TranscriptionQuality;
   outputFormat: TranscriptionOutputFormat;
   attemptSpeakerDiarization: boolean;
   approximateSpeakerCount: number;

@@ -3,7 +3,7 @@
 
 import { llmService } from './geminiService';
 import { blobToBase64, getMimeTypeFromBlob } from '../utils/audioUtils';
-import { TranscriptionQuality, SupportedLanguage, TranscriptionSettings, AppSettings, CustomInstruction } from '../types';
+import { SupportedLanguage, TranscriptionSettings, AppSettings, CustomInstruction } from '../types';
 
 export const transcriptionService = {
   transcribe: async (
@@ -14,8 +14,8 @@ export const transcriptionService = {
     transcriptionPromptTemplate?: string,
     customInstructions?: CustomInstruction[],
   ): Promise<{ transcription: string, usageMetadata?: { inputTokens: number, outputTokens: number, totalTokens: number } }> => {
-    const { language, quality, attemptSpeakerDiarization, approximateSpeakerCount, fileName } = settings;
-    console.log(`transcriptionService: Starting transcription. Language: ${language}, Quality: ${quality}, Diarization: ${attemptSpeakerDiarization}, Approx Speakers: ${approximateSpeakerCount}, FileName: ${fileName}`);
+    const { language, attemptSpeakerDiarization, approximateSpeakerCount, fileName } = settings;
+    console.log(`transcriptionService: Starting transcription. Language: ${language}, Diarization: ${attemptSpeakerDiarization}, Approx Speakers: ${approximateSpeakerCount}, FileName: ${fileName}`);
     try {
       const audioBase64 = await blobToBase64(audioBlob);
       let mimeTypeForApi = getMimeTypeFromBlob(audioBlob);
@@ -50,12 +50,7 @@ export const transcriptionService = {
       
       console.log(`transcriptionService: Audio Blob info - MimeType for API: ${mimeTypeForApi}, Size: ${audioBlob.size} bytes`);
 
-      let customInstruction = "";
-      if (quality === TranscriptionQuality.LEVEL_5) {
-        customInstruction = "Please provide the most accurate transcription possible, paying close attention to detail.";
-      } else if (quality === TranscriptionQuality.LEVEL_1) {
-        customInstruction = "Provide a quick transcription, prioritizing speed over absolute accuracy.";
-      }
+      let customInstruction = "Please provide the most accurate transcription possible, paying close attention to detail.";
       const activeRules = (customInstructions ?? []).filter(r => r.enabled);
       if (activeRules.length > 0) {
         customInstruction += `\n\nRegole personalizzate:\n${activeRules.map(r => `- ${r.text}`).join('\n')}`;
