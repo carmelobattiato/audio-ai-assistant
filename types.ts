@@ -268,6 +268,7 @@ export interface AppearanceSettings {
   userEmail: string;
   meetingNotificationsEnabled: boolean;
   meetingNotificationLeadMinutes: number;
+  githubRepoUrl: string;
 }
 
 export interface CustomInstruction {

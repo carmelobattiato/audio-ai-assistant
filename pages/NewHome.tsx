@@ -610,9 +610,10 @@ export const NewHome: React.FC = () => {
       const stored = localStorage.getItem(APP_SETTINGS_KEY);
       let settings: AppSettings = stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
 
-      // Migrate: fill missing audio/llm/transcription fields with defaults (handles newly added fields)
+      // Migrate: fill missing fields with defaults (handles newly added fields)
       settings = {
         ...settings,
+        appearance: { ...DEFAULT_SETTINGS.appearance, ...settings.appearance },
         audio: { ...DEFAULT_SETTINGS.audio, ...settings.audio },
         llm: { ...DEFAULT_SETTINGS.llm, ...settings.llm },
         transcription: { ...DEFAULT_SETTINGS.transcription, ...settings.transcription },

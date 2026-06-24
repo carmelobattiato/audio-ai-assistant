@@ -59,6 +59,7 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppSettings['appearance'] = {
   userEmail: '',
   meetingNotificationsEnabled: true,
   meetingNotificationLeadMinutes: 10,
+  githubRepoUrl: 'https://github.com/carmelobattiato/audio-ai-assistant',
 };
 
 export const DEFAULT_CUSTOM_INSTRUCTIONS: CustomInstruction[] = [];

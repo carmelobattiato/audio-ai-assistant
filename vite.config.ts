@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { spawn } from 'child_process';
@@ -306,6 +307,117 @@ function icsProxyPlugin() {
   };
 }
 
+function updatePlugin() {
+  return {
+    name: 'update-bridge',
+    configureServer(server: any) {
+      server.middlewares.use('/api/update', async (req: any, res: any, next: () => void) => {
+
+        // GET /api/update/check?repo=https://github.com/owner/repo
+        if (req.method === 'GET') {
+          const u = new URL(req.url, 'http://localhost');
+          const repoUrl = u.searchParams.get('repo') || '';
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          if (!repoUrl) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'URL non specificata' }));
+            return;
+          }
+          try {
+            // Supporta sia github.com/owner/repo che raw.githubusercontent.com/owner/repo/branch/path
+            let rawUrl: string;
+            let repoPageUrl: string;
+            const rawMatch = repoUrl.match(/raw\.githubusercontent\.com\/([^/]+\/[^/]+)(?:\/([^/]+))?(.*)/);
+            const ghMatch = repoUrl.match(/github\.com\/([^/]+\/[^/?#]+)/);
+            if (rawMatch) {
+              const ownerRepo = rawMatch[1];
+              const branch = rawMatch[2] ?? 'main';
+              const rest = rawMatch[3] ?? '';
+              rawUrl = rest.endsWith('.ts') || rest.endsWith('.js')
+                ? repoUrl
+                : `https://raw.githubusercontent.com/${ownerRepo}/${branch}/constants/appConfig.ts`;
+              repoPageUrl = `https://github.com/${ownerRepo}`;
+            } else if (ghMatch) {
+              rawUrl = `https://raw.githubusercontent.com/${ghMatch[1]}/main/constants/appConfig.ts`;
+              repoPageUrl = `https://github.com/${ghMatch[1]}`;
+            } else {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: 'URL non valida: usa github.com o raw.githubusercontent.com' }));
+              return;
+            }
+
+            const remoteRes = await fetch(rawUrl, { headers: { 'User-Agent': 'audio-ai-assistant' } });
+            if (!remoteRes.ok) throw new Error(`HTTP ${remoteRes.status} su ${rawUrl}`);
+            const remoteText = await remoteRes.text();
+            const remoteVersion = (remoteText.match(/APP_VERSION\s*=\s*"([^"]+)"/) || [])[1] || '';
+            if (!remoteVersion) throw new Error('APP_VERSION non trovata nel file remoto');
+
+            const src = fs.readFileSync(path.join(process.cwd(), 'constants/appConfig.ts'), 'utf8');
+            const localVersion = (src.match(/APP_VERSION\s*=\s*"([^"]+)"/) || [])[1] || '?';
+            const parseVer = (v: string) => v.split('.').map(Number);
+            const [lMaj = 0, lMin = 0] = parseVer(localVersion);
+            const [rMaj = 0, rMin = 0] = parseVer(remoteVersion);
+            const hasUpdate = rMaj > lMaj || (rMaj === lMaj && rMin > lMin);
+            res.end(JSON.stringify({ localVersion, remoteVersion, hasUpdate, releaseUrl: repoPageUrl }));
+          } catch (e: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: e.message }));
+          }
+          return;
+        }
+
+        // POST /api/update/apply — git fetch + reset --hard, NDJSON stream
+        if (req.method === 'POST') {
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+          const send = (obj: object) => { try { res.write(JSON.stringify(obj) + '\n'); } catch {} };
+
+          const runGit = (args: string[]) => new Promise<void>((resolve, reject) => {
+            const p = spawn('git', args, { cwd: process.cwd() });
+            let out = '';
+            p.stdout.on('data', (d: Buffer) => {
+              const msg = d.toString().trim();
+              if (msg) send({ step: args[0], msg });
+              out += msg;
+            });
+            p.stderr.on('data', (d: Buffer) => {
+              const msg = d.toString().trim();
+              if (msg) send({ step: args[0], msg });
+              out += msg;
+            });
+            p.on('close', (code: number) =>
+              code === 0 ? resolve() : reject(new Error(`git ${args[0]} fallito (code ${code})\n${out}`))
+            );
+            p.on('error', reject);
+          });
+
+          try {
+            send({ step: 'fetch', status: 'start' });
+            await runGit(['fetch', '--depth=1', 'origin', 'main']);
+            send({ step: 'fetch', status: 'done' });
+
+            send({ step: 'reset', status: 'start' });
+            await runGit(['reset', '--hard', 'origin/main']);
+            send({ step: 'reset', status: 'done' });
+
+            const action = typeof server.restart === 'function' ? 'reload' : 'manual_restart';
+            send({ step: 'complete', action });
+            res.end();
+
+            if (action === 'reload') setTimeout(() => server.restart(), 800);
+            else setTimeout(() => process.exit(0), 200);
+          } catch (e: any) {
+            send({ step: 'error', msg: e.message });
+            res.end();
+          }
+          return;
+        }
+
+        next();
+      });
+    },
+  };
+}
+
 // =============================================================================
 
 export default defineConfig(({ mode }) => {
@@ -324,7 +436,7 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
-    plugins: [react(), outlookPlugin(), icsProxyPlugin()],
+    plugins: [react(), outlookPlugin(), icsProxyPlugin(), updatePlugin()],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

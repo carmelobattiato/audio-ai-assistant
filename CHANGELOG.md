@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.118] — 2026-06-24
+
+- Settings > General: card "Aggiornamento App" con verifica versione remota via `raw.githubusercontent.com` e apply via `git fetch + reset --hard`
+- Tasto "Forza aggiornamento" sempre visibile dopo verifica, anche se già aggiornato
+- URL repository configurabile (default `https://github.com/carmelobattiato/audio-ai-assistant`), gestione raw URL automatica lato server
+- `AppearanceSettings`: aggiunto campo `githubRepoUrl`
+- `NewHome`: migrazione `appearance` aggiunta al merge dei defaults (fix campi nuovi non applicati da localStorage)
+- `vite.config.ts`: `updatePlugin` — endpoint `GET /api/update/check` e `POST /api/update/apply` con NDJSON streaming
+- `github.sh --pull-force`: mostra repo, branch e ultimi 5 commit remoti prima di chiedere conferma
+
+---
+
 ## [1.117] — 2026-06-24
 
 

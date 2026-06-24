@@ -122,6 +122,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }, [isOpen, initialTab]);
   const [aiRulesSubTab, setAiRulesSubTab] = useState<'user' | 'system'>('user');
 
+  // Update state
+  type UpdateStatus = 'idle' | 'checking' | 'ready' | 'updating' | 'done' | 'error';
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [updateInfo, setUpdateInfo] = useState<{ localVersion: string; remoteVersion: string; hasUpdate: boolean; releaseUrl: string } | null>(null);
+  const [updateLog, setUpdateLog] = useState<string[]>([]);
+
   // Live model fetch + test state
   const [fetchedLiveModels, setFetchedLiveModels] = useState<{ id: string; label: string }[]>([]);
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
@@ -427,6 +433,113 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   Le notifiche compaiono in-app (toast in alto a destra), nessun permesso browser/OS richiesto.
                 </span>
               </div>
+            </div>
+
+            {/* ── Aggiornamento App ── */}
+            <div className="space-y-3 p-3 bg-gray-700 rounded-md">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="text-sm font-semibold text-sky-300">Aggiornamento App</h3>
+                {updateInfo && (
+                  <span className="text-xs text-gray-400">
+                    Locale: <span className="text-gray-200">v{updateInfo.localVersion}</span>
+                    {updateInfo.hasUpdate
+                      ? <> → <span className="text-amber-400">v{updateInfo.remoteVersion} disponibile</span></>
+                      : <span className="text-green-400"> · aggiornato</span>}
+                  </span>
+                )}
+              </div>
+
+              <Input
+                label="Repository GitHub"
+                id="githubRepoUrl"
+                type="url"
+                placeholder="https://github.com/owner/repo"
+                value={localSettings.appearance?.githubRepoUrl ?? ''}
+                onChange={(e) => handleLocalGenericChange('appearance', 'githubRepoUrl', e.target.value.trim())}
+              />
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={!localSettings.appearance?.githubRepoUrl || updateStatus === 'checking' || updateStatus === 'updating'}
+                  onClick={async () => {
+                    setUpdateStatus('checking');
+                    setUpdateLog([]);
+                    setUpdateInfo(null);
+                    try {
+                      const r = await fetch(`/api/update/check?repo=${encodeURIComponent(localSettings.appearance?.githubRepoUrl || '')}`);
+                      const data = await r.json();
+                      if (data.error) throw new Error(data.error);
+                      setUpdateInfo(data);
+                      setUpdateStatus(data.hasUpdate ? 'ready' : 'idle');
+                    } catch (e: any) {
+                      setUpdateLog([`Errore: ${e.message}`]);
+                      setUpdateStatus('error');
+                    }
+                  }}
+                  className="text-xs px-3 py-1 rounded-md bg-gray-500 hover:bg-gray-400 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {updateStatus === 'checking' ? 'Verifica…' : 'Verifica aggiornamenti'}
+                </button>
+
+                {updateInfo && updateStatus !== 'checking' && updateStatus !== 'done' && (() => {
+                  const isReady = updateStatus === 'ready';
+                  const isUpdating = updateStatus === 'updating';
+                  const applyUpdate = async () => {
+                    setUpdateStatus('updating');
+                    setUpdateLog([]);
+                    try {
+                      const res = await fetch('/api/update/apply', { method: 'POST' });
+                      const reader = res.body!.getReader();
+                      const dec = new TextDecoder();
+                      let buf = '';
+                      while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buf += dec.decode(value, { stream: true });
+                        const lines = buf.split('\n');
+                        buf = lines.pop() ?? '';
+                        for (const line of lines) {
+                          if (!line.trim()) continue;
+                          try {
+                            const ev = JSON.parse(line);
+                            const label = ev.msg || `[${ev.step}] ${ev.status || ev.action || ''}`;
+                            setUpdateLog(l => [...l, label]);
+                            if (ev.step === 'complete') {
+                              setUpdateStatus('done');
+                              if (ev.action === 'reload') setTimeout(() => window.location.reload(), 1500);
+                            }
+                            if (ev.step === 'error') setUpdateStatus('error');
+                          } catch {}
+                        }
+                      }
+                    } catch (e: any) {
+                      setUpdateLog(l => [...l, `Errore: ${e.message}`]);
+                      setUpdateStatus('error');
+                    }
+                  };
+                  return (
+                    <button
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={applyUpdate}
+                      className={`text-xs px-3 py-1 rounded-md text-white disabled:opacity-40 ${isReady ? 'bg-amber-600 hover:bg-amber-500' : 'bg-gray-500 hover:bg-gray-400'}`}
+                    >
+                      {isUpdating ? 'Aggiornamento…' : isReady ? 'Applica aggiornamento' : 'Forza aggiornamento'}
+                    </button>
+                  );
+                })()}
+              </div>
+
+              {updateLog.length > 0 && (
+                <pre className="text-xs text-gray-400 bg-gray-800 rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                  {updateLog.join('\n')}
+                </pre>
+              )}
+
+              {updateStatus === 'done' && (
+                <p className="text-xs text-green-400">Aggiornamento completo. Ricarico la pagina…</p>
+              )}
             </div>
           </section>
         )}
