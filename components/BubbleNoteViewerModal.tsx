@@ -82,6 +82,7 @@ export const BubbleNoteViewerModal: React.FC<BubbleNoteViewerModalProps> = ({
         editor.removeEventListener('focus', updateActiveFormats);
       };
     }
+    return undefined;
   }, [isOpen, updateActiveFormats]);
 
   const applyFormat = (command: string) => {

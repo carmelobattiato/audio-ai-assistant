@@ -235,7 +235,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
                     {bubbleNotes.length === 0 ? (
                         <p className="text-xs text-gray-500 italic">No bubble notes recorded.</p>
                     ) : (
-                        bubbleNotes.map((note: BubbleNote, i: number) => (
+                        bubbleNotes.map((note: BubbleNote) => (
                             <div key={note.id} className="text-xs border-b border-gray-700 last:border-0 pb-2 mb-2">
                                 <span className="font-mono text-sky-400 mr-2">[{formatTime(note.recordingElapsedTime)}]</span>
                                 <span className="text-gray-300">{htmlToPlainText(note.contentHtml).slice(0, 80) || "(Image/Empty)"}</span>

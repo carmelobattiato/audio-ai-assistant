@@ -11,7 +11,7 @@ interface UseRecorderPlayerProps {
   onAudioDurationChange?: (duration: number) => void;
 }
 
-export const useRecorderPlayer = ({ finalAudioUrl, audioDuration, onAudioDurationChange }: UseRecorderPlayerProps) => {
+export const useRecorderPlayer = ({ finalAudioUrl, onAudioDurationChange }: UseRecorderPlayerProps) => {
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [volume, setVolume] = useState<number>(1.0);
   const [decodedAudioBuffer, setDecodedAudioBuffer] = useState<AudioBuffer | null>(null);
@@ -59,6 +59,7 @@ export const useRecorderPlayer = ({ finalAudioUrl, audioDuration, onAudioDuratio
       audioEl.addEventListener('timeupdate', handleTimeUpdate);
       return () => audioEl.removeEventListener('timeupdate', handleTimeUpdate);
     }
+    return undefined;
   }, [finalAudioUrl]);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TranscriptionSettings, SupportedLanguage, TranscriptionOutputFormat } from '../../types';
+import { TranscriptionSettings, TranscriptionOutputFormat } from '../../types';
 import { Select } from '../common/Select';
 import { Checkbox } from '../common/Checkbox';
 

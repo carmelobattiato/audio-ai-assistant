@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { BubbleNote } from '../../types';
 import { saveBlobToFile } from '../../utils/fileUtils';
 import { loggingService } from '../../services/loggingService';
@@ -46,7 +46,7 @@ export const useNoteEditor = (
   elapsedTime: number,
   bubbleNotes: BubbleNote[],
   onBubbleNotesChange: (notes: BubbleNote[]) => void,
-  pendingNoteHtml: string,
+  _pendingNoteHtml: string,
   onPendingNoteHtmlChange: (html: string) => void
 ) => {
   const inputRef = useRef<HTMLDivElement>(null);

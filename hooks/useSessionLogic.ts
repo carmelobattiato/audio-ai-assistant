@@ -2,19 +2,10 @@
 import { useCallback, useMemo } from 'react';
 import { db } from '../utils/db';
 import { saveBlobToFile } from '../utils/fileUtils';
-import { BubbleNote, ProcessedResult, LlmUsageStats, SavedSession } from '../types';
+import { SavedSession } from '../types';
 import { loggingService } from '../services/loggingService';
 
 export const useSessionLogic = (
-  audioBlob: Blob | null,
-  audioFileName: string,
-  recordingTitle: string,
-  activeSourceText: string,
-  bubbleNotes: BubbleNote[],
-  llmResultsHistory: ProcessedResult[],
-  llmProcessedText: string,
-  llmProcessingType: string,
-  llmUsageHistory: LlmUsageStats[],
   setIsBusy: (busy: boolean) => void,
   setAppUserMessage: (msg: string) => void,
   fetchSessions: () => void
@@ -77,7 +68,19 @@ export const useSessionLogic = (
       setAppUserMessage("Importing session...");
 
       const text = await file.text();
-      const sessionData = JSON.parse(text) as any;
+      type ImportedSession = {
+        id: string;
+        name: string;
+        data: {
+          audioBlobBase64?: string;
+          audioBlob?: Blob;
+          chunksBase64?: string[];
+          chunks?: Blob[];
+          [k: string]: unknown;
+        };
+        [k: string]: unknown;
+      };
+      const sessionData = JSON.parse(text) as ImportedSession;
 
       if (!sessionData.id || !sessionData.name || !sessionData.data) {
         throw new Error("Invalid session JSON format");
@@ -109,7 +112,7 @@ export const useSessionLogic = (
         sessionData.name = `[Imported] ${sessionData.name}`;
       }
 
-      await db.saveSession(sessionData as SavedSession);
+      await db.saveSession(sessionData as unknown as SavedSession);
       loggingService.info('SESSION_IMPORT_JSON', `Session imported from ${file.name}`, { name: sessionData.name });
       setAppUserMessage("Session imported successfully.");
     } catch (error) {

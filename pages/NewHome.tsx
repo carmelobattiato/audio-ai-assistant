@@ -132,7 +132,7 @@ export const NewHome: React.FC = () => {
   const [isBusy, setIsBusy] = useState(false);
   const [appUserMessage, setAppUserMessage] = useState<string | null>(null);
   const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(false);
-  const [autoSaveCountdown, setAutoSaveCountdown] = useState(10);
+  const [autoSaveCountdown] = useState(10);
   const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
   const [recordingChunks, setRecordingChunks] = useState<Blob[]>([]);
   const [coherenceAssessment, setCoherenceAssessment] = useState<string | null>(null);
@@ -378,8 +378,6 @@ export const NewHome: React.FC = () => {
   }, [transLogic.playbackFile]);
 
   const sessLogic = useSessionLogic(
-    audioBlob, audioFileName, finalEffectiveTitle, activeSourceText, bubbleNotes,
-    llmResultsHistory, llmProcessedText, llmProcessingType, llmUsageHistory,
     setIsBusy, setAppUserMessage, fetchSessions,
   );
 
@@ -546,6 +544,7 @@ export const NewHome: React.FC = () => {
       }, 100);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [transLogic.isTranscribing, transLogic.transcriptionError, transcribedText, pipelineStep]);
 
   useEffect(() => {
@@ -769,7 +768,7 @@ export const NewHome: React.FC = () => {
     }
   }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks, appSettings.transcription.enableAutoPipeline]);
 
-  const handleRecordingStop = useCallback(async (id: string, wasChunked: boolean, transcript?: string | null) => {
+  const handleRecordingStop = useCallback(async (_id: string, wasChunked: boolean, transcript?: string | null) => {
     let finalTranscript = transcribedText;
     if (transcript) { finalTranscript = transcript.replace(/\n/g, '<br />'); setTranscribedText(finalTranscript); }
 
@@ -1218,7 +1217,7 @@ export const NewHome: React.FC = () => {
 
   const playMeetingChime = useCallback(() => {
     try {
-      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctx) return;
       const ctx = new Ctx();
       const o = ctx.createOscillator();

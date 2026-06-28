@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { RecordingState, UseAudioRecorderOptions, UseAudioRecorderResult } from '../types';
 import { useRecorderTimer } from './recorder/useRecorderTimer';
 import { useMediaStreams } from './recorder/useMediaStreams';
@@ -28,7 +28,7 @@ function selectSupportedMimeType(): string {
  */
 export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioRecorderResult => {
   const {
-    settings, llmSettings, onChunkComplete, onRecordingStop,
+    settings, llmSettings,
     enableChunkedRecording, chunkIntervalSeconds, enableRealtimeTranscription,
     liveModel,
   } = options;
@@ -98,7 +98,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
   );
 
   const geminiApiKey = llmSettings?.googleApiKey?.trim() || process.env.API_KEY;
-  const liveTrans = useLiveTranscriptionLogic((text) => {}, { liveModel, apiKey: geminiApiKey });
+  const liveTrans = useLiveTranscriptionLogic((_text) => {}, { liveModel, apiKey: geminiApiKey });
 
   const cleanupAll = useCallback(() => {
     stopTimer();
@@ -192,7 +192,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     isStoppingRef.current = false;
     try {
       const { context, destination } = streams.setupAudioContext(enableRealtimeTranscription ? 16000 : undefined);
-      const { micStream, micSource } = await streams.getMicStream(context, destination, includeAppAudio);
+      const { micStream } = await streams.getMicStream(context, destination, includeAppAudio);
       
       if (enableRealtimeTranscription) await liveTrans.connectLiveSession(context, micStream, isPausedRef);
       

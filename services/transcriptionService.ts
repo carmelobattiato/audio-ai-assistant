@@ -3,7 +3,7 @@
 
 import { llmService } from './geminiService';
 import { blobToBase64, getMimeTypeFromBlob } from '../utils/audioUtils';
-import { SupportedLanguage, TranscriptionSettings, AppSettings, CustomInstruction } from '../types';
+import { TranscriptionSettings, AppSettings, CustomInstruction } from '../types';
 
 /**
  * Wrapper di trascrizione sopra `llmService.transcribeAudio`. Si occupa di:

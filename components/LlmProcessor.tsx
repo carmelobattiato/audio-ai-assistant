@@ -9,7 +9,7 @@ import { AppSettings, CustomInstruction, SystemPrompt, GroundingChunk, Supported
 import { resolvePrompt, getPromptText } from '../utils/promptUtils';
 import { RichTextEditorModal } from './RichTextEditorModal';
 import { EditIcon as EditPencilIcon, SaveIcon as CopyIcon, DownloadIcon } from '../constants'; 
-import { formatTime, htmlToPlainText, parseHtmlForGeminiParts, markdownToHtmlSimple } from '../utils/textUtils';
+import { formatTime, htmlToPlainText, markdownToHtmlSimple } from '../utils/textUtils';
 import { saveTextToFile, generateStandardMetadataHeader } from '../utils/fileUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 
@@ -67,7 +67,6 @@ const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
   currentLlmResult, 
   onLlmResultUpdate,
   settings,
-  transcriptionSettings,
   transcriptionLanguage,
   disabled,
   audioDuration,

@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './common/Button';
-import { Checkbox } from './common/Checkbox';
 import { Modal } from './common/Modal'; 
 import { SaveIcon, EditIcon, UploadIcon, StopIcon, ArrowUpIcon, ArrowDownIcon, PlayIcon, TrashIcon, DownloadIcon } from '../constants';
 import { saveTextToFile, parseTextFile, generateStandardMetadataHeader, saveBlobToFile } from '../utils/fileUtils';
@@ -51,7 +50,6 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
   settings,
   llmSettings,
   disabled,
-  onDiarizationSettingChange,
   audioRecordingStartTime,
   onTextFileProcessed,
   isAudioModeActive,
@@ -100,10 +98,6 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
       );
       saveTextToFile(activeSourceText, baseFileName, settings.outputFormat, metadataHeader || undefined);
     }
-  };
-
-  const handleDiarizationToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onDiarizationSettingChange(e.target.checked);
   };
 
   const handleOpenEditor = () => {

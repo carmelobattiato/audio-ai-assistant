@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { AutoPauseState, PipelineStep, WaveformStyle } from '../types';
 import { formatTime } from '../utils/textUtils';
 import { FreqWaveform } from './FreqWaveform';
@@ -257,9 +257,6 @@ export const PipRecordingWidget: React.FC<PipRecordingWidgetProps> = ({
   onStop, onScreenshot, onClose,
 }) => {
   const isActive = isRecording && (!isPaused || isAutoPaused);
-  const dotColor = isRecording
-    ? (isPaused || isAutoPaused ? '#FCD34D' : '#EF4444')
-    : '#4B5563';
   const pipelineLabel = PIPELINE_LABELS[pipelineStep];
 
   return (

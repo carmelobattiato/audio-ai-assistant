@@ -1,8 +1,8 @@
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { transcriptionService } from '../services/transcriptionService';
 import { getAudioBlobDuration } from '../utils/audioUtils';
-import { AppSettings, RecordingState, LlmUsageStats } from '../types';
+import { AppSettings, LlmUsageStats } from '../types';
 import { getPromptText } from '../utils/promptUtils';
 import { escapeHtml } from '../utils/sanitize';
 

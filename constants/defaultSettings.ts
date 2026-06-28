@@ -1,6 +1,5 @@
 
 import { AppSettings, CustomInstruction, SystemPrompt, SupportedLanguage, TranscriptionOutputFormat, Theme } from '../types';
-import { LLM_PROVIDERS } from './appConfig';
 
 export const DEFAULT_AUDIO_SETTINGS: AppSettings['audio'] = {
   bitrate: 128000,

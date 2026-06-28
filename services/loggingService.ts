@@ -20,7 +20,6 @@ const BATCH_INTERVAL_MS = 5000;
 class LoggingService {
   private logs: LogEntry[] = [];
   private buffer: LogEntry[] = [];
-  private flushTimer: ReturnType<typeof setInterval> | null = null;
   private listeners: ((logs: LogEntry[]) => void)[] = [];
 
   constructor() {
@@ -51,7 +50,7 @@ class LoggingService {
   }
 
   private startFlushTimer() {
-    this.flushTimer = setInterval(() => this.flushBuffer(), BATCH_INTERVAL_MS);
+    setInterval(() => this.flushBuffer(), BATCH_INTERVAL_MS);
   }
 
   private async flushBuffer() {
@@ -91,7 +90,7 @@ class LoggingService {
       },
       network: {
         online: navigator.onLine,
-        effectiveType: (navigator as any).connection?.effectiveType,
+        effectiveType: (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType,
       },
       context,
     };

@@ -73,6 +73,7 @@ export const RichTextEditorModal: React.FC<RichTextEditorModalProps> = ({
         updateActiveFormats();
       }, 0);
     }
+    return undefined;
   }, [isOpen, initialContent, updateActiveFormats]);
 
   useEffect(() => {
@@ -94,6 +95,7 @@ export const RichTextEditorModal: React.FC<RichTextEditorModalProps> = ({
         editor.removeEventListener('click', updateActiveFormats);
       };
     }
+    return undefined;
   }, [isOpen, updateActiveFormats]);
 
 

@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.123] — 2026-06-28
+
+- Infrastruttura test: Vitest + happy-dom (`vitest.config.ts`, script `test`/`test:watch`)
+- Test `geminiService`: rate limiter (attesa a finestra piena, no attesa sotto soglia), circuit breaker (trip dopo 3 errori, reset dopo successo), guardie config
+- Isolamento stato modulo nei test via `vi.resetModules()` + import dinamico; `loggingService` mockato
+- Test `useTranscriptionLogic` (React Testing Library + `renderHook`): coda (enqueue/dedup/reorder/remove/rename), flusso trascrizione (scrittura testo, usage stat, mark transcribed), errore `Error:` → `transcriptionError`, escape filename nell'header (XSS), `stopTranscription` (abort + notifica)
+- TS strict: abilitati `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`
+- Rimossi 5 `as any` (tipizzazione `webkitAudioContext`, `navigator.connection`, `inputTranscription.isFinal`, import JSON sessione)
+- Rimosso dead code (import/var/param morti) in ~18 file; `useEffect` con `return undefined` esplicito sui path mancanti
+
+---
+
 ## [1.122] — 2026-06-28
 
 - Docs: `ARCHITECTURE.md` (entry point, pipeline, layer, affidabilità API) e `docs/DB_SCHEMA.md` (schema IndexedDB)

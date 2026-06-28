@@ -80,8 +80,9 @@ export const useLiveTranscriptionLogic = (
 
           const chunk = msg.serverContent?.inputTranscription;
           if (chunk) {
-            loggingService.debug('LIVE_TRANS_TOKEN', `token="${chunk.text}" isFinal=${(chunk as any).isFinal}`);
-            if ((chunk as any).isFinal) {
+            const isFinal = (chunk as { isFinal?: boolean }).isFinal;
+            loggingService.debug('LIVE_TRANS_TOKEN', `token="${chunk.text}" isFinal=${isFinal}`);
+            if (isFinal) {
               realtimeTranscriptAccumulatorRef.current += chunk.text + ' ';
               setRealtimeTranscription(realtimeTranscriptAccumulatorRef.current);
               onTranscriptionUpdate(realtimeTranscriptAccumulatorRef.current);

@@ -2,8 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 
 export const useAutoScreenshot = (
-  isRecordingCurrentlyActive: boolean,
-  isScreenSharing: boolean,
+  _isRecordingCurrentlyActive: boolean,
+  _isScreenSharing: boolean,
   initialInterval: number,
   onTakeScreenshot: (isAuto: boolean) => void
 ) => {

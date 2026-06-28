@@ -195,7 +195,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         loggingService.debug('LIVE_MODEL_TEST', `${modelId}: closed code=${e.code} reason="${e.reason}"`);
         settle(e.code === 1000 || e.code === 1001 ? 'ok' : 'fail');
       };
-      ws.onerror = (e) => {
+      ws.onerror = (_e) => {
         clearTimeout(timer);
         loggingService.warn('LIVE_MODEL_TEST', `${modelId}: onerror`);
         settle('fail');

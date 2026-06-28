@@ -61,11 +61,6 @@ const PlayIcon = () => (
     <path d="M8 5.14v13.72a1 1 0 001.55.83l10-6.86a1 1 0 000-1.66l-10-6.86A1 1 0 008 5.14z" />
   </svg>
 );
-const RecordDotIcon = () => (
-  <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="8" />
-  </svg>
-);
 const UploadIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -358,6 +353,7 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
         setLocalAudioUrl(url);
         return () => URL.revokeObjectURL(url);
       }
+      return undefined;
     }, [audioBlob, props.transcriptionSettings.enableChunkedRecording]);
 
     // ── Handlers ─────────────────────────────────────────────────────────────

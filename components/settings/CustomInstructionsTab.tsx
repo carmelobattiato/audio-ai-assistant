@@ -4,7 +4,6 @@ import { CustomInstruction } from '../../types';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { TextArea } from '../common/TextArea';
-import { Checkbox } from '../common/Checkbox';
 
 interface CustomInstructionsTabProps {
   instructions: CustomInstruction[];
