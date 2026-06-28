@@ -10,8 +10,10 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [1.125] — 2026-06-28
 
+
 - B1 Phase 1: `contexts/SettingsContext.tsx` — `useReducer` per `appSettings + hasCustomApiKey + isReady`; init asincrono (localStorage migrate + IndexedDB decrypt), sync tema, `saveCustomApiKey`/`deleteCustomApiKey`/`persistSettings` come callback stabili; `<SettingsProvider>` in `index.tsx`; `NewHome` usa `useSettings()` (rimossi `APP_SETTINGS_KEY`, init effect settings, theme effect, `handleSaveCustomApiKey`, `handleDeleteCustomApiKey`)
 - B1 Phase 2: `contexts/UIStateContext.tsx` — 14 pezzi di stato UI estratti da `NewHome` (modal flags, `isBusy`, `appUserMessage`, `activeRightTab`, `leftWidthPct`, calendar flags); stessi nomi esposti via `useUIState()` → zero call-site changes in `NewHome`; `<UIStateProvider>` in `index.tsx`
+- B1 Phase 3: `contexts/SessionContext.tsx` — 28 pezzi di stato sessione estratti da `NewHome` (audio, trascrizione, LLM, pipeline FSM, bubble notes, recording state, saved sessions); azioni composte `resetSession`, `fetchSessions`, `addLlmUsageStat`; `resetAllDataStates` in `NewHome` semplificato a 4 righe; `<SessionProvider>` in `index.tsx`
 
 ---
 

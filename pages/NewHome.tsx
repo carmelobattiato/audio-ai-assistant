@@ -31,7 +31,6 @@ import { MeetingNotificationToasts } from '../components/MeetingNotificationToas
 import { MeetingNotificationBell } from '../components/MeetingNotificationBell';
 
 import {
-  TextFileContent,
   AppStatistics,
   CoherenceAssessmentStatus,
   SavedSession,
@@ -41,14 +40,12 @@ import {
   LlmUsageStats,
   SavedSessionData,
   SupportedLanguage,
-  ProcessedResult,
   PipelineStep,
-  MeetingChatMessage,
 } from '../types';
 
 import {
   countCharacters, countWords, estimateTokens,
-  htmlToPlainText, getCurrentTimestampSuffix,
+  htmlToPlainText,
 } from '../utils/textUtils';
 import {
   generateStandardMetadataHeader, generateAnalysisHtmlDocument, saveBlobToFile,
@@ -60,6 +57,7 @@ import { useRecordingFavicon } from '../hooks/useRecordingFavicon';
 import { useBatchedDbUpdate } from '../hooks/useBatchedDbUpdate';
 import { useSettings } from '../contexts/SettingsContext';
 import { useUIState } from '../contexts/UIStateContext';
+import { useSession } from '../contexts/SessionContext';
 
 const DocumentIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -98,34 +96,27 @@ export const NewHome: React.FC = () => {
     setStartChoiceModal, setViewingBubbleNoteId, setIsBusy, setAppUserMessage,
     setIsCalendarOpen, setIsNewCalendarOpen, setActiveRightTab, setLeftWidthPct,
   } = useUIState();
-  // ── State ────────────────────────────────────────────────────────────────
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [audioFileName, setAudioFileName] = useState<string>('');
-  const [audioDuration, setAudioDuration] = useState<number>(0);
-  const [audioRecordingStartTime, setAudioRecordingStartTime] = useState<Date | null>(null);
-  const [uploadedTextFileContent, setUploadedTextFileContent] = useState<TextFileContent | null>(null);
-  const [bubbleNotes, setBubbleNotes] = useState<BubbleNote[]>([]);
-  const [pendingNoteHtml, setPendingNoteHtml] = useState<string>('');
-  const [transcribedText, setTranscribedText] = useState<string>('');
-  const [activeSourceText, setActiveSourceText] = useState<string>('');
-  const [llmProcessedText, setLlmProcessedText] = useState<string>('');
-  const [llmProcessingType, setLlmProcessingType] = useState<string>('');
-  const [llmUsageHistory, setLlmUsageHistory] = useState<LlmUsageStats[]>([]);
-  const [llmResultsHistory, setLlmResultsHistory] = useState<ProcessedResult[]>([]);
-  const [meetingChatHistory, setMeetingChatHistory] = useState<MeetingChatMessage[]>([]);
-  const [recordingState, setRecordingState] = useState<RecordingState>(RecordingState.IDLE);
-  const [recordingTitle, setRecordingTitle] = useState<string>('');
-  const [recordingTimestampSuffix, setRecordingTimestampSuffix] = useState<string>(getCurrentTimestampSuffix());
-  const [pipelineStep, setPipelineStep] = useState<PipelineStep>(PipelineStep.IDLE);
-  const [llmAutoTrigger, setLlmAutoTrigger] = useState<number>(0);
+  // ── Session state (via SessionContext) ────────────────────────────────────
+  const {
+    audioBlob, setAudioBlob, audioFileName, setAudioFileName,
+    audioDuration, setAudioDuration, audioRecordingStartTime, setAudioRecordingStartTime,
+    uploadedTextFileContent, setUploadedTextFileContent, recordingChunks, setRecordingChunks,
+    recordingState, setRecordingState, recordingTitle, setRecordingTitle,
+    recordingTimestampSuffix, setRecordingTimestampSuffix,
+    isAutoSaveEnabled, setIsAutoSaveEnabled, autoSaveCountdown,
+    recordingElapsedTime, setRecordingElapsedTime, isScreenSharing, setIsScreenSharing,
+    meetingAttendees, setMeetingAttendees,
+    bubbleNotes, setBubbleNotes, pendingNoteHtml, setPendingNoteHtml,
+    transcribedText, setTranscribedText, activeSourceText, setActiveSourceText,
+    llmProcessedText, setLlmProcessedText, llmProcessingType, setLlmProcessingType,
+    llmUsageHistory, setLlmUsageHistory, llmResultsHistory, setLlmResultsHistory,
+    meetingChatHistory, setMeetingChatHistory,
+    coherenceAssessment, setCoherenceAssessment, coherenceStatus, setCoherenceStatus,
+    pipelineStep, setPipelineStep, llmAutoTrigger, setLlmAutoTrigger,
+    savedSessions,
+    resetSession, fetchSessions, addLlmUsageStat,
+  } = useSession();
   const wasTranscribingRef = useRef(false);
-
-  const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(false);
-  const [autoSaveCountdown] = useState(10);
-  const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
-  const [recordingChunks, setRecordingChunks] = useState<Blob[]>([]);
-  const [coherenceAssessment, setCoherenceAssessment] = useState<string | null>(null);
-  const [coherenceStatus, setCoherenceStatus] = useState<CoherenceAssessmentStatus>(CoherenceAssessmentStatus.IDLE);
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isInitialLoadingRef = useRef(false);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -139,13 +130,7 @@ export const NewHome: React.FC = () => {
   const clearTranscriptionQueueRef = useRef<() => void>(() => {});
   const pendingLinkAppointmentRef = useRef<{ id: string; subject: string } | null>(null);
 
-  // ── New UI state ──────────────────────────────────────────────────────────
-  const [recordingElapsedTime, setRecordingElapsedTime] = useState<number>(0);
-  const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false);
-
   const isOnline = useIsOnline();
-
-  const [meetingAttendees, setMeetingAttendees] = useState<Attendee[]>([]);
 
   // ── Calendar sync ───────────────────────────────────────────────────────
   const {
@@ -205,16 +190,7 @@ export const NewHome: React.FC = () => {
   const transcriptionSettings = useMemo(() => appSettings.transcription, [appSettings.transcription]);
   const llmSettings = useMemo(() => appSettings.llm, [appSettings.llm]);
 
-  // ── Callbacks (identical to App.tsx) ─────────────────────────────────────
-  const addLlmUsageStat = useCallback((stat: Omit<LlmUsageStats, 'timestamp'>) => {
-    setLlmUsageHistory(prev => [...prev, { ...stat, timestamp: Date.now() }]);
-  }, []);
-
-  const fetchSessions = useCallback(async () => {
-    const sessions = await db.getAllSessions();
-    setSavedSessions(sessions);
-  }, []);
-
+  // ── Callbacks ─────────────────────────────────────────────────────────────
   const handleRecordingStateChange = useCallback((state: RecordingState) => {
     setRecordingState(state);
     loggingService.info('RECORDING_STATE_CHANGE', `Recording state changed to ${state}`, { state });
@@ -243,23 +219,12 @@ export const NewHome: React.FC = () => {
   }, []);
 
   const resetAllDataStates = useCallback(async (opts?: { preserveBubbleNotes?: boolean }) => {
-    setAudioBlob(null); setAudioFileName(''); setAudioDuration(0); setAudioRecordingStartTime(null);
-    setUploadedTextFileContent(null); setTranscribedText(''); setActiveSourceText('');
-    if (!opts?.preserveBubbleNotes) {
-      setBubbleNotes([]);
-      setRecordingTitle('');
-      setRecordingTimestampSuffix(getCurrentTimestampSuffix());
-    }
-    setLlmProcessedText(''); setLlmProcessingType(''); setLlmUsageHistory([]); setLlmResultsHistory([]);
-    setMeetingChatHistory([]);
+    resetSession(opts);
     setAppUserMessage(null);
-    setCoherenceAssessment(null); setCoherenceStatus(CoherenceAssessmentStatus.IDLE);
-    setPipelineStep(PipelineStep.IDLE);
-    setRecordingChunks([]);
     recordingChunksRef.current = [];
     clearTranscriptionQueueRef.current();
     activeSessionIdRef.current = null;
-  }, []);
+  }, [resetSession]);
 
   const handleOutlookImport = useCallback((title: string, noteHtml: string, attendees: Attendee[] = []) => {
     setRecordingTitle(title);

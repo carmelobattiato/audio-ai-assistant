@@ -5,6 +5,7 @@ import { NewHome } from './pages/NewHome';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { UIStateProvider } from './contexts/UIStateContext';
+import { SessionProvider } from './contexts/SessionContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -16,7 +17,9 @@ ReactDOM.createRoot(rootElement).render(
     <ErrorBoundary variant="global" label="App">
       <SettingsProvider>
         <UIStateProvider>
-          <NewHome />
+          <SessionProvider>
+            <NewHome />
+          </SessionProvider>
         </UIStateProvider>
       </SettingsProvider>
     </ErrorBoundary>
