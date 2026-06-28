@@ -77,7 +77,21 @@ const waitForRateLimit = async (settings: LlmSettings) => {
   requestTimestamps.push(Date.now());
 };
 
+/**
+ * Unico gateway verso Gemini (e provider OpenAI-compatible).
+ * Centralizza: rate limiting (sliding window), circuit breaker (3 errori
+ * consecutivi → cooldown 120s), timeout abortabile, retry con backoff
+ * esponenziale, e token tracking. Vedi ARCHITECTURE.md § "Affidabilità API".
+ */
 export const llmService = {
+  /**
+   * Genera testo da un prompt (string o `Part[]`).
+   * @param promptOrParts Prompt testuale o parti multimodali.
+   * @param llmSettings Provider, modello, chiavi, rate limit, timeout, retry.
+   * @param systemInstruction Istruzione di sistema opzionale.
+   * @param signal AbortSignal per cancellare la richiesta.
+   * @returns Testo generato + grounding/usage metadata. In errore ritorna `{ text: "Error: …" }` (non lancia).
+   */
   generateText: async (
     promptOrParts: string | Part[],
     llmSettings: LlmSettings,
@@ -176,6 +190,12 @@ export const llmService = {
     return { text: "Error: LLM failed after retries." };
   },
 
+  /**
+   * Trascrive audio (base64) via Gemini speech-to-text. Solo provider Google.
+   * Supporta diarization (etichette speaker) e template prompt custom
+   * (`{{LANGUAGE}}`/`{{DIARIZATION}}`/`{{EXTRA}}`). Stesse policy di affidabilità
+   * di `generateText`. In errore ritorna `{ transcription: "Error: …" }` (non lancia).
+   */
   transcribeAudio: async (audioBase64: string, mimeType: string, language: string, llmSettings: LlmSettings, customInstruction?: string, attemptDiarization?: boolean, approximateSpeakerCount?: number, signal?: AbortSignal, promptTemplate?: string): Promise<{ transcription: string, usageMetadata?: UsageMetadata }> => {
     if (Date.now() < circuitBreakerTrippedUntil) return { transcription: "Error: Circuit breaker active." };
     const { provider, maxRetries = 3, timeout = 600 } = llmSettings;

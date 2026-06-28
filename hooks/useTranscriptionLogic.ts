@@ -12,6 +12,13 @@ interface QueuedFile {
   transcribed?: boolean;
 }
 
+/**
+ * Hook della pipeline di trascrizione. Gestisce la coda di blob/file audio e la
+ * invia a Gemini STT via `transcriptionService`: enqueue, reorder/remove, avvio
+ * manuale e automatico, trascrizione del singolo chunk, progress ed errori.
+ * Gli handler sono `useCallback`-stabili (leggono i valori mutabili da un
+ * `latestRef`) per non rompere la memoizzazione dei figli — vedi ASSESSMENT A6/A7.
+ */
 export const useTranscriptionLogic = (
   appSettings: AppSettings,
   audioBlob: Blob | null,

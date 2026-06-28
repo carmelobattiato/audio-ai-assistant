@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.122] — 2026-06-28
+
+- Docs: `ARCHITECTURE.md` (entry point, pipeline, layer, affidabilità API) e `docs/DB_SCHEMA.md` (schema IndexedDB)
+- Docs: JSDoc su `geminiService`, `transcriptionService`, `loggingService`, `useAudioRecorder`, `useTranscriptionLogic`
+- Fix `CLAUDE.md` obsoleto: god-component `NewHome.tsx` (non `App.tsx`), `MAX_SESSIONS` 15 (non 5)
+- `useAudioRecorder`: cleanup su unmount (mic stream, interval chunk, live session) per evitare leak se il component smonta durante la registrazione
+
+---
+
 ## [1.121] — 2026-06-28
 
 - Perf re-render: `React.memo` su `NeoRecordingPanel`, `BubbleNotes`, `TranscriptionView`, `LlmProcessor`

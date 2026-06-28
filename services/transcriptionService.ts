@@ -5,7 +5,20 @@ import { llmService } from './geminiService';
 import { blobToBase64, getMimeTypeFromBlob } from '../utils/audioUtils';
 import { SupportedLanguage, TranscriptionSettings, AppSettings, CustomInstruction } from '../types';
 
+/**
+ * Wrapper di trascrizione sopra `llmService.transcribeAudio`. Si occupa di:
+ * conversione blob→base64, rilevamento/normalizzazione del MIME type per
+ * browser/OS (inferito dal nome file se generico), risoluzione del template
+ * prompt e delle istruzioni custom, diarization. Delega affidabilità/retry al gateway.
+ */
 export const transcriptionService = {
+  /**
+   * @param audioBlob Blob audio da trascrivere.
+   * @param settings Lingua, diarization, numero speaker, nome file.
+   * @param llmSettings Config provider/modello (BYOK).
+   * @param signal AbortSignal opzionale.
+   * @returns Testo trascritto + usage metadata (token).
+   */
   transcribe: async (
     audioBlob: Blob,
     settings: TranscriptionSettings,

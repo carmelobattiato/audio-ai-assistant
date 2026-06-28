@@ -9,6 +9,14 @@ const MAX_LOCAL_LOGS = 500;
 const BATCH_SIZE = 10;
 const BATCH_INTERVAL_MS = 5000;
 
+/**
+ * Logger singleton client-side. Mantiene una history locale (max 500 entry, per
+ * la UI), fa il batch dei log verso un "remote appender" (oggi simulato) ogni
+ * 5s o ogni 10 entry, e installa handler globali `onerror` /
+ * `onunhandledrejection`. Espone `trace/debug/info/warn/error(event, message, context)`.
+ * Istanza unica esportata come `loggingService`; vive per tutta la durata dell'app
+ * (il `setInterval` di flush non viene mai fermato — voluto, non è un leak).
+ */
 class LoggingService {
   private logs: LogEntry[] = [];
   private buffer: LogEntry[] = [];

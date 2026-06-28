@@ -81,7 +81,8 @@
 - **Fix:** approccio pointer-based (avanza indice oldest, conta `length - oldest`), compattazione periodica.
 - **Guadagno stimato:** cleanup da O(n²) → ~O(1).
 
-#### A10 · MEDIO · Memory leak: stream / blob URL / interval
+#### A10 · MEDIO · Memory leak: stream / blob URL / interval ✅ FIXED
+> **Risolto.** `useAudioRecorder`: aggiunto cleanup su unmount (`useEffect` con ref a `cleanupAll`) → stop mic stream, `clearInterval` chunk, live session. Verificato che gli altri punti erano già a posto: blob URL già revocati in `fileUtils.ts:313/330` e `NeoRecordingPanel.tsx:359`; il `getDisplayMedia` fallito già ricade in `catch → cleanupAll`. `loggingService.setInterval` è singleton app-lifetime (non leak reale), lasciato com'è.
 - **File:** `hooks/useAudioRecorder.ts:174-226` (mic stream non chiuso se `getDisplayMedia` fallisce), `:103` (interval chunk non pulito su unmount); `services/loggingService.ts:46` (`setInterval` mai cleared, nessun `destroy()`); blob URL non sempre revocati (`fileUtils.ts:307-312`, `NeoRecordingPanel.tsx:357-359`)
 - **Fix:** cleanup immediato per-stream in catch; `clearInterval` in cleanup di unmount; metodo `destroy()` su loggingService; `URL.revokeObjectURL` in try/finally.
 
@@ -97,10 +98,10 @@
 | B4 | **Consolidare service layer** — gateway LLM unico con contratto `LlmRequest/Response/Error`; rate-limit + circuit breaker + token tracking in un posto; eliminare overlap gemini/transcription/llm | MEDIO | MEDIO (~15h) | `services/geminiService.ts`, `transcriptionService.ts` |
 | B5 | **Error boundary + errori async** — `ErrorBoundary` cattura solo render; errori async persi in `catch{ setAppUserMessage }`. `useErrorHandler` con `AppError` tipizzato + retry UI | MEDIO | MEDIO (~18h) | `components/ErrorBoundary.tsx`, +`hooks/useErrorHandler.ts` |
 | B6 | **Layer i18n** — stringhe IT hardcoded in 57 componenti; `language` controlla solo trascrizione. `useI18n` + dizionario `it/en` | LOW-MED | MEDIO (~20h) | +`i18n/messages.ts` |
-| B7 | **JSDoc + `ARCHITECTURE.md`** — hook/service senza doc; aggiungere diagramma flusso stato, schema DB, pipeline export | MEDIO | BASSO (~10h) | `services/*`, `hooks/*`, +`ARCHITECTURE.md` |
+| B7 ✅ | **JSDoc + `ARCHITECTURE.md`** — ✅ FIXED. Creato `ARCHITECTURE.md` (entry point, pipeline dati, layer, affidabilità API, vincoli). JSDoc sui service/hook chiave: `geminiService` (gateway + generateText/transcribeAudio), `transcriptionService`, `loggingService`, `useAudioRecorder`, `useTranscriptionLogic` (`useBatchedDbUpdate`/`db.dbOp` già documentati). | MEDIO | BASSO (~10h) | `services/*`, `hooks/*`, +`ARCHITECTURE.md` |
 | B8 | **Accessibilità** — solo 27 attr ARIA su 57 componenti; aggiungere `aria-label` ai controlli, `aria-live` al timer, `role="dialog"`+focus trap ai modali, keyboard nav | MEDIO | MEDIO (~15h) | 20+ componenti |
 | B9 | **Split `NewHome.tsx`** — 1843 righe → estrarre `useSessionManagement`, `useAiPipeline`, `useCalendarIntegration` + sub-componenti `RecordingLayout`, `ExportPanel` | MEDIO | MEDIO (~18h) | `pages/NewHome.tsx` |
-| B10 | **Doc/fix schema IndexedDB** — commentare indici, +`docs/DB_SCHEMA.md`, **correggere `CLAUDE.md` obsoleto + incoerenza `MAX_SESSIONS` (15 in `appConfig.ts:71` vs "5" nei docs)** | BASSO | BASSO (~7h) | `utils/db.ts`, `appConfig.ts`, `CLAUDE.md` |
+| B10 ✅ | **Doc/fix schema IndexedDB** — ✅ FIXED. Creato `docs/DB_SCHEMA.md` (store, indici, versioning, retention, concorrenza). Corretto `CLAUDE.md`: `App.tsx ~565` → `NewHome.tsx ~1860`, `MAX_SESSIONS` 5 → 15 (+ riferimenti a `MAX_SESSION_SIZE_MB`/`MAX_FILE_SIZE_MB`). | BASSO | BASSO (~7h) | `utils/db.ts`, `constants/appConfig.ts`, `CLAUDE.md` |
 
 ---
 

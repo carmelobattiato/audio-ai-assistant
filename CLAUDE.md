@@ -67,7 +67,7 @@ Mic + System Audio
 
 ### State Management
 
-All state lives in `App.tsx` (~565 lines). There is no Redux or Context API — props and callbacks are drilled down. `App.tsx` coordinates the major async pipelines: recording → transcription queue → LLM processing.
+Most coordination lives in `pages/NewHome.tsx` (~1860 lines, the app's god-component). There is no Redux or Context API — props and callbacks are drilled down. `NewHome.tsx` coordinates the major async pipelines: recording → transcription queue → LLM processing.
 
 ### Key Layers
 
@@ -84,8 +84,9 @@ All state lives in `App.tsx` (~565 lines). There is no Redux or Context API — 
 - Handles MIME type detection per browser/OS
 
 **Session Persistence** (`utils/db.ts`)
-- IndexedDB via `idb` library; max 5 sessions (oldest auto-deleted)
+- IndexedDB via `idb` library; max 15 sessions (`MAX_SESSIONS` in `constants/appConfig.ts`, oldest auto-deleted)
 - Sessions are marked **Interrupted** on app reload if they were In Progress, allowing recovery
+- Schema (stores, indexes, versioning) documented in `docs/DB_SCHEMA.md`
 
 **Export** (`utils/fileUtils.ts`)
 - Generates SRT (subtitles), CSV, styled HTML reports, and ZIP archives containing all of the above
@@ -101,6 +102,6 @@ All state lives in `App.tsx` (~565 lines). There is no Redux or Context API — 
 
 ### Notable Constraints
 
-- Max session storage: 50 MB per session; max file upload: 100 MB
-- Max 5 saved sessions in IndexedDB
+- Max session storage: 50 MB per session (`MAX_SESSION_SIZE_MB`); max file upload: 100 MB (`MAX_FILE_SIZE_MB`)
+- Max 15 saved sessions in IndexedDB (`MAX_SESSIONS`)
 - Rate limit default: 15 Gemini requests per 60 seconds (configurable in Settings)

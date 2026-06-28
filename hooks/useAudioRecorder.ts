@@ -17,6 +17,15 @@ function selectSupportedMimeType(): string {
   return PREFERRED_MIME_TYPES[0] ?? 'audio/webm';
 }
 
+/**
+ * Hook orchestratore della registrazione audio.
+ * Coordina i sotto-hook di `hooks/recorder/` (media streams, timer, auto-pause,
+ * live transcription) e il `MediaRecorder`. Gestisce: registrazione mic + audio
+ * di sistema, chunked recording (default 15 min), pause/resume, auto-stop, e
+ * cleanup completo su stop e su unmount del component (stream, interval, live session).
+ * @param options Settings, callback (`onChunkComplete`, `onRecordingStop`, …), flag chunk/realtime.
+ * @returns Stato + comandi (`startRecording`, `stopRecording`, `pause/resume`, `forceNewChunk`, …) e i ref agli analyser per la visualizzazione.
+ */
 export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioRecorderResult => {
   const {
     settings, llmSettings, onChunkComplete, onRecordingStop,
@@ -97,6 +106,12 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     streams.cleanupStreams();
     liveTrans.cleanupLiveSession();
   }, [stopTimer, streams, liveTrans]);
+
+  // Unmount cleanup: stop streams/interval/live session if component unmounts mid-recording.
+  // Via ref so identity changes of cleanupAll don't tear down an active recording.
+  const cleanupAllRef = useRef(cleanupAll);
+  cleanupAllRef.current = cleanupAll;
+  useEffect(() => () => { cleanupAllRef.current(); }, []);
 
   const restartChunkTimer = useCallback((intervalSeconds: number) => {
     if (chunkIntervalTimerRef.current) clearInterval(chunkIntervalTimerRef.current);
