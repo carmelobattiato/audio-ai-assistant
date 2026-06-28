@@ -44,7 +44,7 @@ interface TranscriptionViewProps {
   onTranscribeChunk: (index: number) => void;
 }
 
-export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
+const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
   audioBlob,
   audioFileName,
   recordingTitle,
@@ -410,3 +410,4 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
     </div>
   );
 };
+export const TranscriptionView = React.memo(TranscriptionViewBase);

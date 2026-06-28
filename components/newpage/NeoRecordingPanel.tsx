@@ -243,7 +243,7 @@ const NeoAudioGuideModal: React.FC<{
 );
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecordingPanelProps>(
+const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPanelProps>(
   (props, ref) => {
     const [showAutoStopNotification, setShowAutoStopNotification] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
@@ -997,4 +997,5 @@ export const NeoRecordingPanel = React.forwardRef<AudioRecorderRef, NeoRecording
   },
 );
 
-NeoRecordingPanel.displayName = 'NeoRecordingPanel';
+NeoRecordingPanelBase.displayName = 'NeoRecordingPanel';
+export const NeoRecordingPanel = React.memo(NeoRecordingPanelBase);

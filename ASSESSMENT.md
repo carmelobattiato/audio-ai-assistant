@@ -46,24 +46,36 @@
 
 ### 🟠 Performance
 
-#### A6 · ALTO · Re-render dell'intero albero ad ogni cambio di stato
+#### A6 · ALTO · ✅ FIXED · Re-render dell'intero albero ad ogni cambio di stato
+> **Risolto (con A7).** `React.memo` sui 4 figli pesanti (`NeoRecordingPanel`, `BubbleNotes`, `TranscriptionView`, `LlmProcessor` — i due `forwardRef` wrappati `memo(forwardRef(...))`). Props stabilizzate: handler inline in `NewHome` estratti in `useCallback`, `customInstructions`/`systemPrompts` `?? []` in `useMemo`. Gli handler di `useTranscriptionLogic` (`handleStartTranscription`, `handleTranscribeSingleChunk`, `handleFilesSelected`, `handleReorder/RemoveFromQueue`, internals) resi `useCallback`-stabili leggendo i valori mutabili da un `latestRef` (no stale closure). `npm run lint` verde.
+
+#### A6 (orig) · ALTO · Re-render dell'intero albero ad ogni cambio di stato
 - **File:** `pages/NewHome.tsx` (~102 `useState`)
 - **Problema:** ogni `setX` ri-renderizza tutto il sottoalbero; figli (`NeoRecordingPanel`, `TranscriptionView`, `LlmProcessor`, `BubbleNotes`) ricevono decine di props, quasi nessun `React.memo`.
 - **Fix:** `React.memo` sui 4 figli pesanti + stabilizzare le props (vedi A7). Lungo termine: Context/useReducer (Miglioria #1).
 - **Guadagno stimato:** -60/70% render per interazione.
 
-#### A7 · ALTO · Props inline (oggetti/funzioni nuove ogni render)
+#### A7 · ALTO · ✅ FIXED · Props inline (oggetti/funzioni nuove ogni render)
+> **Risolto insieme ad A6.** Tutte le arrow/oggetti inline passati ai 4 figli memoizzati estratti in `useCallback`/`useMemo`. Vedi A6.
+
+#### A7 (orig) · ALTO · Props inline (oggetti/funzioni nuove ogni render)
 - **File:** `pages/NewHome.tsx:1510,1513,1517,1598,1630,1663`
 - **Problema:** arrow function e object literal inline → nuova reference ogni render, annulla qualsiasi `React.memo`.
 - **Fix:** estrarre in `useCallback`; oggetti settings in `useMemo` (es. `llmSettingsForChat`).
 
-#### A8 · ALTO · IndexedDB write storm
+#### A8 · ALTO · ✅ GIÀ FIXED · IndexedDB write storm
+> **Già risolto** (codice evoluto dopo l'assessment). `hooks/useBatchedDbUpdate.ts`: i 4 `scheduleDbUpdate` (name, bubbleNotes, transcript, chat) alimentano lo stesso `pendingRef` con merge per-campo (`Object.assign`) e **1 timer condiviso** → coalescono in 1 sola write per finestra 500ms (no burst). Write critiche (stop/pause/chunk) chiamano `flushDbUpdate()` immediato → no perdita dati. Residuo: `updateSessionIncremental` riscrive l'intero record (incl. chunks audio) ad ogni put — limite IndexedDB (no update parziale); evitarlo richiede store audio separato (B-tier, B/R sfavorevole ora).
+
+#### A8 (orig) · ALTO · IndexedDB write storm
 - **File:** `pages/NewHome.tsx:481-505`
 - **Problema:** 4 `useEffect`→`scheduleDbUpdate` separati (title, bubbleNotes, transcript, chat) → burst di scritture ogni 500ms; `db.ts:148-167` ri-serializza l'intera sessione (con blob audio) ad ogni scrittura.
 - **Fix:** consolidare in 1 update batched (oggetto `useMemo`), debounce 1000ms per edit non critici, scrivere solo i campi cambiati.
 - **Guadagno stimato:** -50% latenza DB.
 
-#### A9 · MEDIO · Rate limiter O(n²) + array illimitato
+#### A9 · MEDIO · ✅ FIXED · Rate limiter O(n²) + array illimitato
+> **Risolto (minimo).** Loop di `shift()` ripetuti → conteggio scaduti + 1 `splice(0, expired)`. Stessa semantica (timestamps ordinati asc), zero rischio off-by-one, no pointer/compaction. Nota: array già bounded ~`rateLimitRequests` (~15), guadagno reale microperf. `npm run lint` verde.
+
+#### A9 (orig) · MEDIO · Rate limiter O(n²) + array illimitato
 - **File:** `services/geminiService.ts:56-76`
 - **Problema:** `requestTimestamps.shift()` in while loop (`shift` è O(n)) e array senza cap.
 - **Fix:** approccio pointer-based (avanza indice oldest, conta `length - oldest`), compattazione periodica.

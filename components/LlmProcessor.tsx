@@ -60,7 +60,7 @@ export interface LlmProcessorRef {
   stopProcessing: () => void;
 }
 
-export const LlmProcessor = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
+const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
   sourceText,
   bubbleNotes,
   onProcessingComplete,
@@ -610,3 +610,5 @@ Se una sezione è vuota scrivi "Nessuno."${defaultCustomContextAddition}`);
     </div>
   );
 });
+LlmProcessorBase.displayName = 'LlmProcessor';
+export const LlmProcessor = React.memo(LlmProcessorBase);

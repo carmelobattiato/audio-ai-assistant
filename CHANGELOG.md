@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.121] — 2026-06-28
+
+- Perf re-render: `React.memo` su `NeoRecordingPanel`, `BubbleNotes`, `TranscriptionView`, `LlmProcessor`
+- `NewHome`: handler inline (stop playback, toggle auto-save/auto-pipeline, reset, screenshot, diarization) estratti in `useCallback`; `customInstructions`/`systemPrompts` in `useMemo`
+- `useTranscriptionLogic`: handler resi `useCallback`-stabili via `latestRef` (identità stabile per le memo, no stale closure)
+- `geminiService`: rate limiter pulisce i timestamp scaduti con 1 `splice` invece di `shift` ripetuti
+
+---
+
 ## [1.120] — 2026-06-28
 
 - Sanitizzazione XSS via DOMPurify su output LLM/trascrizioni renderizzati con `dangerouslySetInnerHTML` (`TranscriptionView`, `LlmProcessor`, `MeetingChatPanel`, `BubbleNoteViewerModal`)
@@ -16,6 +25,7 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 - Helper `utils/sanitize.ts` (`sanitizeHtml`, `escapeHtml`)
 - Fix vulnerabilità dipendenze: `vite` 6.4.2→6.4.3, `protobufjs` 7.6.1→7.6.4 (`npm audit fix`)
 - Error handling IndexedDB: helper `dbOp` avvolge ogni op di `utils/db.ts` in try/catch, logga `DB_ERROR` via `loggingService` e propaga l'errore alla UI (no fallimenti silenziosi su quota exceeded / DB corrotto)
+- `NewHome`: `saveSession` di avvio registrazione protetto — su errore DB annulla la sessione e mostra messaggio utente invece di avviare una registrazione fantasma
 
 ---
 

@@ -897,6 +897,17 @@ export const NewHome: React.FC = () => {
     return true;
   }, [resetAllDataStates, finalEffectiveTitle, pendingNoteHtml, appSettings, transcribedText, llmProcessedText, audioBlob, transLogic.transcriptionQueue.length]);
 
+  // ── Stable handlers/props for memoized heavy children (A6/A7) ──────────────
+  const handleStopPlayback = useCallback(() => transLogic.setPlaybackFile(null), [transLogic.setPlaybackFile]);
+  const handleToggleAutoSave = useCallback(() => setIsAutoSaveEnabled(p => !p), []);
+  const handleReset = useCallback(async () => { await resetAllDataStates(); audioRecorderRef.current?.resetRecording(); }, [resetAllDataStates]);
+  const handleToggleAutoPipeline = useCallback((val: boolean) => setAppSettings(p => ({ ...p, transcription: { ...p.transcription, enableAutoPipeline: val } })), [setAppSettings]);
+  const handleTakeScreenshot = useCallback((isAuto: boolean) => { audioRecorderRef.current?.handleTakeScreenshot(isAuto); setIsScreenSharing(audioRecorderRef.current?.getIsScreenSharing() ?? false); }, []);
+  const handleDiarizationSettingChange = useCallback((v: boolean) => setAppSettings(p => ({ ...p, transcription: { ...p.transcription, attemptSpeakerDiarization: v } })), [setAppSettings]);
+  const noop = useCallback(() => {}, []);
+  const customInstructionsStable = useMemo(() => appSettings.customInstructions ?? [], [appSettings.customInstructions]);
+  const systemPromptsStable = useMemo(() => appSettings.systemPrompts ?? [], [appSettings.systemPrompts]);
+
   // ── Right tabs definition ─────────────────────────────────────────────────
   const rightTabs = useMemo(() => [
     { id: 'notes',      label: 'Notes', icon: <NotesIcon />,
@@ -1510,21 +1521,21 @@ export const NewHome: React.FC = () => {
             pendingNoteHtml={pendingNoteHtml}
             onPendingNoteHtmlChange={setPendingNoteHtml}
             externalAudioUrl={playbackUrl}
-            onStopPlayback={() => transLogic.setPlaybackFile(null)}
+            onStopPlayback={handleStopPlayback}
             viewingBubbleNoteId={viewingBubbleNoteId}
             recordingTitle={recordingTitle}
             onRecordingTitleChange={setRecordingTitle}
             recordingTimestampSuffix={recordingTimestampSuffix}
             onRecordingTimestampSuffixChange={setRecordingTimestampSuffix}
             isAutoSaveEnabled={isAutoSaveEnabled}
-            onToggleAutoSave={() => setIsAutoSaveEnabled(!isAutoSaveEnabled)}
+            onToggleAutoSave={handleToggleAutoSave}
             autoSaveCountdown={autoSaveCountdown}
             autoSaveInterval={appSettings.transcription.autoSaveIntervalSeconds ?? 10}
-            onReset={async () => { await resetAllDataStates(); audioRecorderRef.current?.resetRecording(); }}
+            onReset={handleReset}
             onLlmUsage={addLlmUsageStat}
             pipelineStep={pipelineStep}
             autoPipelineEnabled={appSettings.transcription.enableAutoPipeline ?? true}
-            onToggleAutoPipeline={(val: boolean) => setAppSettings(p => ({ ...p, transcription: { ...p.transcription, enableAutoPipeline: val } }))}
+            onToggleAutoPipeline={handleToggleAutoPipeline}
             chunksCount={recordingChunks.length}
             onElapsedTimeChange={setRecordingElapsedTime}
             onRealtimeTranscriptionChange={handleRealtimeTranscriptionChange}
@@ -1586,7 +1597,7 @@ export const NewHome: React.FC = () => {
               bubbleNotes={bubbleNotes}
               onBubbleNotesChange={setBubbleNotes}
               onOpenBubbleNote={setViewingBubbleNoteId}
-              onTakeScreenshot={(isAuto: boolean) => { audioRecorderRef.current?.handleTakeScreenshot(isAuto); setIsScreenSharing(audioRecorderRef.current?.getIsScreenSharing() ?? false); }}
+              onTakeScreenshot={handleTakeScreenshot}
               llmSettings={appSettings.llm}
               transcriptionSettings={appSettings.transcription}
               pendingNoteHtml={pendingNoteHtml}
@@ -1605,7 +1616,7 @@ export const NewHome: React.FC = () => {
               settings={appSettings.transcription}
               llmSettings={appSettings.llm}
               disabled={isBusy}
-              onDiarizationSettingChange={(v: boolean) => setAppSettings(p => ({ ...p, transcription: { ...p.transcription, attemptSpeakerDiarization: v } }))}
+              onDiarizationSettingChange={handleDiarizationSettingChange}
               audioRecordingStartTime={audioRecordingStartTime}
               onTextFileProcessed={setUploadedTextFileContent}
               isAudioModeActive={!!audioBlob || recordingChunks.length > 0}
@@ -1641,8 +1652,8 @@ export const NewHome: React.FC = () => {
               settings={appSettings.llm}
               transcriptionSettings={appSettings.transcription}
               transcriptionLanguage={appSettings.transcription.language}
-              customInstructions={appSettings.customInstructions ?? []}
-              systemPrompts={appSettings.systemPrompts ?? []}
+              customInstructions={customInstructionsStable}
+              systemPrompts={systemPromptsStable}
               meetingTitle={recordingTitle}
               meetingAttendees={meetingAttendees}
               disabled={isBusy}
@@ -1652,7 +1663,7 @@ export const NewHome: React.FC = () => {
               recordingTitle={finalEffectiveTitle}
               autoTrigger={llmAutoTrigger}
               isQuickProcessActive={pipelineStep === PipelineStep.ANALYZING}
-              onQuickProcessComplete={() => {}}
+              onQuickProcessComplete={noop}
               onProcessingError={handleLlmProcessingError}
               resultType={llmProcessingType}
             />

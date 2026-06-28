@@ -30,7 +30,7 @@ interface BubbleNotesProps {
   recordingTitle: string;
 }
 
-export const BubbleNotes: React.FC<BubbleNotesProps> = (props) => {
+const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
   const editor = useNoteEditor(
     props.isEditorEditable, props.elapsedTime, props.bubbleNotes, props.onBubbleNotesChange,
     props.pendingNoteHtml, props.onPendingNoteHtmlChange
@@ -132,3 +132,4 @@ export const BubbleNotes: React.FC<BubbleNotesProps> = (props) => {
     </div>
   );
 };
+export const BubbleNotes = React.memo(BubbleNotesBase);

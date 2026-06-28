@@ -34,6 +34,17 @@ export const useTranscriptionLogic = (
   const appSettingsRef = useRef(appSettings);
   appSettingsRef.current = appSettings;
 
+  // Latest mutable inputs/state read by the stable callbacks below — kept in a
+  // ref so handlers can be wrapped in useCallback (stable identity → consumers
+  // can React.memo) without going stale.
+  const latestRef = useRef({ audioBlob, audioFileName, audioRecordingStartTime, transcribedText, transcriptionQueue: [] as QueuedFile[], isTranscribing: false });
+  latestRef.current.audioBlob = audioBlob;
+  latestRef.current.audioFileName = audioFileName;
+  latestRef.current.audioRecordingStartTime = audioRecordingStartTime;
+  latestRef.current.transcribedText = transcribedText;
+  latestRef.current.transcriptionQueue = transcriptionQueue;
+  latestRef.current.isTranscribing = isTranscribing;
+
   const stopTranscription = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -43,7 +54,7 @@ export const useTranscriptionLogic = (
     }
   }, [setAppUserMessage]);
 
-  const handleFilesSelected = async (files: File[]) => {
+  const handleFilesSelected = useCallback(async (files: File[]) => {
     if (files.length > 0) {
       const newQueueItemsPromises = files.map(async (file) => {
         let duration: number | null = null;
@@ -61,9 +72,9 @@ export const useTranscriptionLogic = (
       return newQueueItems;
     }
     return [];
-  };
+  }, [setAppUserMessage]);
 
-  const processFilesInternal = async (filesToProcess: QueuedFile[]) => {
+  const processFilesInternal = useCallback(async (filesToProcess: QueuedFile[]) => {
     const pending = filesToProcess.filter(f => !f.transcribed);
     if (pending.length === 0) {
       setAppUserMessage("All chunks are already transcribed.");
@@ -75,7 +86,7 @@ export const useTranscriptionLogic = (
     setTranscriptionError(null);
     setPlaybackFile(null);
     abortControllerRef.current = new AbortController();
-    let accumulatedHtml = transcribedText || "";
+    let accumulatedHtml = latestRef.current.transcribedText || "";
     let hasError = false;
 
     try {
@@ -84,17 +95,18 @@ export const useTranscriptionLogic = (
         const { file } = item;
         setTranscriptionProgress({ current: i + 1, total: pending.length, filename: file.name });
         try {
-          const tSettings = { ...appSettings.transcription, fileName: file.name };
-          const txPromptTpl = getPromptText(appSettings.systemPrompts ?? [], 'transcription-main') || undefined;
-          const { transcription: result, usageMetadata } = await transcriptionService.transcribe(file, tSettings, appSettings.llm, abortControllerRef.current?.signal, txPromptTpl, appSettings.customInstructions);
+          const cfg = appSettingsRef.current;
+          const tSettings = { ...cfg.transcription, fileName: file.name };
+          const txPromptTpl = getPromptText(cfg.systemPrompts ?? [], 'transcription-main') || undefined;
+          const { transcription: result, usageMetadata } = await transcriptionService.transcribe(file, tSettings, cfg.llm, abortControllerRef.current?.signal, txPromptTpl, cfg.customInstructions);
 
           if (usageMetadata) {
             addLlmUsageStat({
               functionName: `Transcribe File (${file.name})`,
               inputTokens: usageMetadata.inputTokens,
               outputTokens: usageMetadata.outputTokens,
-              model: appSettings.llm.model,
-              provider: appSettings.llm.provider,
+              model: cfg.llm.model,
+              provider: cfg.llm.provider,
             });
           }
 
@@ -121,40 +133,42 @@ export const useTranscriptionLogic = (
       isAnyTranscribingRef.current = false;
       setAppUserMessage("Transcription complete.");
     }
-  };
+  }, [addLlmUsageStat, setAppUserMessage, setTranscribedText]);
 
-  const processSingleBlobInternal = async (blob: Blob, fileName: string, mode: 'replace' | 'append') => {
+  const processSingleBlobInternal = useCallback(async (blob: Blob, fileName: string, mode: 'replace' | 'append') => {
     setIsTranscribing(true);
     setTranscriptionProgress({ current: 1, total: 1, filename: fileName });
     setTranscriptionError(null);
     abortControllerRef.current = new AbortController();
     
     if (mode === 'replace') setTranscribedText("");
-    
+
     try {
-      const tSettings = { ...appSettings.transcription, fileName: fileName };
-      const txPromptTpl = getPromptText(appSettings.systemPrompts ?? [], 'transcription-main') || undefined;
-      const { transcription: result, usageMetadata } = await transcriptionService.transcribe(blob, tSettings, appSettings.llm, abortControllerRef.current?.signal, txPromptTpl, appSettings.customInstructions);
-      
+      const cfg = appSettingsRef.current;
+      const tSettings = { ...cfg.transcription, fileName: fileName };
+      const txPromptTpl = getPromptText(cfg.systemPrompts ?? [], 'transcription-main') || undefined;
+      const { transcription: result, usageMetadata } = await transcriptionService.transcribe(blob, tSettings, cfg.llm, abortControllerRef.current?.signal, txPromptTpl, cfg.customInstructions);
+
       if (usageMetadata) {
         addLlmUsageStat({
           functionName: 'Transcribe Recording',
           inputTokens: usageMetadata.inputTokens,
           outputTokens: usageMetadata.outputTokens,
-          model: appSettings.llm.model,
-          provider: appSettings.llm.provider,
+          model: cfg.llm.model,
+          provider: cfg.llm.provider,
         });
       }
-      
+
       if (result.startsWith("Error:")) {
         setTranscriptionError(result);
       } else {
         let finalResult = result;
-        if (tSettings.includeDateTimeInText && audioRecordingStartTime) {
-          finalResult = `Transcription Date: ${audioRecordingStartTime.toLocaleString()}\n\n---\n\n${result}`;
+        const startTime = latestRef.current.audioRecordingStartTime;
+        if (tSettings.includeDateTimeInText && startTime) {
+          finalResult = `Transcription Date: ${startTime.toLocaleString()}\n\n---\n\n${result}`;
         }
         const resultAsHtml = finalResult.replace(/\n/g, '<br />');
-        if (mode === 'append' && transcribedText) {
+        if (mode === 'append' && latestRef.current.transcribedText) {
           const separator = `<br><hr class='my-4 border-gray-600'><br><h3 class='text-sky-400'>Re-transcription (${new Date().toLocaleString()})</h3><br>`;
           setTranscribedText(prev => prev + separator + resultAsHtml);
         } else {
@@ -167,23 +181,24 @@ export const useTranscriptionLogic = (
       setIsTranscribing(false);
       setTranscriptionProgress({ current: 0, total: 0, filename: '' });
     }
-  };
+  }, [addLlmUsageStat, setAppUserMessage, setTranscribedText]);
 
-  const handleStartTranscription = async (mode: 'replace' | 'append' = 'replace') => {
-    if (transcriptionQueue.length > 0) {
-      await processFilesInternal(transcriptionQueue);
-    } else if (audioBlob) {
-      await processSingleBlobInternal(audioBlob, audioFileName, mode);
+  const handleStartTranscription = useCallback(async (mode: 'replace' | 'append' = 'replace') => {
+    const { transcriptionQueue: queue, audioBlob: blob, audioFileName: fileName } = latestRef.current;
+    if (queue.length > 0) {
+      await processFilesInternal(queue);
+    } else if (blob) {
+      await processSingleBlobInternal(blob, fileName, mode);
     }
-  };
+  }, [processFilesInternal, processSingleBlobInternal]);
 
-  const handleAutoStartTranscription = async (files?: QueuedFile[], blob?: Blob, fileName?: string) => {
+  const handleAutoStartTranscription = useCallback(async (files?: QueuedFile[], blob?: Blob, fileName?: string) => {
       if (files && files.length > 0) {
           await processFilesInternal(files);
       } else if (blob) {
           await processSingleBlobInternal(blob, fileName || "recording.webm", 'replace');
       }
-  };
+  }, [processFilesInternal, processSingleBlobInternal]);
 
   const drainAutoQueue = useCallback(async () => {
     if (autoQueueRunningRef.current) return;
@@ -251,26 +266,27 @@ export const useTranscriptionLogic = (
     drainAutoQueue();
   }, [drainAutoQueue]);
 
-  const handleTranscribeSingleChunk = async (index: number) => {
-    const item = transcriptionQueue[index];
-    if (!item || isTranscribing) return;
+  const handleTranscribeSingleChunk = useCallback(async (index: number) => {
+    const item = latestRef.current.transcriptionQueue[index];
+    if (!item || latestRef.current.isTranscribing) return;
     setIsTranscribing(true);
     setTranscriptionProgress({ current: 1, total: 1, filename: item.file.name });
     setTranscriptionError(null);
     abortControllerRef.current = new AbortController();
     try {
-      const tSettings = { ...appSettings.transcription, fileName: item.file.name };
-      const txTpl = getPromptText(appSettings.systemPrompts ?? [], 'transcription-main') || undefined;
+      const cfg = appSettingsRef.current;
+      const tSettings = { ...cfg.transcription, fileName: item.file.name };
+      const txTpl = getPromptText(cfg.systemPrompts ?? [], 'transcription-main') || undefined;
       const { transcription: result, usageMetadata } = await transcriptionService.transcribe(
-        item.file, tSettings, appSettings.llm, abortControllerRef.current?.signal, txTpl, appSettings.customInstructions
+        item.file, tSettings, cfg.llm, abortControllerRef.current?.signal, txTpl, cfg.customInstructions
       );
       if (usageMetadata) {
         addLlmUsageStat({
           functionName: `Transcribe Chunk (${item.file.name})`,
           inputTokens: usageMetadata.inputTokens,
           outputTokens: usageMetadata.outputTokens,
-          model: appSettings.llm.model,
-          provider: appSettings.llm.provider,
+          model: cfg.llm.model,
+          provider: cfg.llm.provider,
         });
       }
       if (!result.startsWith("Error:")) {
@@ -288,7 +304,7 @@ export const useTranscriptionLogic = (
       setIsTranscribing(false);
       setTranscriptionProgress({ current: 0, total: 0, filename: '' });
     }
-  };
+  }, [addLlmUsageStat, setAppUserMessage, setTranscribedText]);
 
   const renameQueueChunks = useCallback((titlePrefix: string): QueuedFile[] => {
     let renamed: QueuedFile[] = [];
@@ -313,7 +329,7 @@ export const useTranscriptionLogic = (
     });
   }, []);
 
-  const handleReorderQueue = (sourceIndex: number, destinationIndex: number) => {
+  const handleReorderQueue = useCallback((sourceIndex: number, destinationIndex: number) => {
     setTranscriptionQueue(prev => {
       const newQueue = [...prev];
       if (destinationIndex < 0 || destinationIndex >= newQueue.length) return newQueue;
@@ -321,11 +337,11 @@ export const useTranscriptionLogic = (
       if (removed) newQueue.splice(destinationIndex, 0, removed);
       return newQueue;
     });
-  };
+  }, []);
 
-  const handleRemoveFromQueue = (indexToRemove: number) => {
+  const handleRemoveFromQueue = useCallback((indexToRemove: number) => {
     setTranscriptionQueue(prev => prev.filter((_, index) => index !== indexToRemove));
-  };
+  }, []);
 
   return {
     transcriptionQueue,

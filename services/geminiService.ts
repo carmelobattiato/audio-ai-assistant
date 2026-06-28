@@ -58,9 +58,11 @@ const waitForRateLimit = async (settings: LlmSettings) => {
   const now = Date.now();
   const rateLimitWindowMs = rateLimitPeriodSeconds * 1000;
 
-  while (requestTimestamps.length > 0 && (requestTimestamps[0] ?? 0) < now - rateLimitWindowMs) {
-    requestTimestamps.shift();
-  }
+  // Drop expired timestamps in one splice (was: repeated O(n) shift in a loop)
+  const cutoff = now - rateLimitWindowMs;
+  let expired = 0;
+  while (expired < requestTimestamps.length && (requestTimestamps[expired] ?? 0) < cutoff) expired++;
+  if (expired > 0) requestTimestamps.splice(0, expired);
 
   if (requestTimestamps.length >= rateLimitRequests) {
     const oldestRequestTime = requestTimestamps[0] ?? now;
