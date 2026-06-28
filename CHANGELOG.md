@@ -8,6 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.120] — 2026-06-28
+
+- Sanitizzazione XSS via DOMPurify su output LLM/trascrizioni renderizzati con `dangerouslySetInnerHTML` (`TranscriptionView`, `LlmProcessor`, `MeetingChatPanel`, `BubbleNoteViewerModal`)
+- Sanitizzazione `htmlContent` e escape metadati (titolo, nome file) nell'export HTML (`fileUtils`)
+- Escape `file.name` negli header di trascrizione (`useTranscriptionLogic`)
+- Helper `utils/sanitize.ts` (`sanitizeHtml`, `escapeHtml`)
+- Fix vulnerabilità dipendenze: `vite` 6.4.2→6.4.3, `protobufjs` 7.6.1→7.6.4 (`npm audit fix`)
+- Error handling IndexedDB: helper `dbOp` avvolge ogni op di `utils/db.ts` in try/catch, logga `DB_ERROR` via `loggingService` e propaga l'errore alla UI (no fallimenti silenziosi su quota exceeded / DB corrotto)
+
+---
+
 ## [1.119] — 2026-06-24
 
 - Rimosso `TranscriptionQuality` enum e campo `quality` da `TranscriptionSettings` — era solo variazione di prompt, nessun effetto reale su velocità o modello

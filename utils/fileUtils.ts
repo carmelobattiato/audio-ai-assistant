@@ -1,5 +1,6 @@
 import { TranscriptionOutputFormat, SupportedLanguage } from "../types";
 import { htmlToPlainText } from "./textUtils";
+import { sanitizeHtml, escapeHtml } from "./sanitize";
 
 // ── Minimal ZIP creator (STORED method, no external deps) ─────────────────────
 
@@ -118,7 +119,7 @@ export const generateAnalysisHtmlDocument = (
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${meta.title}</title>
+  <title>${escapeHtml(meta.title)}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -241,17 +242,17 @@ export const generateAnalysisHtmlDocument = (
 <body>
   <div class="page">
     <div class="doc-header">
-      <h1>${meta.title}</h1>
+      <h1>${escapeHtml(meta.title)}</h1>
       <div class="meta-grid">
-        ${meta.sourceTimestamp ? `<span><span class="meta-label">Data registrazione:</span> ${dateStr}</span>` : ''}
-        ${meta.sourceFileName ? `<span><span class="meta-label">File sorgente:</span> ${meta.sourceFileName}</span>` : ''}
-        ${meta.llmProcessingType ? `<span><span class="meta-label">Tipo analisi:</span> ${meta.llmProcessingType}</span>` : ''}
-        ${meta.transcriptionLanguage ? `<span><span class="meta-label">Lingua:</span> ${meta.transcriptionLanguage}</span>` : ''}
+        ${meta.sourceTimestamp ? `<span><span class="meta-label">Data registrazione:</span> ${escapeHtml(dateStr)}</span>` : ''}
+        ${meta.sourceFileName ? `<span><span class="meta-label">File sorgente:</span> ${escapeHtml(meta.sourceFileName)}</span>` : ''}
+        ${meta.llmProcessingType ? `<span><span class="meta-label">Tipo analisi:</span> ${escapeHtml(meta.llmProcessingType)}</span>` : ''}
+        ${meta.transcriptionLanguage ? `<span><span class="meta-label">Lingua:</span> ${escapeHtml(meta.transcriptionLanguage)}</span>` : ''}
         <span><span class="meta-label">Generato il:</span> ${generatedStr}</span>
       </div>
     </div>
     <div class="content">
-      ${htmlContent}
+      ${sanitizeHtml(htmlContent)}
     </div>
     <div class="doc-footer">Audio AI Assistant — AI Analysis Export</div>
   </div>

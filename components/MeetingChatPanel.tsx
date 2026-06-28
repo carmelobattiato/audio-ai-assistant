@@ -4,6 +4,7 @@ import { Button } from './common/Button';
 import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote, CustomInstruction } from '../types';
 import { llmService } from '../services/geminiService';
 import { htmlToPlainText, markdownToHtmlSimple, formatTime } from '../utils/textUtils';
+import { sanitizeHtml } from '../utils/sanitize';
 import type { Part } from '@google/genai';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
@@ -516,7 +517,7 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
               ) : (
                 <div
                   className="llm-result-display-prose text-sm"
-                  dangerouslySetInnerHTML={{ __html: renderMessageContent(msg.content) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMessageContent(msg.content)) }}
                 />
               )}
 

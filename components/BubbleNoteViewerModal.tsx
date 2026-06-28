@@ -4,6 +4,7 @@ import { Button } from './common/Button';
 import { LoadingSpinner } from './common/LoadingSpinner';
 import { BubbleNote, AppSettings } from '../types';
 import { formatTime } from '../utils/textUtils';
+import { sanitizeHtml } from '../utils/sanitize';
 import { 
     FormatBoldIcon, 
     FormatItalicIcon, 
@@ -194,7 +195,7 @@ export const BubbleNoteViewerModal: React.FC<BubbleNoteViewerModalProps> = ({
               <h4>Suggested Summary</h4>
               <div 
                 className="summary-preview-content"
-                dangerouslySetInnerHTML={{ __html: summaryPreviewHtml }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(summaryPreviewHtml) }}
               />
               <div className="summary-preview-actions">
                 <Button onClick={discardSummary} variant="ghost" size="sm">Discard</Button>

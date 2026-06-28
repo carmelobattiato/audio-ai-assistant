@@ -873,7 +873,17 @@ export const NewHome: React.FC = () => {
         settings: appSettings, llmUsageHistory: [], llmResultsHistory: [],
       },
     };
-    await db.saveSession(initialSession);
+    try {
+      await db.saveSession(initialSession);
+    } catch (e) {
+      loggingService.error('RECORDING', 'Failed to persist new session', { error: String(e) });
+      activeSessionIdRef.current = null;
+      setPipelineStep(PipelineStep.IDLE);
+      setAppUserMessage('Impossibile salvare la sessione (memoria piena o DB non disponibile). Libera spazio in Impostazioni → Storage.');
+      if (appUserMessageTimerRef.current) clearTimeout(appUserMessageTimerRef.current);
+      appUserMessageTimerRef.current = setTimeout(() => setAppUserMessage(null), 6000);
+      return false;
+    }
     // Auto-link: se si parte da un evento calendario, collegalo alla sessione corrente
     if (pendingLinkAppointmentRef.current) {
       const { id: aptId, subject: aptSubject } = pendingLinkAppointmentRef.current;

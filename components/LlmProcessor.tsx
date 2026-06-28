@@ -11,6 +11,7 @@ import { RichTextEditorModal } from './RichTextEditorModal';
 import { EditIcon as EditPencilIcon, SaveIcon as CopyIcon, DownloadIcon } from '../constants'; 
 import { formatTime, htmlToPlainText, parseHtmlForGeminiParts, markdownToHtmlSimple } from '../utils/textUtils';
 import { saveTextToFile, generateStandardMetadataHeader } from '../utils/fileUtils';
+import { sanitizeHtml } from '../utils/sanitize';
 
 interface LlmProcessorProps {
   sourceText: string; 
@@ -575,7 +576,7 @@ Se una sezione è vuota scrivi "Nessuno."${defaultCustomContextAddition}`);
           <div
             id="llmResultOutputDisplay"
             className="llm-result-display-prose" 
-            dangerouslySetInnerHTML={{ __html: currentLlmResult }} 
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentLlmResult) }}
           />
           {groundingChunks.length > 0 && (
             <div className="mt-2 p-3 bg-gray-700 rounded">

@@ -7,6 +7,7 @@ import { SaveIcon, EditIcon, UploadIcon, StopIcon, ArrowUpIcon, ArrowDownIcon, P
 import { saveTextToFile, parseTextFile, generateStandardMetadataHeader, saveBlobToFile } from '../utils/fileUtils';
 import { TranscriptionSettings, SupportedLanguage, TextFileContent, AppSettings } from '../types';
 import { RichTextEditorModal } from './RichTextEditorModal';
+import { sanitizeHtml } from '../utils/sanitize';
 
 interface QueuedFile {
     file: File;
@@ -349,7 +350,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
             aria-live="polite"
             aria-label="Transcription Result"
             className={`llm-result-display-prose min-h-[200px] ${isTranscribing || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            dangerouslySetInnerHTML={{ __html: activeSourceText ? activeSourceText : "<p class='text-gray-500'>Audio transcription will appear here...</p>" }}
+            dangerouslySetInnerHTML={{ __html: activeSourceText ? sanitizeHtml(activeSourceText) : "<p class='text-gray-500'>Audio transcription will appear here...</p>" }}
           />
         </>
       ) : (

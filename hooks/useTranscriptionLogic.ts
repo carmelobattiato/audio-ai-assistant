@@ -4,6 +4,7 @@ import { transcriptionService } from '../services/transcriptionService';
 import { getAudioBlobDuration } from '../utils/audioUtils';
 import { AppSettings, RecordingState, LlmUsageStats } from '../types';
 import { getPromptText } from '../utils/promptUtils';
+import { escapeHtml } from '../utils/sanitize';
 
 interface QueuedFile {
   file: File;
@@ -97,7 +98,7 @@ export const useTranscriptionLogic = (
             });
           }
 
-          const headerHtml = `<br><hr class='my-4 border-gray-600'><br><h3>Transcription for: ${file.name}</h3><br>`;
+          const headerHtml = `<br><hr class='my-4 border-gray-600'><br><h3>Transcription for: ${escapeHtml(file.name)}</h3><br>`;
           const isError = result.startsWith("Error:");
           const contentHtml = isError ? `<p class="text-red-400">${result}</p>` : result.replace(/\n/g, '<br />');
           if (isError) hasError = true;
@@ -109,7 +110,7 @@ export const useTranscriptionLogic = (
           }
         } catch (e) {
           hasError = true;
-          accumulatedHtml += `<br><hr class='my-4 border-gray-600'><br><h3>FAILED Transcription for: ${file.name}</h3><br>`;
+          accumulatedHtml += `<br><hr class='my-4 border-gray-600'><br><h3>FAILED Transcription for: ${escapeHtml(file.name)}</h3><br>`;
           setTranscribedText(accumulatedHtml);
         }
       }
