@@ -8,6 +8,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.125] — 2026-06-28
+
+- B1 Phase 1: `contexts/SettingsContext.tsx` — `useReducer` per `appSettings + hasCustomApiKey + isReady`; init asincrono (localStorage migrate + IndexedDB decrypt), sync tema, `saveCustomApiKey`/`deleteCustomApiKey`/`persistSettings` come callback stabili; `<SettingsProvider>` in `index.tsx`; `NewHome` usa `useSettings()` (rimossi `APP_SETTINGS_KEY`, init effect settings, theme effect, `handleSaveCustomApiKey`, `handleDeleteCustomApiKey`)
+- B1 Phase 2: `contexts/UIStateContext.tsx` — 14 pezzi di stato UI estratti da `NewHome` (modal flags, `isBusy`, `appUserMessage`, `activeRightTab`, `leftWidthPct`, calendar flags); stessi nomi esposti via `useUIState()` → zero call-site changes in `NewHome`; `<UIStateProvider>` in `index.tsx`
+
+---
+
 ## [1.124] — 2026-06-28
 
 - Accessibilità modali: `common/Modal` ora con `role="dialog"`, `aria-modal`, `aria-labelledby` (titolo), focus trap e chiusura con Esc → copre tutti i modali condivisi (`ConfirmModal` incluso)

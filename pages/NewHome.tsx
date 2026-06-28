@@ -31,12 +31,10 @@ import { MeetingNotificationToasts } from '../components/MeetingNotificationToas
 import { MeetingNotificationBell } from '../components/MeetingNotificationBell';
 
 import {
-  AppSettings,
   TextFileContent,
   AppStatistics,
   CoherenceAssessmentStatus,
   SavedSession,
-  Theme,
   BubbleNote,
   RecordingState,
   AudioRecorderRef,
@@ -48,7 +46,6 @@ import {
   MeetingChatMessage,
 } from '../types';
 
-import { DEFAULT_SETTINGS, DEFAULT_SYSTEM_PROMPTS, APP_VERSION } from '../constants';
 import {
   countCharacters, countWords, estimateTokens,
   htmlToPlainText, getCurrentTimestampSuffix,
@@ -61,9 +58,8 @@ import { llmService } from '../services/geminiService';
 import { loggingService } from '../services/loggingService';
 import { useRecordingFavicon } from '../hooks/useRecordingFavicon';
 import { useBatchedDbUpdate } from '../hooks/useBatchedDbUpdate';
-import { encryptString, decryptString } from '../utils/crypto';
-
-const APP_SETTINGS_KEY = 'audioAIAssistantSettings';
+import { useSettings } from '../contexts/SettingsContext';
+import { useUIState } from '../contexts/UIStateContext';
 
 const DocumentIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,9 +87,18 @@ const ChatIcon = () => (
 );
 
 export const NewHome: React.FC = () => {
-  // ── State (identical to App.tsx) ──────────────────────────────────────────
-  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [hasCustomApiKey, setHasCustomApiKey] = useState(false);
+  const { appSettings, hasCustomApiKey, isReady, setAppSettings, patchSettings, persistSettings, saveCustomApiKey, deleteCustomApiKey } = useSettings();
+  const {
+    isSettingsOpen, settingsInitialTab, isStatisticsModalOpen,
+    showLoadSessionModal, sessionToPreview, showLoadChunksModal,
+    startChoiceModal, viewingBubbleNoteId, isBusy, appUserMessage,
+    isCalendarOpen, isNewCalendarOpen, activeRightTab, leftWidthPct,
+    setIsSettingsOpen, setSettingsInitialTab, setIsStatisticsModalOpen,
+    setShowLoadSessionModal, setSessionToPreview, setShowLoadChunksModal,
+    setStartChoiceModal, setViewingBubbleNoteId, setIsBusy, setAppUserMessage,
+    setIsCalendarOpen, setIsNewCalendarOpen, setActiveRightTab, setLeftWidthPct,
+  } = useUIState();
+  // ── State ────────────────────────────────────────────────────────────────
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioFileName, setAudioFileName] = useState<string>('');
   const [audioDuration, setAudioDuration] = useState<number>(0);
@@ -115,26 +120,12 @@ export const NewHome: React.FC = () => {
   const [llmAutoTrigger, setLlmAutoTrigger] = useState<number>(0);
   const wasTranscribingRef = useRef(false);
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
-  const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
-  const [showLoadSessionModal, setShowLoadSessionModal] = useState(false);
-  const [sessionToPreview, setSessionToPreview] = useState<string | undefined>(undefined);
-  const [showLoadChunksModal, setShowLoadChunksModal] = useState(false);
-  const [startChoiceModal, setStartChoiceModal] = useState<{
-    resolve: (mode: 'new' | 'append' | 'cancel') => void;
-  } | null>(null);
-  const [viewingBubbleNoteId, setViewingBubbleNoteId] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
-  const [appUserMessage, setAppUserMessage] = useState<string | null>(null);
   const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(false);
   const [autoSaveCountdown] = useState(10);
   const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
   const [recordingChunks, setRecordingChunks] = useState<Blob[]>([]);
   const [coherenceAssessment, setCoherenceAssessment] = useState<string | null>(null);
   const [coherenceStatus, setCoherenceStatus] = useState<CoherenceAssessmentStatus>(CoherenceAssessmentStatus.IDLE);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isNewCalendarOpen, setIsNewCalendarOpen] = useState(false);
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isInitialLoadingRef = useRef(false);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -149,7 +140,6 @@ export const NewHome: React.FC = () => {
   const pendingLinkAppointmentRef = useRef<{ id: string; subject: string } | null>(null);
 
   // ── New UI state ──────────────────────────────────────────────────────────
-  const [activeRightTab, setActiveRightTab] = useState<string>('notes');
   const [recordingElapsedTime, setRecordingElapsedTime] = useState<number>(0);
   const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false);
 
@@ -165,7 +155,6 @@ export const NewHome: React.FC = () => {
   } = useCalendarSync({ isCalendarOpen, isNewCalendarOpen });
 
 
-  const [leftWidthPct, setLeftWidthPct] = useState<number>(28);
   const mainContentRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef<boolean>(false);
   const appUserMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -595,92 +584,17 @@ export const NewHome: React.FC = () => {
     return () => worker.terminate();
   }, [pipelineStep]);
 
+  // Triggered once settings are ready from SettingsContext
   useEffect(() => {
-    const init = async () => {
-      loggingService.info('APP_INIT', 'NewHome initializing', { version: APP_VERSION });
-      const stored = localStorage.getItem(APP_SETTINGS_KEY);
-      let settings: AppSettings = stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
-
-      // Migrate: fill missing fields with defaults (handles newly added fields)
-      settings = {
-        ...settings,
-        appearance: { ...DEFAULT_SETTINGS.appearance, ...settings.appearance },
-        audio: { ...DEFAULT_SETTINGS.audio, ...settings.audio },
-        llm: { ...DEFAULT_SETTINGS.llm, ...settings.llm },
-        transcription: { ...DEFAULT_SETTINGS.transcription, ...settings.transcription },
-      };
-
-      // Migrate: ensure transcription language defaults to Italian
-      if (!settings.transcription?.language) {
-        settings = { ...settings, transcription: { ...settings.transcription, language: 'Italian' } };
-      }
-
-      // Migrate v1.112: enable speaker diarization (new default ON)
-      if (!settings.transcription.attemptSpeakerDiarization) {
-        settings = { ...settings, transcription: { ...settings.transcription, attemptSpeakerDiarization: true } };
-      }
-
-      // Migrate: add systemPrompts if missing from old saved settings
-      if (!settings.systemPrompts || settings.systemPrompts.length === 0) {
-        settings = { ...settings, systemPrompts: DEFAULT_SYSTEM_PROMPTS };
-      } else {
-        // Merge: add any new prompts that didn't exist in the saved settings
-        const savedIds = new Set(settings.systemPrompts.map((p) => p.id));
-        const newDefaults = DEFAULT_SYSTEM_PROMPTS.filter((p) => !savedIds.has(p.id));
-        if (newDefaults.length > 0) {
-          settings = { ...settings, systemPrompts: [...settings.systemPrompts, ...newDefaults] };
-        }
-      }
-
-      // Resolve encrypted API key from IndexedDB
-      const encrypted = await db.getEncryptedApiKey();
-      setHasCustomApiKey(!!encrypted);
-      if (settings.llm?.apiKeySource === 'custom' && encrypted) {
-        try {
-          const decrypted = await decryptString(encrypted);
-          settings = { ...settings, llm: { ...settings.llm, googleApiKey: decrypted } };
-        } catch {
-          loggingService.warn('API_KEY', 'Failed to decrypt custom API key — falling back to system');
-        }
-      }
-
-      setAppSettings(settings);
+    if (!isReady) return;
+    (async () => {
       const crashed = await db.markCrashedSessions();
       if (crashed > 0) {
         setAppUserMessage(`${crashed} interrupted session(s) detected and recovered.`);
       }
       fetchSessions();
-    };
-    init();
-  }, [fetchSessions]);
-
-  useEffect(() => {
-    document.body.className = `theme-${appSettings.appearance?.theme || Theme.DARK}`;
-  }, [appSettings.appearance?.theme]);
-
-  const handleSaveCustomApiKey = useCallback(async (key: string) => {
-    const blob = await encryptString(key);
-    await db.saveEncryptedApiKey(blob);
-    setHasCustomApiKey(true);
-    // Update resolved key in memory
-    setAppSettings(prev => ({
-      ...prev,
-      llm: { ...prev.llm, googleApiKey: key, apiKeySource: 'custom' },
-    }));
-    const toSave = { ...appSettings, llm: { ...appSettings.llm, googleApiKey: undefined, apiKeySource: 'custom' } };
-    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(toSave));
-  }, [appSettings]);
-
-  const handleDeleteCustomApiKey = useCallback(async () => {
-    await db.deleteEncryptedApiKey();
-    setHasCustomApiKey(false);
-    setAppSettings(prev => ({
-      ...prev,
-      llm: { ...prev.llm, googleApiKey: undefined, apiKeySource: 'system' },
-    }));
-    const toSave = { ...appSettings, llm: { ...appSettings.llm, googleApiKey: undefined, apiKeySource: 'system' } };
-    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(toSave));
-  }, [appSettings]);
+    })();
+  }, [isReady]); // eslint-disable-line react-hooks/exhaustive-deps — one-time on ready
 
   useEffect(() => {
     if (uploadedTextFileContent?.textContent) {
@@ -892,9 +806,9 @@ export const NewHome: React.FC = () => {
   const handleStopPlayback = useCallback(() => transLogic.setPlaybackFile(null), [transLogic.setPlaybackFile]);
   const handleToggleAutoSave = useCallback(() => setIsAutoSaveEnabled(p => !p), []);
   const handleReset = useCallback(async () => { await resetAllDataStates(); audioRecorderRef.current?.resetRecording(); }, [resetAllDataStates]);
-  const handleToggleAutoPipeline = useCallback((val: boolean) => setAppSettings(p => ({ ...p, transcription: { ...p.transcription, enableAutoPipeline: val } })), [setAppSettings]);
+  const handleToggleAutoPipeline = useCallback((val: boolean) => patchSettings({ transcription: { ...appSettings.transcription, enableAutoPipeline: val } }), [appSettings.transcription, patchSettings]);
   const handleTakeScreenshot = useCallback((isAuto: boolean) => { audioRecorderRef.current?.handleTakeScreenshot(isAuto); setIsScreenSharing(audioRecorderRef.current?.getIsScreenSharing() ?? false); }, []);
-  const handleDiarizationSettingChange = useCallback((v: boolean) => setAppSettings(p => ({ ...p, transcription: { ...p.transcription, attemptSpeakerDiarization: v } })), [setAppSettings]);
+  const handleDiarizationSettingChange = useCallback((v: boolean) => patchSettings({ transcription: { ...appSettings.transcription, attemptSpeakerDiarization: v } }), [appSettings.transcription, patchSettings]);
   const noop = useCallback(() => {}, []);
   const customInstructionsStable = useMemo(() => appSettings.customInstructions ?? [], [appSettings.customInstructions]);
   const systemPromptsStable = useMemo(() => appSettings.systemPrompts ?? [], [appSettings.systemPrompts]);
@@ -1284,27 +1198,9 @@ export const NewHome: React.FC = () => {
         onTestMeetingNotification={handleTestMeetingNotification}
         appSettings={appSettings}
         hasCustomApiKey={hasCustomApiKey}
-        onSaveCustomApiKey={handleSaveCustomApiKey}
-        onDeleteCustomApiKey={handleDeleteCustomApiKey}
-        handleSettingsChange={async (s: AppSettings) => {
-          // Resolve API key for in-memory state
-          let resolved = { ...s };
-          if (s.llm?.apiKeySource === 'custom') {
-            const encrypted = await db.getEncryptedApiKey();
-            if (encrypted) {
-              try {
-                const decrypted = await decryptString(encrypted);
-                resolved = { ...s, llm: { ...s.llm, googleApiKey: decrypted } };
-              } catch { /* keep googleApiKey undefined */ }
-            }
-          } else {
-            resolved = { ...s, llm: { ...s.llm, googleApiKey: undefined } };
-          }
-          setAppSettings(resolved);
-          // Never persist raw key to localStorage
-          const toSave = { ...resolved, llm: { ...resolved.llm, googleApiKey: undefined } };
-          localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(toSave));
-        }}
+        onSaveCustomApiKey={saveCustomApiKey}
+        onDeleteCustomApiKey={deleteCustomApiKey}
+        handleSettingsChange={persistSettings}
         isStatisticsModalOpen={isStatisticsModalOpen} setIsStatisticsModalOpen={setIsStatisticsModalOpen}
         appStatistics={appStatistics}
         coherenceAssessment={coherenceAssessment} coherenceStatus={coherenceStatus}
