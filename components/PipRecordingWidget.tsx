@@ -197,6 +197,7 @@ const NoteInput: React.FC<{ onSubmit: (html: string) => void }> = ({ onSubmit })
               <img src={src} style={{ height: 36, width: 'auto', borderRadius: 4, objectFit: 'cover' }} />
               <button
                 onClick={() => removeImage(i)}
+                aria-label="Remove image"
                 style={{
                   position: 'absolute', top: -4, right: -4,
                   width: 14, height: 14, borderRadius: '50%',

@@ -5,6 +5,8 @@ import { getAudioBlobDuration } from '../utils/audioUtils';
 import { AppSettings, LlmUsageStats } from '../types';
 import { getPromptText } from '../utils/promptUtils';
 import { escapeHtml } from '../utils/sanitize';
+import { classifyError } from '../types/errors';
+import { loggingService } from '../services/loggingService';
 
 interface QueuedFile {
   file: File;
@@ -129,7 +131,9 @@ export const useTranscriptionLogic = (
           }
         } catch (e) {
           hasError = true;
-          accumulatedHtml += `<br><hr class='my-4 border-gray-600'><br><h3>FAILED Transcription for: ${escapeHtml(file.name)}</h3><br>`;
+          const appErr = classifyError(e);
+          loggingService.error('TRANSCRIPTION_FILE_ERROR', appErr.message, { file: file.name, kind: appErr.kind });
+          accumulatedHtml += `<br><hr class='my-4 border-gray-600'><br><h3>FAILED Transcription for: ${escapeHtml(file.name)}</h3><p class="text-red-400">${escapeHtml(appErr.message)}</p><br>`;
           setTranscribedText(accumulatedHtml);
         }
       }
@@ -183,7 +187,9 @@ export const useTranscriptionLogic = (
         }
       }
     } catch (err) {
-      setTranscriptionError(`Failed: ${err}`);
+      const appErr = classifyError(err);
+      loggingService.error('TRANSCRIPTION_BLOB_ERROR', appErr.message, { kind: appErr.kind });
+      if (appErr.kind !== 'abort') setTranscriptionError(appErr.message);
     } finally {
       setIsTranscribing(false);
       setTranscriptionProgress({ current: 0, total: 0, filename: '' });
@@ -255,7 +261,9 @@ export const useTranscriptionLogic = (
           setTranscriptionError(result);
         }
       } catch (err) {
-        setTranscriptionError(`Failed: ${err}`);
+        const appErr = classifyError(err);
+        loggingService.error('TRANSCRIPTION_CHUNK_ERROR', appErr.message, { kind: appErr.kind });
+        if (appErr.kind !== 'abort') setTranscriptionError(appErr.message);
       } finally {
         autoQueueRef.current.shift();
         isAnyTranscribingRef.current = false;
@@ -306,7 +314,9 @@ export const useTranscriptionLogic = (
         setTranscriptionError(result);
       }
     } catch (err) {
-      setTranscriptionError(`Failed: ${err}`);
+      const appErr = classifyError(err);
+      loggingService.error('TRANSCRIPTION_SINGLE_ERROR', appErr.message, { kind: appErr.kind });
+      if (appErr.kind !== 'abort') setTranscriptionError(appErr.message);
     } finally {
       setIsTranscribing(false);
       setTranscriptionProgress({ current: 0, total: 0, filename: '' });

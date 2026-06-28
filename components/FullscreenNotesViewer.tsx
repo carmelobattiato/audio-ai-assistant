@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { BubbleNote } from '../types';
 import { formatTime } from '../utils/textUtils';
 
@@ -12,6 +13,8 @@ interface FullscreenNotesViewerProps {
 export const FullscreenNotesViewer: React.FC<FullscreenNotesViewerProps> = ({ isOpen, onClose, notes, title }) => {
     const [fullscreenImageSrc, setFullscreenImageSrc] = useState<string | null>(null);
     const notesContainerRef = useRef<HTMLDivElement>(null);
+    const titleId = useId();
+    const dialogRef = useFocusTrap<HTMLDivElement>(isOpen, onClose);
 
     useEffect(() => {
         if (isOpen && notesContainerRef.current) {
@@ -31,7 +34,12 @@ export const FullscreenNotesViewer: React.FC<FullscreenNotesViewerProps> = ({ is
 
     return (
         <>
-            <div 
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                tabIndex={-1}
                 className="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex flex-col p-4 sm:p-8"
                 style={{ animation: 'fullscreen-fade-in 0.3s ease-out' }}
                 onClick={(e) => {
@@ -41,7 +49,7 @@ export const FullscreenNotesViewer: React.FC<FullscreenNotesViewerProps> = ({ is
                 }}
             >
                 <header className="flex-shrink-0 flex items-center justify-between pb-4 mb-4 border-b border-gray-700">
-                    <h2 className="text-2xl font-bold text-sky-400">{title ? `Notes for: ${title}` : 'All Notes'}</h2>
+                    <h2 id={titleId} className="text-2xl font-bold text-sky-400">{title ? `Notes for: ${title}` : 'All Notes'}</h2>
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-white transition-colors"

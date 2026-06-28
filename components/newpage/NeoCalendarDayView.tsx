@@ -225,7 +225,7 @@ const ApptInfoModal: React.FC<{
               {fmtFull(appt.start)} → {fmt(appt.end)}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg flex-shrink-0"
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg flex-shrink-0"
             style={{ color: 'var(--neo-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--neo-border)' }}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -631,7 +631,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
               </button>
 
               {/* Close */}
-              <button onClick={onClose} className="p-1.5 rounded-lg"
+              <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg"
                 style={{ color: 'var(--neo-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--neo-border)' }}>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -949,7 +949,7 @@ export const NeoCalendarDayView: React.FC<NeoCalendarDayViewProps> = ({
                         Load & Schedule
                       </button>
                     )}
-                    <button onClick={() => setSelected(null)} className="p-1.5 rounded-lg"
+                    <button onClick={() => setSelected(null)} aria-label="Close" className="p-1.5 rounded-lg"
                       style={{ color: 'var(--neo-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--neo-border)' }}>
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

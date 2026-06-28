@@ -228,7 +228,7 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
             {transcriptionQueue.map((item, index) => {
               const isPlaying = currentlyPlayingFile === item.file;
               return (
-              <li key={`${item.file.name}-${index}`} className={`flex items-center justify-between p-2 rounded-md gap-2 transition-colors ${isPlaying ? 'bg-blue-900 bg-opacity-50' : 'bg-gray-800'}`}>
+              <li key={`${item.file.name}-${item.file.size}`} className={`flex items-center justify-between p-2 rounded-md gap-2 transition-colors ${isPlaying ? 'bg-blue-900 bg-opacity-50' : 'bg-gray-800'}`}>
                 <div className="flex items-center gap-3 min-w-0 flex-grow">
                    <Button
                       variant="ghost"

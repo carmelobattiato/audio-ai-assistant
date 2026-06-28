@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { SavedSession } from '@/types';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 // ─── Local types (mirrors CalendarEventRecord from types.ts) ──────────────────
 export interface CalendarEventRecord {
@@ -111,6 +112,9 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
     ? linkedSession.data.transcribedText.slice(0, 200) + (linkedSession.data.transcribedText.length > 200 ? '…' : '')
     : null;
 
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
+
   return (
     <>
       {/* Backdrop */}
@@ -122,6 +126,11 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
 
       {/* Panel */}
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className="fixed right-0 top-0 bottom-0 z-50 flex flex-col overflow-hidden"
         style={{
           width: 380,
@@ -136,7 +145,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
           style={{ borderBottom: '1px solid #374151', background: 'rgba(124,58,237,0.08)' }}
         >
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-bold leading-snug text-gray-100 truncate">
+            <h2 id={titleId} className="text-sm font-bold leading-snug text-gray-100 truncate">
               {event.subject}
             </h2>
             <p className="text-[11px] mt-1 text-gray-400">
@@ -145,6 +154,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close event details"
             className="p-1.5 rounded-lg flex-shrink-0 transition-colors hover:bg-gray-700"
             style={{ color: '#9CA3AF', border: '1px solid #374151' }}
           >

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useId } from 'react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ModalProps {
   isOpen: boolean;
@@ -13,21 +14,27 @@ interface ModalProps {
 }
 
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidth, zIndex }) => {
+  const titleId = useId();
+  const containerRef = useFocusTrap<HTMLDivElement>(isOpen, onClose);
+
   if (!isOpen) return null;
 
-  console.log(`Modal: Rendering modal with title "${title}".`);
-
   return (
-    <div 
+    <div
       className={`fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 ${zIndex ?? 'z-50'} transition-opacity duration-300 ease-in-out`}
       onClick={onClose}
     >
-      <div 
+      <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className={`bg-gray-800 rounded-lg shadow-xl w-full ${maxWidth ?? 'max-w-2xl'} max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-in-out scale-95 group-hover:scale-100`}
         onClick={(e) => e.stopPropagation()} // Prevent click inside modal from closing it
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h3 className="text-xl font-semibold text-sky-400">{title}</h3>
+          <h3 id={titleId} className="text-xl font-semibold text-sky-400">{title}</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"

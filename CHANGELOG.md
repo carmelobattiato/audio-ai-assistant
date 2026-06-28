@@ -8,6 +8,25 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.124] — 2026-06-28
+
+- Accessibilità modali: `common/Modal` ora con `role="dialog"`, `aria-modal`, `aria-labelledby` (titolo), focus trap e chiusura con Esc → copre tutti i modali condivisi (`ConfirmModal` incluso)
+- Hook `useFocusTrap` (ciclo Tab/Shift+Tab, focus iniziale, Esc, ripristino focus all'unmount) + test
+- Timer registrazione: `role="timer"` + `aria-live="polite"` per screen reader (`NeoRecordingPanel`)
+- Rimosso `console.log` di debug in `common/Modal`
+- Accessibilità modali custom (`OutlookCalendarModal`, `FullscreenNotesViewer`, `CalEventDetailPanel`): `role="dialog"`, `aria-modal`, `aria-labelledby`, focus trap + Esc; ARIA additivo su `NeoAudioGuideModal`
+- Sweep `aria-label` su 8 bottoni icon-only senza nome accessibile (`CorrectionChat`, `PipRecordingWidget`, `NewCalendarView`, `NeoCalendarDayView`)
+- Quick win: `appStatistics` usa `TextEncoder().encode().length` invece di `new Blob([text]).size` (no alloc) — `NewHome`
+- Quick win: `key` lista coda da `name-index` a `name+size` — `TranscriptionView`
+- Quick win: `.catch` su invio audio realtime fire-and-forget — `useLiveTranscriptionLogic`
+- `types/errors.ts`: `AppError` discriminated union (kind: network/quota/timeout/abort/permission/unknown) + `classifyError(e)` + `classifyServiceErrorString`
+- `hooks/useErrorHandler.ts`: `handleAsync` wrapper con state `{error, retry, dismiss}` per errori async tipizzati
+- `useTranscriptionLogic`: catch nei 4 hotspot usano `classifyError` → errore tipizzato loggato + abort ignorato silenziosamente
+- `transcriptionService`: re-throw AbortError (ora `classifyError` lo vede correttamente); `console.*` → `loggingService`
+- B9 split `NewHome.tsx` 1863→1411 righe: estratti `hooks/useCalendarSync.ts` (sincronizzazione calendario, BroadcastChannel, ICS, throttle cross-tab) e `hooks/useMeetingFlow.ts` (toast notifiche meeting, auto-start countdown)
+
+---
+
 ## [1.123] — 2026-06-28
 
 - Infrastruttura test: Vitest + happy-dom (`vitest.config.ts`, script `test`/`test:watch`)

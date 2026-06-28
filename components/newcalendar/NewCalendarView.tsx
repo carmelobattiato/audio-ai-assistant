@@ -89,7 +89,7 @@ const MiniCalendar: React.FC<{
     <div className="p-3">
       {/* Mini header */}
       <div className="flex items-center justify-between mb-2">
-        <button onClick={prevMonth} className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
+        <button onClick={prevMonth} aria-label="Previous month" className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -97,7 +97,7 @@ const MiniCalendar: React.FC<{
         <span className="text-[11px] font-semibold text-gray-300 capitalize">
           {miniDate.toLocaleDateString('it-IT', { month: 'short', year: 'numeric' })}
         </span>
-        <button onClick={nextMonth} className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
+        <button onClick={nextMonth} aria-label="Next month" className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
@@ -403,6 +403,7 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
+            aria-label="Previous"
             className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
             style={{ border: '1px solid #374151' }}
           >
@@ -417,6 +418,7 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
 
           <button
             onClick={() => navigate(1)}
+            aria-label="Next"
             className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
             style={{ border: '1px solid #374151' }}
           >
@@ -616,6 +618,7 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
             {searchQuery && (
               <button
                 onClick={() => { setSearchQuery(''); setShowAiPanel(false); }}
+                aria-label="Clear search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

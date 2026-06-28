@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useId } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const OUTLOOK_API = '/api/outlook';
 
@@ -164,6 +165,8 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
   const errorMsg       = isExternallyManaged ? (externalError ?? null)       : intErrorMsg;
 
   const firstHighlightedRef = useRef<HTMLDivElement | null>(null);
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(isOpen, onClose);
 
   // Internal fetch (used by classic UI only)
   const fetchAppointments = useCallback(async () => {
@@ -253,6 +256,11 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden border border-gray-700"
         onClick={e => e.stopPropagation()}
       >
@@ -263,7 +271,7 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
               <CalendarIcon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-sky-400 leading-tight">
+              <h3 id={titleId} className="text-base font-semibold text-sky-400 leading-tight">
                 Sync Outlook Calendar
               </h3>
               <p className="text-xs text-gray-400 capitalize">{todayLabel}</p>

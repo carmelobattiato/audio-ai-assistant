@@ -6,7 +6,8 @@ import { NeoRecordingPanel } from '../components/newpage/NeoRecordingPanel';
 import { AppModals } from '../components/AppModals';
 import { NeoTopbar } from '../components/newpage/NeoTopbar';
 import { useIsOnline } from '../hooks/useIsOnline';
-import { useCalBridgeV2 } from '../hooks/useCalBridgeV2';
+import { useCalendarSync } from '../hooks/useCalendarSync';
+import { useMeetingFlow } from '../hooks/useMeetingFlow';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
 import { NeoTabs } from '../components/newpage/NeoTabs';
 import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
@@ -15,8 +16,7 @@ import { Modal } from '../components/common/Modal';
 import { Button } from '../components/common/Button';
 // Type-only imports (no runtime cost)
 import type { LlmProcessorRef } from '../components/LlmProcessor';
-import type { Attendee, OutlookAppointment } from '../components/OutlookCalendarModal';
-import type { CalendarEventRecord } from '../types';
+import type { Attendee } from '../components/OutlookCalendarModal';
 // Tab content — lazy-loaded on first render of each tab
 const BubbleNotes       = lazy(() => import('../components/BubbleNotes').then(m => ({ default: m.BubbleNotes })));
 const TranscriptionView = lazy(() => import('../components/TranscriptionView').then(m => ({ default: m.TranscriptionView })));
@@ -27,12 +27,8 @@ const NewCalendarView = lazy(() => import('../components/newcalendar/NewCalendar
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
 import { useSessionLogic } from '../hooks/useSessionLogic';
-import { useMeetingNotifications } from '../hooks/useMeetingNotifications';
 import { MeetingNotificationToasts } from '../components/MeetingNotificationToast';
 import { MeetingNotificationBell } from '../components/MeetingNotificationBell';
-import { useMeetingNotificationHistory } from '../hooks/useMeetingNotificationHistory';
-import type { MeetingToastData } from '../utils/meetingUtils';
-import type { MeetingNotificationRecord } from '../utils/db';
 
 import {
   AppSettings,
@@ -139,8 +135,6 @@ export const NewHome: React.FC = () => {
   const [coherenceStatus, setCoherenceStatus] = useState<CoherenceAssessmentStatus>(CoherenceAssessmentStatus.IDLE);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isNewCalendarOpen, setIsNewCalendarOpen] = useState(false);
-  const [calendarEventsDb, setCalendarEventsDb] = useState<CalendarEventRecord[]>([]);
-
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isInitialLoadingRef = useRef(false);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -161,17 +155,15 @@ export const NewHome: React.FC = () => {
 
   const isOnline = useIsOnline();
 
-  // ── Calendar background-sync state ───────────────────────────────────────
-  const [calAppointments, setCalAppointments] = useState<OutlookAppointment[]>([]);
-  const [calBridgeAvailable, setCalBridgeAvailable] = useState<boolean | null>(null);
-  const [calError, setCalError] = useState<string | null>(null);
-  const [calRefreshing, setCalRefreshing] = useState(false);
-  const [calExtensionConnected, setCalExtensionConnected] = useState(false);
-  const [calSource, setCalSource] = useState<string>(() => localStorage.getItem('calendar:source') || 'windows');
-
-  // Calendar Bridge v2 — localStorage-based, parallel to v1
-  const calV2 = useCalBridgeV2();
   const [meetingAttendees, setMeetingAttendees] = useState<Attendee[]>([]);
+
+  // ── Calendar sync ───────────────────────────────────────────────────────
+  const {
+    calAppointments, calBridgeAvailable, calError, calRefreshing,
+    calExtensionConnected, calSource, calendarEventsDb, setCalendarEventsDb,
+    fetchCalendarData,
+  } = useCalendarSync({ isCalendarOpen, isNewCalendarOpen });
+
 
   const [leftWidthPct, setLeftWidthPct] = useState<number>(28);
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -207,13 +199,13 @@ export const NewHome: React.FC = () => {
       characterCount: countCharacters(activeSourceText),
       wordCount: countWords(activeSourceText),
       estimatedTokenCount: estimateTokens(activeSourceText),
-      size: new Blob([activeSourceText]).size,
+      size: new TextEncoder().encode(activeSourceText).length,
     } : null,
     llmResultStats: llmProcessedText ? {
       characterCount: countCharacters(llmProcessedText),
       wordCount: countWords(llmProcessedText),
       estimatedTokenCount: estimateTokens(llmProcessedText),
-      size: new Blob([llmProcessedText]).size,
+      size: new TextEncoder().encode(llmProcessedText).length,
     } : null,
     llmUsageHistory,
     recordingTimestamp: audioRecordingStartTime?.toLocaleString(),
@@ -920,454 +912,15 @@ export const NewHome: React.FC = () => {
     { id: 'chat',       label: 'Chat', icon: <ChatIcon />,
       badge: meetingChatHistory.length > 0 ? String(meetingChatHistory.length) : undefined },
   ], [bubbleNotes.length, transLogic.transcriptionQueue, llmProcessedText, meetingChatHistory.length]);
+  // ── Meeting notifications + auto-start ───────────────────────────────────
+  const {
+    meetingToasts, meetingHistory, deleteMeetingHistoryItem, clearAllMeetingHistory,
+    handleToastDismiss, handleToastSnooze, handleToastOpen,
+    handleTestMeetingNotification, handleStartSessionForMeeting, handleStartSessionFromToast,
+    pendingAutoStart, autoStartCountdownMs, handleAutoStartNow, handleAutoStartCancel,
+    scheduleAutoStart,
+  } = useMeetingFlow({ calAppointments, appSettings, audioRecorderRef, setIsCalendarOpen, handleOutlookImport });
 
-  // ── Calendar background sync ──────────────────────────────────────────────
-  // Throttle: skip auto-fetches that fire within 60s of the previous fetch.
-  // Throttle timestamp lives in localStorage so it survives component remounts
-  // AND is shared across browser tabs (the meeting-notification feature opens
-  // extra tabs via ?startMeeting=…, each running its own NewHome).
-  // User-initiated retries (isRetry=true) and the scheduled 15-min tick bypass throttle.
-  // Cross-tab lock with TTL prevents two tabs from hitting the COM bridge at once;
-  // BroadcastChannel propagates the appointment list to peer tabs.
-  const CAL_LAST_KEY = 'calendar:lastFetch';
-  const CAL_LOCK_KEY = 'calendar:fetching';
-  const CAL_LOCK_TTL = 120_000;
-  const CAL_BC = 'calendar-sync-v1';
-  const calBcRef = useRef<BroadcastChannel | null>(null);
-  const calInFlightRef = useRef(false);
-  const calLastDetailHashRef = useRef<string>('');
-
-  useEffect(() => {
-    const bc = new BroadcastChannel(CAL_BC);
-    calBcRef.current = bc;
-    bc.onmessage = (ev) => {
-      const msg = ev.data;
-      if (!msg || typeof msg !== 'object') return;
-      if (msg.type === 'appointments' && Array.isArray(msg.appointments)) {
-        setCalAppointments(msg.appointments as OutlookAppointment[]);
-        setCalBridgeAvailable(true);
-        setCalError(null);
-      }
-      if (msg.type === 'extension-heartbeat') {
-        setCalExtensionConnected(true);
-        localStorage.setItem('calendar:extension-heartbeat', String(Date.now()));
-      }
-    };
-    return () => { bc.close(); calBcRef.current = null; };
-  }, []);
-
-  // Poll extension heartbeat staleness + source changes (every 5s)
-  useEffect(() => {
-    const STALE = 90_000;
-    const check = () => {
-      const ts = localStorage.getItem('calendar:extension-heartbeat');
-      setCalExtensionConnected(!!ts && Date.now() - parseInt(ts, 10) < STALE);
-      setCalSource(localStorage.getItem('calendar:source') || 'windows');
-    };
-    check();
-    const id = setInterval(check, 5_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const fetchCalendarData = useCallback(async (isRetry = false, bypassThrottle = false) => {
-    if (calInFlightRef.current) return; // in-tab coalescing
-    const now = Date.now();
-    const lastStr = localStorage.getItem(CAL_LAST_KEY);
-    const last = lastStr ? parseInt(lastStr, 10) : 0;
-    if (!isRetry && !bypassThrottle && Number.isFinite(last) && (now - last) < 60_000) {
-      return;
-    }
-    // Cross-tab lock with TTL (auto-expires in case a tab crashed mid-fetch)
-    const lockStr = localStorage.getItem(CAL_LOCK_KEY);
-    if (!isRetry && lockStr) {
-      const lockTs = parseInt(lockStr, 10);
-      if (Number.isFinite(lockTs) && (now - lockTs) < CAL_LOCK_TTL) {
-        return;
-      }
-    }
-    localStorage.setItem(CAL_LAST_KEY, String(now));
-    localStorage.setItem(CAL_LOCK_KEY, String(now));
-    calInFlightRef.current = true;
-    setCalRefreshing(true);
-    if (isRetry) {
-      loggingService.info('CALENDAR_RETRY', 'User triggered calendar data retry', {
-        platform: navigator.platform,
-      });
-    }
-
-    const { loadCalendarSource, loadIcsConfig, fetchIcs } = await import('../services/icsService');
-    const source = loadCalendarSource();
-
-    if (source === 'extension') {
-      // Notify the extension content script to re-fetch from Outlook Live.
-      // The result arrives passively via BroadcastChannel (bc.onmessage).
-      if (calBcRef.current) {
-        calBcRef.current.postMessage({ type: 'request-sync' });
-      }
-      setCalBridgeAvailable(true);
-      setCalError(null);
-      setCalRefreshing(false);
-      calInFlightRef.current = false;
-      localStorage.removeItem(CAL_LOCK_KEY);
-      return;
-    }
-
-    if (source === 'ics') {
-      try {
-        const cfg = loadIcsConfig();
-        if (!cfg?.icsUrl) {
-          throw new Error('ICS feed not configured. Open Settings → Integrations and paste the published Outlook ICS URL.');
-        }
-        const events = await fetchIcs(cfg.icsUrl);
-        // Filter today → today+7 days (LOCAL date) and map to OutlookAppointment shape
-        const now = new Date();
-        const weekLater = new Date(now);
-        weekLater.setDate(now.getDate() + 7);
-        weekLater.setHours(23, 59, 59, 999);
-        const teamsRe = /https:\/\/teams\.microsoft\.com\/l\/[^\s<>"']+/;
-        const mapped: OutlookAppointment[] = events
-          .filter(ev => {
-            if (!ev.start) return false;
-            const d = new Date(ev.start);
-            return d >= now && d <= weekLater;
-          })
-          .sort((a, b) => a.start.localeCompare(b.start))
-          .map(ev => ({
-            id: ev.id,
-            subject: ev.subject,
-            start: ev.start,
-            end: ev.end,
-            location: ev.location || '',
-            body: ev.description || '',
-            attendees: (ev.attendees || []).map(name => ({ name, email: '' })),
-            organizer: ev.organizer || '',
-            onlineMeetingUrl: ev.description?.match(teamsRe)?.[0],
-            isCanceled: ev.isCancelled,
-            isRecurring: ev.isRecurring,
-          }));
-        setCalBridgeAvailable(true);
-        setCalAppointments(mapped);
-        setCalError(null);
-        loggingService.debug('CALENDAR_LOADED', `Loaded ${mapped.length} appointments via ICS feed`, {
-          count: mapped.length, source: 'ics', isRetry,
-        });
-        calBcRef.current?.postMessage({ type: 'appointments', appointments: mapped });
-      } catch (e: unknown) {
-        setCalBridgeAvailable(false);
-        setCalError((e as Error).message ?? 'ICS fetch error');
-        loggingService.warn('CALENDAR_BRIDGE_ERROR', String((e as Error).message), { source: 'ics', isRetry });
-      } finally {
-        localStorage.removeItem(CAL_LOCK_KEY);
-        calInFlightRef.current = false;
-        setCalRefreshing(false);
-      }
-      return;
-    }
-
-    try {
-      const statusRes = await fetch('/api/outlook/status', { signal: AbortSignal.timeout(3000) });
-      if (!statusRes.ok) {
-        const reason = `Outlook Bridge unreachable (HTTP ${statusRes.status})`;
-        loggingService.warn('CALENDAR_BRIDGE_ERROR', reason, { httpStatus: statusRes.status, isRetry, platform: navigator.platform });
-        loggingService.debug('CALENDAR_BRIDGE_ERROR_DETAIL', 'Status endpoint returned non-OK response', {
-          url: '/api/outlook/status', httpStatus: statusRes.status, isRetry, platform: navigator.platform,
-        });
-        throw new Error(reason);
-      }
-      const statusData = await statusRes.json();
-      if (statusData.status !== 'ok') {
-        const serverPlatform: string = statusData.platform ?? '';
-        const isNonWindows = serverPlatform !== '' && serverPlatform !== 'win32';
-        const reason = isNonWindows
-          ? `Outlook Bridge is not available on ${serverPlatform}. This feature requires Windows.`
-          : (statusData.message ?? 'Outlook Bridge unavailable');
-        loggingService.warn('CALENDAR_BRIDGE_ERROR', reason, { serverPlatform, isNonWindows, isRetry, bridgeStatus: statusData.status });
-        loggingService.debug('CALENDAR_BRIDGE_ERROR_DETAIL', 'Bridge status check failed', {
-          statusData, serverPlatform, isNonWindows, isRetry, clientPlatform: navigator.platform,
-        });
-        throw new Error(reason);
-      }
-      setCalBridgeAvailable(true);
-      const res = await fetch('/api/outlook/appointments/today');
-      const data = await res.json();
-      if (data.error) {
-        loggingService.warn('CALENDAR_APPOINTMENTS_ERROR', data.error, { isRetry });
-        loggingService.debug('CALENDAR_APPOINTMENTS_ERROR_DETAIL', 'Appointments endpoint returned error', { data, isRetry });
-        throw new Error(data.error);
-      }
-      const apptList = data.appointments ?? [];
-      const skippedList = data.skipped ?? [];
-      setCalAppointments(apptList);
-      setCalError(null);
-      loggingService.debug('CALENDAR_LOADED', `Loaded ${apptList.length} appointments (seen ${data.totalSeen ?? '?'}, skipped ${skippedList.length}) in ${data.timings?.total ?? '?'}ms`, {
-        count: apptList.length,
-        skippedCount: skippedList.length,
-        totalSeen: data.totalSeen,
-        filter: data.filter,
-        timings: data.timings,
-        canceledCount: apptList.filter((a: any) => a.isCanceled).length,
-        recurringCount: apptList.filter((a: any) => a.isRecurring).length,
-        isRetry,
-      });
-      if (skippedList.length > 0) {
-        loggingService.warn('CALENDAR_SKIPPED', `${skippedList.length} appointments skipped by bridge`, { skipped: skippedList });
-      }
-      // Detail log only when the appointment set changes (id+start+end+meetingStatus
-      // hash) — otherwise we'd write a 21-event payload every 15 min for no signal.
-      const detailEntries = apptList.map((a: any) => ({
-        id: a.id, subject: a.subject, start: a.start, end: a.end,
-        organizer: a.organizer, responseStatus: a.responseStatus,
-        meetingStatus: a.meetingStatus, isCanceled: a.isCanceled, isRecurring: a.isRecurring,
-        hasTeamsUrl: !!a.onlineMeetingUrl, attendees: a.attendees?.length ?? 0,
-      }));
-      const detailHash = detailEntries.map((e: any) => `${e.id}|${e.start}|${e.end}|${e.meetingStatus}|${e.isCanceled}`).join('::');
-      if (detailHash !== calLastDetailHashRef.current) {
-        calLastDetailHashRef.current = detailHash;
-        loggingService.debug('CALENDAR_APPOINTMENTS_DETAIL', 'Appointment summary (changed)', {
-          appointments: detailEntries,
-        });
-      }
-      calBcRef.current?.postMessage({ type: 'appointments', appointments: apptList });
-    } catch (e: unknown) {
-      setCalBridgeAvailable(false);
-      setCalError((e as Error).message ?? 'Connection error');
-    } finally {
-      localStorage.removeItem(CAL_LOCK_KEY);
-      calInFlightRef.current = false;
-      setCalRefreshing(false);
-    }
-  }, []);
-
-  // Sync calAppointments → IndexedDB (next 7 days window)
-  useEffect(() => {
-    if (calAppointments.length === 0) return;
-    const now = new Date();
-    const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const toSync = calAppointments.filter(apt => {
-      const start = new Date(apt.start);
-      const end   = new Date(apt.end || apt.start);
-      // Keep ongoing events (end >= now) and future events (start <= oneWeekLater)
-      return end >= now && start <= oneWeekLater;
-    });
-    const records: CalendarEventRecord[] = toSync.map(apt => ({
-      id: apt.id,
-      subject: apt.subject,
-      start: apt.start,
-      end: apt.end,
-      location: apt.location || undefined,
-      organizer: apt.organizer || undefined,
-      attendees: apt.attendees,
-      onlineMeetingUrl: apt.onlineMeetingUrl,
-      body: apt.body || undefined,
-      responseStatus: apt.responseStatus || undefined,
-      source: calSource as 'windows' | 'ics' | 'extension',
-      createdAt: Date.now(),
-    }));
-    db.upsertCalendarEvents(records).catch(console.error);
-  }, [calAppointments, calSource]);
-
-  // Carica eventi calendario dal DB all'apertura di NewCalendar e ad ogni sync
-  useEffect(() => {
-    if (!isNewCalendarOpen) return;
-    db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
-    db.deleteStaleCalendarEvents().catch(console.error);
-    db.deleteAudioOlderThan(10).catch(console.error);
-  }, [isNewCalendarOpen, calAppointments]);
-
-  // Calendar Bridge v2 — sync dati dal localStorage al DB quando arrivano eventi freschi
-  useEffect(() => {
-    if (calV2.events.length === 0) return;
-    // Aggiorna stato connessione extension
-    setCalExtensionConnected(calV2.connected);
-    // Upsert nel DB (preserva linkedSessionId grazie alla logica in db.upsertCalendarEvents)
-    db.upsertCalendarEvents(calV2.events).catch(console.error);
-    // Aggiorna view se NewCalendar è aperto
-    if (isNewCalendarOpen) {
-      db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
-    }
-  }, [calV2.events, calV2.connected, isNewCalendarOpen]);
-
-  // Fetch once silently on page load
-  useEffect(() => { fetchCalendarData(); }, [fetchCalendarData]);
-
-  // Refresh in background every time the calendar is opened
-  useEffect(() => { if (isCalendarOpen) fetchCalendarData(); }, [isCalendarOpen, fetchCalendarData]);
-
-  // Auto-refresh every 15 min (bypasses throttle) + opportunistic refresh on
-  // window/tab focus or visibility (throttled to once per 60s to avoid storming
-  // the COM bridge when the user alt-tabs frequently).
-  useEffect(() => {
-    const intervalId = window.setInterval(() => { fetchCalendarData(false, true); }, 60 * 1000);
-    const onFocus = () => { fetchCalendarData(); };
-    const onVisibility = () => { if (document.visibilityState === 'visible') fetchCalendarData(); };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [fetchCalendarData]);
-
-  // Pre-call in-app toast notifications (10 min before each meeting by default).
-  // Toggleable in Settings → General. Generates an AI summary via Gemini at fire time.
-  // In-app toasts are used instead of the browser Notification API to bypass corporate
-  // group policies that block OS-level notifications.
-  const [meetingToasts, setMeetingToasts] = useState<MeetingToastData[]>([]);
-
-  const playMeetingChime = useCallback(() => {
-    try {
-      const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctx) return;
-      const ctx = new Ctx();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(880, ctx.currentTime);
-      o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
-      g.gain.setValueAtTime(0.0001, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
-      o.connect(g); g.connect(ctx.destination);
-      o.start();
-      o.stop(ctx.currentTime + 0.45);
-    } catch { /* audio not available */ }
-  }, []);
-
-  const handleMeetingTrigger = useCallback((data: MeetingToastData) => {
-    setMeetingToasts(prev => (prev.some(t => t.id === data.id) ? prev : [...prev, data]));
-    playMeetingChime();
-  }, [playMeetingChime]);
-
-  const handleToastDismiss = useCallback((id: string) => {
-    setMeetingToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
-
-  const handleToastSnooze = useCallback((id: string, minutes: number) => {
-    setMeetingToasts(prev => {
-      const t = prev.find(x => x.id === id);
-      if (t) {
-        const snoozed: MeetingToastData = { ...t, id: `${t.apptId}::snooze::${Date.now()}` };
-        window.setTimeout(() => {
-          setMeetingToasts(cur => (cur.some(c => c.id === snoozed.id) ? cur : [...cur, snoozed]));
-          playMeetingChime();
-        }, minutes * 60_000);
-      }
-      return prev.filter(x => x.id !== id);
-    });
-  }, [playMeetingChime]);
-
-  const handleToastOpen = useCallback((_t: MeetingToastData) => {
-    setIsCalendarOpen(true);
-  }, []);
-
-  const handleTestMeetingNotification = useCallback(() => {
-    const now = new Date();
-    const start = new Date(now.getTime() + 10 * 60_000);
-    const fake: MeetingToastData = {
-      id: `test::${Date.now()}`,
-      apptId: 'test',
-      subject: 'Test meeting · review demo',
-      organizer: appSettings.appearance?.userEmail || 'you@company.com',
-      startIso: start.toISOString(),
-      minutesToStart: 10,
-      role: 'required',
-      summary: 'Questa è una notifica di prova. La call simulata richiede una breve presentazione dei progressi: PREPARA 2-3 slide sullo stato attuale, poi sarà discussione aperta.',
-    };
-    setMeetingToasts(prev => [...prev, fake]);
-    playMeetingChime();
-  }, [appSettings.appearance, playMeetingChime]);
-
-  useMeetingNotifications({
-    appointments: calAppointments,
-    enabled: appSettings.appearance?.meetingNotificationsEnabled ?? true,
-    leadMinutes: appSettings.appearance?.meetingNotificationLeadMinutes ?? 10,
-    userEmail: appSettings.appearance?.userEmail ?? '',
-    llmSettings: appSettings.llm,
-    onTrigger: handleMeetingTrigger,
-  });
-
-  // Notification history (bell icon dropdown) — backed by IndexedDB, 1-day TTL
-  const { records: meetingHistory, deleteOne: deleteMeetingHistoryItem, clearAll: clearAllMeetingHistory } = useMeetingNotificationHistory();
-
-  // Opens a new browser tab pre-loaded for a given meeting; the new tab parses
-  // the URL params on mount and prepares the session (title + countdown auto-start).
-  const handleStartSessionForMeeting = useCallback((rec: Pick<MeetingNotificationRecord, 'apptId' | 'date'>) => {
-    const u = new URL(window.location.href);
-    u.searchParams.set('startMeeting', `${rec.apptId}::${rec.date}`);
-    window.open(u.toString(), '_blank', 'noopener');
-  }, []);
-
-  const handleStartSessionFromToast = useCallback((toast: MeetingToastData) => {
-    const date = toast.startIso ? new Date(toast.startIso) : new Date();
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    handleStartSessionForMeeting({ apptId: toast.apptId, date: `${y}-${m}-${d}` });
-  }, [handleStartSessionForMeeting]);
-
-  // URL param: ?startMeeting=<recordId> — auto-load meeting context + countdown
-  const [pendingAutoStart, setPendingAutoStart] = useState<{ startMs: number; subject: string } | null>(null);
-  const pendingAutoStartLoadedRef = useRef(false);
-  useEffect(() => {
-    if (pendingAutoStartLoadedRef.current) return;
-    pendingAutoStartLoadedRef.current = true;
-    const sp = new URLSearchParams(window.location.search);
-    const id = sp.get('startMeeting');
-    if (!id) return;
-    (async () => {
-      const rec = await db.getMeetingNotification(id);
-      if (!rec) {
-        console.warn('[auto-start] meeting record not found for', id);
-        return;
-      }
-      const bodyHtml = rec.body ? `<p><strong>${rec.subject}</strong></p><p>Organizer: ${rec.organizer}</p>${rec.summary ? `<hr><p>${rec.summary}</p>` : ''}${rec.body ? `<hr><p>${rec.body.replace(/\n/g, '<br>')}</p>` : ''}` : `<p><strong>${rec.subject}</strong></p><p>Organizer: ${rec.organizer}</p>`;
-      handleOutlookImport(rec.subject, bodyHtml, []);
-      setPendingAutoStart({ startMs: new Date(rec.startIso).getTime(), subject: rec.subject });
-      console.info('[auto-start] loaded meeting "%s", auto-record at %s', rec.subject, rec.startIso);
-    })();
-  }, []);
-
-  // Countdown banner state — recomputed each second
-  const [autoStartCountdownMs, setAutoStartCountdownMs] = useState<number | null>(null);
-  useEffect(() => {
-    if (!pendingAutoStart) { setAutoStartCountdownMs(null); return; }
-    const tick = () => setAutoStartCountdownMs(pendingAutoStart.startMs - Date.now());
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [pendingAutoStart]);
-
-  // Trigger the recording at meeting start time (or immediately if start already passed
-  // when user lands on the page)
-  const autoStartFiredRef = useRef(false);
-  useEffect(() => {
-    if (!pendingAutoStart) return;
-    if (autoStartFiredRef.current) return;
-    const delay = Math.max(0, pendingAutoStart.startMs - Date.now());
-    const id = window.setTimeout(() => {
-      if (autoStartFiredRef.current) return;
-      autoStartFiredRef.current = true;
-      try {
-        audioRecorderRef.current?.startMicOnly?.();
-      } catch (err) {
-        console.warn('[auto-start] startMicOnly failed', err);
-      }
-    }, delay);
-    return () => window.clearTimeout(id);
-  }, [pendingAutoStart]);
-
-  const handleAutoStartNow = useCallback(() => {
-    if (autoStartFiredRef.current) return;
-    autoStartFiredRef.current = true;
-    try { audioRecorderRef.current?.startMicOnly?.(); } catch { /* noop */ }
-    setPendingAutoStart(null);
-  }, []);
-
-  const handleAutoStartCancel = useCallback(() => {
-    setPendingAutoStart(null);
-    autoStartFiredRef.current = true; // prevent the deferred timer from firing
-  }, []);
 
   // ── Divider drag handler ──────────────────────────────────────────────────
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1809,10 +1362,7 @@ export const NewHome: React.FC = () => {
                   handleOutlookImport(title, noteHtml, attendees);
                   pendingLinkAppointmentRef.current = { id: eventId, subject: title };
                   const startMs = new Date(startIso).getTime();
-                  if (Number.isFinite(startMs)) {
-                    autoStartFiredRef.current = false;
-                    setPendingAutoStart({ startMs, subject: title });
-                  }
+                  if (Number.isFinite(startMs)) scheduleAutoStart(startMs, title);
                 }}
                 onOpenTeamsAndRecord={(eventId, title, noteHtml, teamsUrl, attendees) => {
                   setIsNewCalendarOpen(false);
@@ -1838,9 +1388,7 @@ export const NewHome: React.FC = () => {
         onImportAndSchedule={(title, noteHtml, attendees, startIso, subject) => {
           handleOutlookImport(title, noteHtml, attendees);
           const startMs = new Date(startIso).getTime();
-          if (!Number.isFinite(startMs)) return;
-          autoStartFiredRef.current = false;
-          setPendingAutoStart({ startMs, subject });
+          if (Number.isFinite(startMs)) scheduleAutoStart(startMs, subject);
         }}
         onOpenTeamsAndRecord={handleOutlookOpenTeams}
         externalAppointments={calAppointments}

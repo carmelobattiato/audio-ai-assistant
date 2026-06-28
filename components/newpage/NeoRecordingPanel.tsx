@@ -92,6 +92,9 @@ const NeoAudioGuideModal: React.FC<{
     onClick={onCancel}
   >
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Recording with headphones"
       className="relative w-full max-w-md rounded-2xl overflow-hidden"
       style={{
         background: 'var(--neo-surface-solid)',
@@ -119,6 +122,7 @@ const NeoAudioGuideModal: React.FC<{
         </div>
         <button
           onClick={onCancel}
+          aria-label="Close"
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
           style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--neo-muted)' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--neo-text)')}
@@ -547,6 +551,9 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
                 style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }}
               >
                 <span
+                  role="timer"
+                  aria-live="polite"
+                  aria-label={`Recording time ${formatTime(elapsedTime)}`}
                   className="font-mono font-bold tracking-widest"
                   style={{
                     fontSize: 28,

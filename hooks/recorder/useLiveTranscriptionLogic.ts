@@ -69,7 +69,7 @@ export const useLiveTranscriptionLogic = (
                   loggingService.debug('LIVE_TRANS_AUDIO', `Sent ${chunksSent} audio chunks`);
                 }
               }
-            });
+            }).catch(err => loggingService.error('LIVE_TRANS_AUDIO', `Failed to send realtime audio: ${err}`));
           };
 
           micStreamSourceRef.current.connect(scriptProcessorRef.current);
