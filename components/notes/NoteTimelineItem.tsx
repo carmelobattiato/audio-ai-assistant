@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Camera, FileText, Trash2, ExternalLink } from 'lucide-react';
 import { BubbleNote } from '@/types';
 
@@ -7,7 +7,7 @@ interface NoteTimelineItemProps {
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
   elapsedLabel: string;
-  popupSide: 'left' | 'right';
+  popupLeft: boolean;
 }
 
 function extractFirstImageSrc(html: string): string | null {
@@ -15,9 +15,8 @@ function extractFirstImageSrc(html: string): string | null {
   return match ? match[1] ?? null : null;
 }
 
-function stripHtmlAndTruncate(html: string, maxLen = 80): string {
-  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  return text.length > maxLen ? text.slice(0, maxLen) + '…' : text;
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
@@ -25,32 +24,13 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
   onOpen,
   onDelete,
   elapsedLabel,
-  popupSide,
+  popupLeft,
 }) => {
   const [hovered, setHovered] = useState(false);
-  const popupRef = useRef<HTMLDivElement>(null);
 
   const isScreenshot = note.type === 'screenshot' || note.type === 'auto-screenshot';
   const thumbnailSrc = useMemo(() => extractFirstImageSrc(note.contentHtml), [note.contentHtml]);
-  const textPreview = useMemo(
-    () =>
-      isScreenshot
-        ? note.type === 'auto-screenshot' ? 'Auto screenshot' : 'Screenshot'
-        : stripHtmlAndTruncate(note.contentHtml),
-    [note.contentHtml, note.type, isScreenshot]
-  );
-
-  // Close popup on outside click
-  useEffect(() => {
-    if (!hovered) return;
-    const handler = (e: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
-        setHovered(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [hovered]);
+  const textContent = useMemo(() => stripHtml(note.contentHtml), [note.contentHtml]);
 
   return (
     <div
@@ -58,45 +38,66 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Circle node */}
+      {/* Sphere — 80×80 circle with content inside */}
       <button
-        className="w-14 h-14 rounded-full flex flex-col items-center justify-center gap-0.5
-                   bg-gradient-to-br from-violet-600 to-indigo-700
-                   ring-2 ring-violet-500/30 hover:ring-violet-400/60
-                   shadow-[0_0_14px_rgba(124,58,237,0.45)]
-                   transition-all duration-150 hover:scale-110 focus:outline-none cursor-pointer select-none"
+        className="w-20 h-20 rounded-full flex flex-col items-center justify-center overflow-hidden relative
+                   ring-2 ring-violet-500/30 hover:ring-violet-400/70
+                   shadow-[0_0_14px_rgba(124,58,237,0.4)]
+                   transition-all duration-150 hover:scale-110 focus:outline-none cursor-pointer"
         onClick={() => onOpen(note.id)}
         aria-label={`Open note at ${elapsedLabel}`}
+        style={{ padding: 0 }}
       >
-        <span className="text-white/90">
-          {isScreenshot ? <Camera size={18} /> : <FileText size={18} />}
-        </span>
-        <span className="text-[9px] font-mono text-white/60 leading-none">
-          {elapsedLabel}
-        </span>
+        {isScreenshot && thumbnailSrc ? (
+          /* Screenshot: fill circle with thumbnail */
+          <>
+            <img
+              src={thumbnailSrc}
+              alt=""
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover rounded-full"
+            />
+            {/* Dark overlay for readability */}
+            <div className="absolute inset-0 rounded-full bg-black/30" />
+            <div className="relative z-10 flex flex-col items-center gap-0.5 px-1">
+              <Camera size={13} className="text-white/90 shrink-0" />
+              <span className="text-[7px] font-mono text-white/80 leading-none">{elapsedLabel}</span>
+            </div>
+          </>
+        ) : (
+          /* Text note: gradient bg + text preview */
+          <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-indigo-700 flex flex-col items-center justify-center px-2 py-2 gap-0.5">
+            <FileText size={12} className="text-white/80 shrink-0" />
+            <p className="text-[7.5px] text-white/80 text-center leading-tight line-clamp-2 break-words w-full">
+              {textContent.slice(0, 40)}
+            </p>
+            <span className="text-[6.5px] font-mono text-white/50 leading-none">{elapsedLabel}</span>
+          </div>
+        )}
       </button>
 
       {/* Hover popup */}
       {hovered && (
         <div
-          ref={popupRef}
           className={[
             'absolute top-1/2 -translate-y-1/2 z-20',
-            popupSide === 'right' ? 'left-[60px]' : 'right-[60px]',
-            'w-48 rounded-xl px-3 py-2',
+            popupLeft ? 'right-[88px]' : 'left-[88px]',
+            'w-52 rounded-xl px-3 py-2',
             'bg-gray-900/95 border border-white/10 shadow-xl backdrop-blur-sm',
           ].join(' ')}
         >
-          <p className="text-xs text-gray-300 leading-snug mb-2 line-clamp-3">
-            {textPreview}
-          </p>
           {thumbnailSrc && (
             <img
               src={thumbnailSrc}
               alt=""
               loading="lazy"
-              className="w-full rounded object-cover max-h-20 mb-2"
+              className="w-full rounded-lg object-cover max-h-24 mb-2"
             />
+          )}
+          {textContent && (
+            <p className="text-xs text-gray-300 leading-snug mb-2 line-clamp-4">
+              {textContent.slice(0, 120)}{textContent.length > 120 ? '…' : ''}
+            </p>
           )}
           <div className="flex gap-1.5 pt-1 border-t border-white/10">
             <button

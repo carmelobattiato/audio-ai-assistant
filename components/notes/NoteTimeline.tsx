@@ -8,17 +8,44 @@ interface NoteTimelineProps {
   onDeleteNote: (id: string) => void;
 }
 
-const ROW_H = 104;
-const NODE_R = 28;
-const PAD_TOP = 20;
-const X_LEFT = 22;
-const X_RIGHT = 78;
+const NODES_PER_ROW = 5;
+const ROW_H = 120;   // px per row
+const NODE_D = 80;   // node diameter
+const NODE_R = NODE_D / 2;
+const PAD_TOP = 16;
+const PAD_BOTTOM = 16;
 
 function formatElapsed(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// Returns x in 0-100 viewBox units
+function nodeX(i: number): number {
+  const row = Math.floor(i / NODES_PER_ROW);
+  const col = i % NODES_PER_ROW;
+  const colPos = row % 2 === 0 ? col : (NODES_PER_ROW - 1 - col);
+  return (colPos + 0.5) / NODES_PER_ROW * 100;
+}
+
+// Returns y in absolute px
+function nodeY(i: number): number {
+  const row = Math.floor(i / NODES_PER_ROW);
+  return PAD_TOP + row * ROW_H + NODE_R;
+}
+
+function buildPath(i: number): string {
+  const x1 = nodeX(i);   const y1 = nodeY(i);
+  const x2 = nodeX(i + 1); const y2 = nodeY(i + 1);
+  const sameRow = Math.floor(i / NODES_PER_ROW) === Math.floor((i + 1) / NODES_PER_ROW);
+  if (sameRow) {
+    return `M ${x1} ${y1} L ${x2} ${y2}`;
+  }
+  // Row-turn: S-curve
+  const midY = (y1 + y2) / 2;
+  return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
 }
 
 export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, onDeleteNote }) => {
@@ -40,13 +67,14 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
     );
   }
 
-  const totalH = PAD_TOP + notes.length * ROW_H + 32;
+  const numRows = Math.ceil(notes.length / NODES_PER_ROW);
+  const totalH = PAD_TOP + numRows * ROW_H + PAD_BOTTOM;
 
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto min-h-0">
       <div className="relative w-full" style={{ height: totalH }}>
 
-        {/* SVG snake connectors */}
+        {/* SVG connectors */}
         <svg
           className="absolute inset-0 pointer-events-none"
           width="100%"
@@ -55,42 +83,34 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-          <defs>
-            <linearGradient id="snake-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.5" />
-            </linearGradient>
-          </defs>
-          {notes.slice(0, -1).map((_, i) => {
-            const x1p = i % 2 === 0 ? X_LEFT : X_RIGHT;
-            const x2p = i % 2 === 0 ? X_RIGHT : X_LEFT;
-            const cy1 = PAD_TOP + i * ROW_H + NODE_R;
-            const cy2 = PAD_TOP + (i + 1) * ROW_H + NODE_R;
-            const midY = (cy1 + cy2) / 2;
-            return (
-              <path
-                key={i}
-                d={`M ${x1p} ${cy1} C ${x1p} ${midY}, ${x2p} ${midY}, ${x2p} ${cy2}`}
-                fill="none"
-                stroke="url(#snake-grad)"
-                strokeWidth="2"
-                strokeDasharray="5 4"
-                strokeLinecap="round"
-              />
-            );
-          })}
+{notes.slice(0, -1).map((_, i) => (
+            <path
+              key={i}
+              d={buildPath(i)}
+              fill="none"
+              stroke="#7c3aed"
+              strokeOpacity="0.55"
+              strokeWidth="1.5"
+              strokeDasharray="4 3"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
         </svg>
 
         {/* Nodes */}
         {notes.map((note, i) => {
-          const xPct = i % 2 === 0 ? X_LEFT : X_RIGHT;
+          const xPct = nodeX(i);
+          const cy = nodeY(i);
+          const popupLeft = xPct > 50;
           return (
             <div
               key={note.id}
               className="absolute"
               style={{
-                left: `calc(${xPct}% - ${NODE_R}px)`,
-                top: PAD_TOP + i * ROW_H,
+                left: `${xPct}%`,
+                top: cy,
+                transform: 'translate(-50%, -50%)',
               }}
             >
               <NoteTimelineItem
@@ -98,7 +118,7 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
                 onOpen={onOpenNote}
                 onDelete={onDeleteNote}
                 elapsedLabel={formatElapsed(note.recordingElapsedTime)}
-                popupSide={i % 2 === 0 ? 'right' : 'left'}
+                popupLeft={popupLeft}
               />
             </div>
           );
