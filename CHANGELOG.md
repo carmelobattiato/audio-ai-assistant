@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.127] — 2026-06-29
+
+- Rinominato "NewCalendar" → "Calendar" nella topbar e nel titolo del modal; "Calendar" (vecchio) → "Old Calendar"
+- Rimosso pulsante "Calendar" (deprecated) dalla topbar; accesso a Old Calendar spostato nell'header del modal Calendar
+- `NeoTopbar`: rimosso `CalendarDeprecatedButton`, prop `onOpenCalendar` e `calendarSyncing`; rimossi import `useState`/`useRef`/`useEffect` non più usati
+
+---
+
 ## [1.126] — 2026-06-29
 
 - Eliminata cartella `/extension/` (sorgente extension v1) e `scripts/build-extension.sh` (build v1)

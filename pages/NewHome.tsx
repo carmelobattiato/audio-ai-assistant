@@ -739,9 +739,7 @@ export const NewHome: React.FC = () => {
         onSaveAll={() => { if (activeSessionIdRef.current) sessLogic.handleExportSessionJson(activeSessionIdRef.current); }}
         onOpenStats={() => setIsStatisticsModalOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenCalendar={() => setIsCalendarOpen(true)}
         onOpenNewCalendar={() => setIsNewCalendarOpen(true)}
-        calendarSyncing={calRefreshing}
         notificationBell={
           <MeetingNotificationBell
             records={meetingHistory}
@@ -1037,16 +1035,25 @@ export const NewHome: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}>
           <div className="flex flex-col rounded-xl overflow-hidden shadow-2xl" style={{ width: '75vw', height: '75vh', background: 'rgb(17,24,39)', border: '1px solid rgba(255,255,255,0.1)' }}>
           <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(17,24,39,0.95)' }}>
-            <span className="text-sm font-semibold text-purple-300">NewCalendar</span>
-            <button
-              onClick={() => setIsNewCalendarOpen(false)}
-              className="text-gray-400 hover:text-white transition-colors p-1 rounded"
-              title="Chiudi"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <span className="text-sm font-semibold text-purple-300">Calendar</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setIsNewCalendarOpen(false); setIsCalendarOpen(true); }}
+                className="text-xs px-2 py-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors border border-white/10"
+                title="Apri Old Calendar"
+              >
+                Old Calendar
+              </button>
+              <button
+                onClick={() => setIsNewCalendarOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors p-1 rounded"
+                title="Chiudi"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-hidden">
             <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Caricamento…</div>}>
