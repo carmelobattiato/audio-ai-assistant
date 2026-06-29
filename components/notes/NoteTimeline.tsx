@@ -9,6 +9,8 @@ interface NoteTimelineProps {
   isSelectMode?: boolean;
   selectedNoteIds?: Set<string>;
   onToggleSelectNote?: (id: string) => void;
+  onPlayAudio?: (filename: string) => void;
+  currentlyPlayingAudioFilename?: string | null;
 }
 
 const NODES_PER_ROW = 4;
@@ -50,7 +52,7 @@ function buildPath(i: number): string {
   return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
 }
 
-export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, onDeleteNote, isSelectMode, selectedNoteIds, onToggleSelectNote }) => {
+export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, onDeleteNote, isSelectMode, selectedNoteIds, onToggleSelectNote, onPlayAudio, currentlyPlayingAudioFilename }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(notes.length);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -128,6 +130,8 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
                 isSelectMode={isSelectMode}
                 isSelected={selectedNoteIds?.has(note.id)}
                 onToggleSelect={onToggleSelectNote}
+                onPlayAudio={onPlayAudio}
+                currentlyPlayingAudioFilename={currentlyPlayingAudioFilename}
               />
             </div>
           );

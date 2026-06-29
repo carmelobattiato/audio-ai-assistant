@@ -8,6 +8,16 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.131] — 2026-06-29
+
+- `BubbleNotes`/`NoteTimeline`/`NoteTimelineItem`: bubble audio creata al momento dell'avvio registrazione (stato "live" rosso pulsante), aggiornata con nome chunk a completamento, aggiornata con excerpt trascrizione dopo STT
+- `useTranscriptionLogic`: aggiunto callback `onChunkTranscribed(filename, transcript)` chiamato dopo ogni chunk trascritto con successo
+- `NoteTimelineItem`: 3 stati visivi audio — live (rosso animato), in trascrizione (blu), trascritto (teal + checkmark); pulsante play/stop inline
+- `NewHome`: `handlePlayAudioBubble` collega play delle bubble al meccanismo `setPlaybackFile` già esistente nel pannello trascrizione
+- `BubbleNotes`: props `onPlayAudio` e `currentlyPlayingAudioFilename` threaded fino a `NoteTimelineItem`
+
+---
+
 ## [1.130] — 2026-06-29
 
 - `BubbleNotes`: download note esporta HTML stilizzato con timeline verticale numerata, sfondo scuro, immagini inline; nome file `{titolo_sessione}_note.html`

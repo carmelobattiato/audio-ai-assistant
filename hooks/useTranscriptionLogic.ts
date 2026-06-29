@@ -29,7 +29,8 @@ export const useTranscriptionLogic = (
   transcribedText: string,
   setTranscribedText: (val: string | ((prev: string) => string)) => void,
   addLlmUsageStat: (stat: Omit<LlmUsageStats, 'timestamp'>) => void,
-  setAppUserMessage: (msg: string) => void
+  setAppUserMessage: (msg: string) => void,
+  onChunkTranscribed?: (filename: string, transcript: string) => void
 ) => {
   const [transcriptionQueue, setTranscriptionQueue] = useState<QueuedFile[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -42,6 +43,8 @@ export const useTranscriptionLogic = (
   const autoQueueRunningRef = useRef(false);
   const appSettingsRef = useRef(appSettings);
   appSettingsRef.current = appSettings;
+  const onChunkTranscribedRef = useRef(onChunkTranscribed);
+  onChunkTranscribedRef.current = onChunkTranscribed;
 
   // Latest mutable inputs/state read by the stable callbacks below — kept in a
   // ref so handlers can be wrapped in useCallback (stable identity → consumers
@@ -256,6 +259,7 @@ export const useTranscriptionLogic = (
           const headerHtml = `<br><hr class='my-4 border-gray-600'><br><h3>Transcription for: ${item.name}</h3><br>`;
           setTranscribedText(prev => (typeof prev === 'string' ? prev : '') + headerHtml + result.replace(/\n/g, '<br />'));
           setTranscriptionQueue(prev => prev.map(q => q.file.name === item.name ? { ...q, transcribed: true } : q));
+          onChunkTranscribedRef.current?.(item.name, result);
           setAppUserMessage(`Chunk "${item.name}" transcribed.`);
         } else {
           setTranscriptionError(result);
@@ -309,6 +313,7 @@ export const useTranscriptionLogic = (
         const contentHtml = result.replace(/\n/g, '<br />');
         setTranscribedText(prev => (typeof prev === 'string' ? prev : '') + headerHtml + contentHtml);
         setTranscriptionQueue(prev => prev.map((q, i) => i === index ? { ...q, transcribed: true } : q));
+        onChunkTranscribedRef.current?.(item.file.name, result);
         setAppUserMessage(`Chunk "${item.file.name}" transcribed.`);
       } else {
         setTranscriptionError(result);

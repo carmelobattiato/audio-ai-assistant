@@ -126,6 +126,7 @@ export const NewHome: React.FC = () => {
   const hasLiveTranscriptRef = useRef(false);
   const clearTranscriptionQueueRef = useRef<() => void>(() => {});
   const pendingLinkAppointmentRef = useRef<{ id: string; subject: string } | null>(null);
+  const liveAudioBubbleIdRef = useRef<string | null>(null);
 
   const isOnline = useIsOnline();
 
@@ -306,9 +307,11 @@ export const NewHome: React.FC = () => {
   useRecordingFavicon(recordingState === RecordingState.RECORDING);
 
   // ── Hooks ─────────────────────────────────────────────────────────────────
+  const onChunkTranscribedRef = useRef<((filename: string, transcript: string) => void) | undefined>(undefined);
   const transLogic = useTranscriptionLogic(
     appSettings, audioBlob, audioFileName, audioRecordingStartTime,
     transcribedText, setTranscribedText, addLlmUsageStat, setAppUserMessage,
+    (filename, transcript) => onChunkTranscribedRef.current?.(filename, transcript),
   );
   clearTranscriptionQueueRef.current = () => transLogic.setTranscriptionQueue([]);
 
@@ -482,41 +485,55 @@ export const NewHome: React.FC = () => {
     if (shouldAutoTranscribe) {
       transLogic.handleTranscribeChunkDirect(chunk, chunkName);
     }
-    // Audio bubble note for this chunk
-    setBubbleNotes(prev => [...prev, {
-      id: `audio_${chunkName}`,
-      contentHtml: `<p data-audio-filename="${chunkName}" data-transcribed="false"><strong>${chunkName}</strong></p>`,
-      timestamp: Date.now(),
-      recordingElapsedTime: recordingElapsedTime,
-      isEditing: false,
-      isProcessing: true,
-      type: 'audio' as const,
-    }]);
+    // Promote live bubble → named "waiting transcription", then create next live bubble
+    const prevLiveId = liveAudioBubbleIdRef.current;
+    const nextLiveId = `audio_live_${chunkIndex}`;
+    liveAudioBubbleIdRef.current = nextLiveId;
+    setBubbleNotes(prev => {
+      const updated = prev.map(note =>
+        note.id === prevLiveId
+          ? {
+              ...note,
+              id: `audio_${chunkName}`,
+              contentHtml: `<p data-audio-filename="${chunkName}" data-transcribed="false"><strong>${chunkName}</strong></p><p>⏳ Trascrizione in corso…</p>`,
+              recordingElapsedTime: recordingElapsedTime,
+            }
+          : note
+      );
+      return [...updated, {
+        id: nextLiveId,
+        contentHtml: `<p data-audio-status="recording"><strong>⏺ Registrazione in corso…</strong></p>`,
+        timestamp: Date.now(),
+        recordingElapsedTime: recordingElapsedTime,
+        isEditing: false,
+        isProcessing: true,
+        type: 'audio' as const,
+      }];
+    });
   }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks, appSettings.transcription.enableAutoPipeline, recordingElapsedTime, setBubbleNotes]);
 
-  // Mark audio bubble notes as transcribed when queue item completes
-  useEffect(() => {
-    setBubbleNotes(prev => {
-      let changed = false;
-      const next = prev.map(note => {
-        if (note.type !== 'audio' || !note.isProcessing) return note;
-        const filename = note.id.replace(/^audio_/, '');
-        const qItem = transLogic.transcriptionQueue.find(q => q.file.name === filename);
-        if (qItem?.transcribed) {
-          changed = true;
-          return {
+  // Update audio bubble with transcript excerpt after transcription completes
+  const handleChunkTranscribed = useCallback((filename: string, transcript: string) => {
+    const excerpt = transcript.replace(/<[^>]+>/g, '').slice(0, 120).trim();
+    setBubbleNotes(prev => prev.map(note =>
+      note.id === `audio_${filename}`
+        ? {
             ...note,
             isProcessing: false,
-            contentHtml: note.contentHtml.replace('data-transcribed="false"', 'data-transcribed="true"'),
-          };
-        }
-        return note;
-      });
-      return changed ? next : prev;
-    });
-  }, [transLogic.transcriptionQueue, setBubbleNotes]);
+            contentHtml: `<p data-audio-filename="${filename}" data-transcribed="true"><strong>${filename}</strong></p>${excerpt ? `<p class="text-xs text-gray-400">${excerpt}…</p>` : ''}`,
+          }
+        : note
+    ));
+  }, [setBubbleNotes]);
+  onChunkTranscribedRef.current = handleChunkTranscribed;
 
   const handleRecordingStop = useCallback(async (_id: string, wasChunked: boolean, transcript?: string | null) => {
+    // Remove dangling live bubble (next chunk that will never arrive)
+    if (liveAudioBubbleIdRef.current) {
+      const liveId = liveAudioBubbleIdRef.current;
+      setBubbleNotes(prev => prev.filter(n => n.id !== liveId));
+      liveAudioBubbleIdRef.current = null;
+    }
     let finalTranscript = transcribedText;
     if (transcript) { finalTranscript = transcript.replace(/\n/g, '<br />'); setTranscribedText(finalTranscript); }
 
@@ -641,11 +658,30 @@ export const NewHome: React.FC = () => {
       setBubbleNotes(initialSession.data.bubbleNotes);
       setPendingNoteHtml('');
     }
+    // Create live audio bubble for the first chunk (recording is about to start)
+    const liveId = 'audio_live';
+    liveAudioBubbleIdRef.current = liveId;
+    setBubbleNotes(prev => [...prev, {
+      id: liveId,
+      contentHtml: `<p data-audio-status="recording"><strong>⏺ Registrazione in corso…</strong></p>`,
+      timestamp: Date.now(),
+      recordingElapsedTime: 0,
+      isEditing: false,
+      isProcessing: true,
+      type: 'audio' as const,
+    }]);
     return true;
-  }, [resetAllDataStates, finalEffectiveTitle, pendingNoteHtml, appSettings, transcribedText, llmProcessedText, audioBlob, transLogic.transcriptionQueue.length]);
+  }, [resetAllDataStates, finalEffectiveTitle, pendingNoteHtml, appSettings, transcribedText, llmProcessedText, audioBlob, transLogic.transcriptionQueue.length, setBubbleNotes]);
 
   // ── Stable handlers/props for memoized heavy children (A6/A7) ──────────────
   const handleStopPlayback = useCallback(() => transLogic.setPlaybackFile(null), [transLogic.setPlaybackFile]);
+
+  const handlePlayAudioBubble = useCallback((filename: string) => {
+    const current = transLogic.playbackFile?.file?.name;
+    if (current === filename) { transLogic.setPlaybackFile(null); return; }
+    const item = transLogic.transcriptionQueue.find(q => q.file.name === filename);
+    if (item) transLogic.setPlaybackFile(item);
+  }, [transLogic.transcriptionQueue, transLogic.playbackFile, transLogic.setPlaybackFile]);
   const handleToggleAutoSave = useCallback(() => setIsAutoSaveEnabled(p => !p), []);
   const handleReset = useCallback(async () => { await resetAllDataStates(); audioRecorderRef.current?.resetRecording(); }, [resetAllDataStates]);
   const handleToggleAutoPipeline = useCallback((val: boolean) => patchSettings({ transcription: { ...appSettings.transcription, enableAutoPipeline: val } }), [appSettings.transcription, patchSettings]);
@@ -911,6 +947,8 @@ export const NewHome: React.FC = () => {
               viewingBubbleNoteId={viewingBubbleNoteId}
               recordingTitle={finalEffectiveTitle}
               displayStream={isScreenSharing ? (audioRecorderRef.current?.getDisplayStream() ?? null) : null}
+              onPlayAudio={handlePlayAudioBubble}
+              currentlyPlayingAudioFilename={transLogic.playbackFile?.file?.name ?? null}
             />
             </Suspense>
 

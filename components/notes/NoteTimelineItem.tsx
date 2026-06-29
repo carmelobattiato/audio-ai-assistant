@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Camera, FileText, FileImage, File, Film, Mic, CheckCircle, Trash2, ExternalLink, Check } from 'lucide-react';
+import { Camera, FileText, FileImage, File, Film, Mic, CheckCircle, Trash2, ExternalLink, Check, Play, Square } from 'lucide-react';
 import { BubbleNote } from '@/types';
 
 interface NoteTimelineItemProps {
@@ -11,6 +11,8 @@ interface NoteTimelineItemProps {
   isSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
+  onPlayAudio?: (filename: string) => void;
+  currentlyPlayingAudioFilename?: string | null;
 }
 
 function extractFirstImageSrc(html: string): string | null {
@@ -29,6 +31,10 @@ function extractAudioFilename(html: string): string {
 
 function isAudioTranscribed(html: string): boolean {
   return /data-transcribed="true"/.test(html);
+}
+
+function isAudioLiveRecording(html: string): boolean {
+  return /data-audio-status="recording"/.test(html);
 }
 
 function detectNoteIcon(note: BubbleNote) {
@@ -57,6 +63,8 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
   isSelectMode = false,
   isSelected = false,
   onToggleSelect,
+  onPlayAudio,
+  currentlyPlayingAudioFilename,
 }) => {
   const [hovered, setHovered] = useState(false);
 
@@ -68,6 +76,7 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
   const videoFilename = useMemo(() => extractVideoFilename(note.contentHtml), [note.contentHtml]);
   const audioFilename = useMemo(() => extractAudioFilename(note.contentHtml), [note.contentHtml]);
   const audioTranscribed = useMemo(() => isAudioTranscribed(note.contentHtml), [note.contentHtml]);
+  const audioLive = useMemo(() => isAudioLiveRecording(note.contentHtml), [note.contentHtml]);
   const IconComponent = useMemo(() => detectNoteIcon(note), [note]);
 
   const handleClick = () => {
@@ -100,9 +109,11 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
         {isAudio ? (
           <div className={[
             'w-full h-full rounded-full flex flex-col items-center justify-center px-3 py-3 gap-1',
-            audioTranscribed
-              ? 'bg-gradient-to-br from-teal-600 to-cyan-700'
-              : 'bg-gradient-to-br from-blue-700 to-indigo-800',
+            audioLive
+              ? 'bg-gradient-to-br from-red-600 to-rose-700 animate-pulse'
+              : audioTranscribed
+                ? 'bg-gradient-to-br from-teal-600 to-cyan-700'
+                : 'bg-gradient-to-br from-blue-700 to-indigo-800',
           ].join(' ')}>
             <div className="relative">
               <Mic size={20} className="text-white/90 shrink-0" />
@@ -111,11 +122,29 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
               )}
             </div>
             <p className="text-[7.5px] text-white/75 text-center leading-tight line-clamp-2 break-all w-full">
-              {audioFilename.replace(/^.*_segment_/, 'seg_') || textContent.slice(0, 30)}
+              {audioLive ? '⏺ REC' : (audioFilename.replace(/^.*_segment_/, 'seg_') || textContent.slice(0, 30))}
             </p>
-            <span className="text-[7px] font-mono text-white/40 leading-none">
-              {audioTranscribed ? '✓ ok' : '⏳'}
-            </span>
+            {!audioLive && audioFilename && onPlayAudio ? (
+              <button
+                className={[
+                  'flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7px] font-semibold transition-colors',
+                  currentlyPlayingAudioFilename === audioFilename
+                    ? 'bg-white/30 text-white'
+                    : 'bg-white/10 hover:bg-white/25 text-white/70 hover:text-white',
+                ].join(' ')}
+                onClick={(e) => { e.stopPropagation(); onPlayAudio(audioFilename); }}
+                title={currentlyPlayingAudioFilename === audioFilename ? 'Stop' : 'Play'}
+              >
+                {currentlyPlayingAudioFilename === audioFilename
+                  ? <><Square size={7} fill="currentColor" /> stop</>
+                  : <><Play size={7} fill="currentColor" /> play</>
+                }
+              </button>
+            ) : (
+              <span className="text-[7px] font-mono text-white/40 leading-none">
+                {audioLive ? 'live' : audioTranscribed ? '✓ ok' : '⏳'}
+              </span>
+            )}
           </div>
         ) : isVideo ? (
           <div className="w-full h-full rounded-full bg-gradient-to-br from-red-600/80 to-violet-700 flex flex-col items-center justify-center px-3 py-3 gap-1">
