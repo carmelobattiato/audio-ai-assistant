@@ -672,7 +672,7 @@ export const NewHome: React.FC = () => {
   return (
     <div
       className="neo-ctx flex flex-col"
-      style={{ background: 'var(--neo-bg)', minHeight: '100vh', color: 'var(--neo-text)', fontFamily: 'system-ui, -apple-system, sans-serif' }}
+      style={{ background: 'var(--neo-bg)', height: '100vh', overflow: 'hidden', color: 'var(--neo-text)', fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
       {/* Offline banner */}
       {!isOnline && (
