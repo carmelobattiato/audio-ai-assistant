@@ -83,12 +83,12 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
     onChunkSaved: (filename, _idx, elapsedMs) => {
       const newNote: BubbleNote = {
         id: `n_video_${Date.now()}`,
-        contentHtml: `<p>🎥 <strong>${filename}</strong></p>`,
+        contentHtml: `<p data-video-filename="${filename}"><strong>${filename}</strong></p>`,
         timestamp: Date.now(),
         recordingElapsedTime: elapsedMs,
         isEditing: false,
         isProcessing: false,
-        type: 'text',
+        type: 'video',
       };
       props.onBubbleNotesChange([...props.bubbleNotes, newNote]);
     },

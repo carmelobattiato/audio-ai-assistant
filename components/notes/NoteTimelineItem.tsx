@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Camera, FileText, FileImage, File, Trash2, ExternalLink, Check } from 'lucide-react';
+import { Camera, FileText, FileImage, File, Film, Trash2, ExternalLink, Check } from 'lucide-react';
 import { BubbleNote } from '@/types';
 
 interface NoteTimelineItemProps {
@@ -23,6 +23,7 @@ function stripHtml(html: string): string {
 }
 
 function detectNoteIcon(note: BubbleNote) {
+  if (note.type === 'video') return Film;
   if (note.type === 'screenshot' || note.type === 'auto-screenshot') return Camera;
   const html = note.contentHtml;
   if (/\.pdf\s*---/i.test(html)) return FileText;
@@ -30,6 +31,11 @@ function detectNoteIcon(note: BubbleNote) {
   if (/\.pptx\s*---/i.test(html)) return File;
   if (/<img /i.test(html)) return FileImage;
   return FileText;
+}
+
+function extractVideoFilename(html: string): string {
+  const match = html.match(/data-video-filename="([^"]+)"/);
+  return match ? (match[1] ?? '') : '';
 }
 
 export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
@@ -45,8 +51,10 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
   const [hovered, setHovered] = useState(false);
 
   const isScreenshot = note.type === 'screenshot' || note.type === 'auto-screenshot';
+  const isVideo = note.type === 'video';
   const thumbnailSrc = useMemo(() => extractFirstImageSrc(note.contentHtml), [note.contentHtml]);
   const textContent = useMemo(() => stripHtml(note.contentHtml), [note.contentHtml]);
+  const videoFilename = useMemo(() => extractVideoFilename(note.contentHtml), [note.contentHtml]);
   const IconComponent = useMemo(() => detectNoteIcon(note), [note]);
 
   const handleClick = () => {
@@ -76,7 +84,15 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
         aria-label={isSelectMode ? `Select note at ${elapsedLabel}` : `Open note at ${elapsedLabel}`}
         style={{ padding: 0 }}
       >
-        {isScreenshot && thumbnailSrc ? (
+        {isVideo ? (
+          <div className="w-full h-full rounded-full bg-gradient-to-br from-red-600/80 to-violet-700 flex flex-col items-center justify-center px-3 py-3 gap-1">
+            <Film size={20} className="text-white/90 shrink-0" />
+            <p className="text-[8px] text-white/75 text-center leading-tight line-clamp-2 break-all w-full">
+              {videoFilename || textContent.slice(0, 40)}
+            </p>
+            <span className="text-[8px] font-mono text-white/50 leading-none">{elapsedLabel}</span>
+          </div>
+        ) : isScreenshot && thumbnailSrc ? (
           <>
             <img
               src={thumbnailSrc}
