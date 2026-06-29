@@ -52,6 +52,7 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
   const calExtConnectedRef = useRef<boolean>(false);
   // Resolves when extension confirms sync with actual appointment data
   const pendingSyncRef = useRef<{ resolve: () => void; reject: (err: string) => void } | null>(null);
+  const calV2LastTsRef = useRef<number | null>(null);
   const [calSource, setCalSource] = useState<string>(() => localStorage.getItem('calendar:source') || 'windows');
   const [calendarEventsDb, setCalendarEventsDb] = useState<CalendarEventRecord[]>([]);
 
@@ -125,6 +126,18 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
       if (!calExtConnectedRef.current) {
         setCalError('Estensione non connessa — nessun segnale recente');
         setCalBridgeAvailable(false);
+        setCalRefreshing(false);
+        calInFlightRef.current = false;
+        localStorage.removeItem(CAL_LOCK_KEY);
+        return;
+      }
+      // If calV2 data is already fresh (< 2 min), resolve immediately — no need to wait.
+      // Extension writes to localStorage (not BroadcastChannel), so request-sync would
+      // time out if the extension has no new data to push.
+      const v2Age = calV2LastTsRef.current ? Date.now() - calV2LastTsRef.current : Infinity;
+      if (v2Age < 2 * 60_000) {
+        setCalBridgeAvailable(true);
+        setCalError(null);
         setCalRefreshing(false);
         calInFlightRef.current = false;
         localStorage.removeItem(CAL_LOCK_KEY);
@@ -290,7 +303,7 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
     setCalOutlookState(calV2.outlookState);
     if (!calV2.extensionOnline) return;
     if (calV2.events.length === 0) return;
-    if (calV2.lastSyncTs) setLastSyncAt(calV2.lastSyncTs);
+    if (calV2.lastSyncTs) { setLastSyncAt(calV2.lastSyncTs); calV2LastTsRef.current = calV2.lastSyncTs; }
     db.upsertCalendarEvents(calV2.events).catch(console.error);
     // Populate calAppointments so useMeetingNotifications fires for extension events
     const asAppointments: OutlookAppointment[] = calV2.events.map(ev => ({
@@ -306,6 +319,14 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
       responseStatus: ev.responseStatus,
     }));
     setCalAppointments(asAppointments);
+    setCalError(null);
+    // Resolve any fetchCalendarData() waiting on request-sync:
+    // extension writes to localStorage (not BroadcastChannel), so pendingSyncRef
+    // must be resolved here when fresh events arrive.
+    if (pendingSyncRef.current) {
+      pendingSyncRef.current.resolve();
+      pendingSyncRef.current = null;
+    }
     if (isNewCalendarOpen) {
       db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
     }

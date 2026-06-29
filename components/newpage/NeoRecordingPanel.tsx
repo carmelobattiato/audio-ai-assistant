@@ -89,154 +89,123 @@ const NeoAudioGuideModal: React.FC<{
 }> = ({ onConfirm, onCancel, onStartWithoutHeadphones }) => (
   <div
     className="fixed inset-0 z-50 flex items-center justify-center p-4"
-    style={{ background: 'var(--neo-overlay-bg)', backdropFilter: 'blur(20px)' }}
+    style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(16px)' }}
     onClick={onCancel}
   >
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Recording with headphones"
-      className="relative w-full max-w-md rounded-2xl overflow-hidden"
+      aria-label="Registrazione con cuffie"
+      className="relative w-full max-w-sm rounded-2xl overflow-hidden"
       style={{
         background: 'var(--neo-surface-solid)',
-        border: '1px solid rgba(139,92,246,0.35)',
-        boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 40px rgba(124,58,237,0.2)',
+        border: '1px solid rgba(139,92,246,0.3)',
+        boxShadow: '0 32px 64px rgba(0,0,0,0.6), 0 0 32px rgba(124,58,237,0.15)',
       }}
       onClick={e => e.stopPropagation()}
     >
-      {/* Gradient top bar */}
-      <div style={{ height: 3, background: 'linear-gradient(90deg, #7C3AED, #C026D3, #7C3AED)' }} />
+      {/* Top accent */}
+      <div style={{ height: 2, background: 'linear-gradient(90deg, #7C3AED, #C026D3)' }} />
 
       {/* Header */}
-      <div className="px-6 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.4), rgba(192,38,211,0.3))', border: '1px solid rgba(139,92,246,0.4)' }}
-          >
-            <HeadphonesIcon />
-          </div>
-          <div>
-            <p className="text-sm font-bold" style={{ color: '#EDE9FE' }}>Recording with headphones</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>Enable system audio capture</p>
-          </div>
+      <div className="px-5 pt-5 pb-4 flex items-start justify-between">
+        <div>
+          <p className="text-base font-bold" style={{ color: 'var(--neo-text)' }}>
+            Condividi l'audio di sistema
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>
+            Per catturare l'audio degli altri partecipanti
+          </p>
         </div>
         <button
           onClick={onCancel}
-          aria-label="Close"
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-          style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--neo-muted)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--neo-text)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--neo-muted)')}
+          aria-label="Chiudi"
+          className="w-7 h-7 rounded-lg flex items-center justify-center ml-3 flex-shrink-0 transition-opacity hover:opacity-100 opacity-50"
+          style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--neo-text)' }}
         >
-          ✕
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
-      {/* Warning */}
-      <div className="mx-6 mb-4 px-4 py-3 rounded-xl flex items-start gap-3"
-        style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)' }}>
-        <span className="text-amber-400 mt-0.5 flex-shrink-0">⚠</span>
-        <p className="text-xs leading-relaxed" style={{ color: '#FCD34D' }}>
-          Headphones prevent the microphone from capturing PC audio.
-          Share your screen with <strong>system audio enabled</strong> to record meetings.
-        </p>
-      </div>
-
-      {/* Steps */}
-      <div className="px-6 pb-2 space-y-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--neo-muted)' }}>
-          In the browser screen-share dialog
-        </p>
-
+      {/* Steps — compact, icon-led */}
+      <div className="px-5 pb-5 space-y-2">
         {[
           {
-            n: '1', color: '#7C3AED',
-            title: 'Select the Entire Screen tab — click Screen 1',
-            desc: 'Stay on Entire Screen — do not switch to "Chrome Tab". Only "Entire Screen" captures Teams, Meet, Zoom…',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <path d="M8 21h8M12 17v4" />
+              </svg>
+            ),
+            label: 'Schermo intero',
+            desc: 'Seleziona "Schermo intero" (non la scheda Chrome)',
           },
           {
-            n: '2', color: '#10B981',
-            title: 'Enable "Also share system audio"',
-            desc: 'Find the toggle at the bottom of the dialog and turn it ON.',
-            warning: 'If you see "Also share tab audio" instead, you are on the wrong tab — go back and select Entire Screen.',
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 18v3m0-21v3M5 12H3m18 0h-2M6.343 6.343L4.93 4.93m14.142 14.142l-1.414-1.414" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            ),
+            label: 'Attiva "Condividi audio di sistema"',
+            desc: 'Toggle in basso nella finestra di Chrome',
           },
-          { n: '3', color: '#7C3AED', title: 'Click Share', desc: 'Recording starts automatically.' },
-        ].map(step => (
-          <div key={step.n} className="flex items-start gap-3">
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold text-white"
-              style={{ background: step.color, boxShadow: `0 0 10px ${step.color}60` }}
-            >
-              {step.n}
+          {
+            icon: (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            ),
+            label: 'Condividi',
+            desc: 'La registrazione parte automaticamente',
+          },
+        ].map((step, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{
+                background: i === 1
+                  ? 'rgba(16,185,129,0.15)'
+                  : 'rgba(124,58,237,0.15)',
+                color: i === 1 ? '#10B981' : '#A78BFA',
+              }}>
+              {step.icon}
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold" style={{ color: step.n === '2' ? 'var(--neo-success)' : 'var(--neo-text)' }}>{step.title}</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--neo-muted)' }}>{step.desc}</p>
-              {step.warning && (
-                <p className="text-xs mt-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(245,158,11,0.1)', color: '#FCD34D' }}>
-                  ⚠ {step.warning}
-                </p>
-              )}
-              {/* Toggle mockup for step 2 */}
-              {step.n === '2' && (
-                <div className="mt-2 px-3 py-2 rounded-lg flex items-center justify-between text-xs"
-                  style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <span style={{ color: '#C4B5FD' }}>Also share system audio</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-5 rounded-full relative" style={{ background: '#10B981', boxShadow: '0 0 8px rgba(16,185,129,0.5)' }}>
-                      <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5 shadow-md" />
-                    </div>
-                    <span className="font-bold" style={{ color: '#6EE7B7' }}>ON</span>
-                  </div>
-                </div>
-              )}
+            <div className="min-w-0">
+              <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--neo-text)' }}>{step.label}</p>
+              <p className="text-[11px] mt-0.5 leading-tight" style={{ color: 'var(--neo-muted)' }}>{step.desc}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-4 flex items-center justify-between gap-3 mt-2"
-        style={{ borderTop: '1px solid var(--neo-border)' }}>
-        {/* Left: start mic-only without opening screen share */}
+      <div className="px-5 pb-5 flex gap-2.5">
         <button
           onClick={onStartWithoutHeadphones}
-          className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-all hover:scale-105"
-          style={{ color: 'var(--neo-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.2)' }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--neo-text)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--neo-muted)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; }}
-          title="Start with microphone only — no system audio"
+          className="flex-1 py-2.5 text-sm rounded-xl font-medium transition-all hover:opacity-80"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: 'var(--neo-muted)',
+          }}
+          title="Avvia solo con microfono"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-          </svg>
-          Rec without headphones
+          Solo mic
         </button>
-        {/* Right: cancel / confirm */}
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm rounded-lg transition-colors"
-            style={{ color: 'var(--neo-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.2)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--neo-text)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--neo-muted)')}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-lg transition-all hover:scale-105"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #C026D3)', boxShadow: '0 0 20px rgba(124,58,237,0.4)' }}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M15 10l4.553-2.069A1 1 0 0121 8.847v6.306a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
-            </svg>
-            Open screen share
-          </button>
-        </div>
+        <button
+          onClick={onConfirm}
+          className="flex-[2] flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+          style={{ background: 'linear-gradient(135deg, #7C3AED, #C026D3)', boxShadow: '0 0 16px rgba(124,58,237,0.4)' }}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+          Condividi schermo
+        </button>
       </div>
     </div>
   </div>

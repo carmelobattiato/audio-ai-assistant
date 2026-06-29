@@ -878,8 +878,6 @@ export const NewHome: React.FC = () => {
               onPendingNoteHtmlChange={setPendingNoteHtml}
               viewingBubbleNoteId={viewingBubbleNoteId}
               recordingTitle={finalEffectiveTitle}
-              isVideoRecording={false}
-              videoChunkCount={0}
             />
             </Suspense>
 

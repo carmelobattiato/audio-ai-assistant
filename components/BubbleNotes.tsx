@@ -29,8 +29,6 @@ interface BubbleNotesProps {
   onPendingNoteHtmlChange: (html: string) => void;
   viewingBubbleNoteId?: string | null;
   recordingTitle: string;
-  isVideoRecording: boolean;
-  videoChunkCount: number;
   displayStream?: MediaStream | null;
 }
 

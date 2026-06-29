@@ -6,6 +6,8 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+- `NeoAudioGuideModal`: redesign completo — layout compatto, 3 step icon-led, nessun banner warning, nessun toggle mockup; footer 2 pulsanti allineati ("Solo mic" + "Condividi schermo")
+
 ---
 
 ## [1.128] — 2026-06-29
