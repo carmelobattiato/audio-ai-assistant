@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Camera, FileText, Trash2, ExternalLink } from 'lucide-react';
+import { Camera, FileText, FileImage, File, Trash2, ExternalLink, Check } from 'lucide-react';
 import { BubbleNote } from '@/types';
 
 interface NoteTimelineItemProps {
@@ -8,6 +8,9 @@ interface NoteTimelineItemProps {
   onDelete: (id: string) => void;
   elapsedLabel: string;
   popupLeft: boolean;
+  isSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 function extractFirstImageSrc(html: string): string | null {
@@ -19,18 +22,40 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function detectNoteIcon(note: BubbleNote) {
+  if (note.type === 'screenshot' || note.type === 'auto-screenshot') return Camera;
+  const html = note.contentHtml;
+  if (/\.pdf\s*---/i.test(html)) return FileText;
+  if (/\.docx\s*---/i.test(html) || /\.html\s*---/i.test(html)) return FileText;
+  if (/\.pptx\s*---/i.test(html)) return File;
+  if (/<img /i.test(html)) return FileImage;
+  return FileText;
+}
+
 export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
   note,
   onOpen,
   onDelete,
   elapsedLabel,
   popupLeft,
+  isSelectMode = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const [hovered, setHovered] = useState(false);
 
   const isScreenshot = note.type === 'screenshot' || note.type === 'auto-screenshot';
   const thumbnailSrc = useMemo(() => extractFirstImageSrc(note.contentHtml), [note.contentHtml]);
   const textContent = useMemo(() => stripHtml(note.contentHtml), [note.contentHtml]);
+  const IconComponent = useMemo(() => detectNoteIcon(note), [note]);
+
+  const handleClick = () => {
+    if (isSelectMode) {
+      onToggleSelect?.(note.id);
+    } else {
+      onOpen(note.id);
+    }
+  };
 
   return (
     <div
@@ -40,12 +65,15 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
     >
       {/* Sphere — 120×120 circle with content inside */}
       <button
-        className="w-[120px] h-[120px] rounded-full flex flex-col items-center justify-center overflow-hidden relative
-                   ring-2 ring-violet-500/30 hover:ring-violet-400/70
-                   shadow-[0_0_18px_rgba(124,58,237,0.4)]
-                   transition-all duration-150 hover:scale-110 focus:outline-none cursor-pointer"
-        onClick={() => onOpen(note.id)}
-        aria-label={`Open note at ${elapsedLabel}`}
+        className={[
+          'w-[120px] h-[120px] rounded-full flex flex-col items-center justify-center overflow-hidden relative',
+          'transition-all duration-150 hover:scale-110 focus:outline-none cursor-pointer',
+          isSelected
+            ? 'ring-4 ring-violet-400 shadow-[0_0_22px_rgba(124,58,237,0.7)]'
+            : 'ring-2 ring-violet-500/30 hover:ring-violet-400/70 shadow-[0_0_18px_rgba(124,58,237,0.4)]',
+        ].join(' ')}
+        onClick={handleClick}
+        aria-label={isSelectMode ? `Select note at ${elapsedLabel}` : `Open note at ${elapsedLabel}`}
         style={{ padding: 0 }}
       >
         {isScreenshot && thumbnailSrc ? (
@@ -58,23 +86,37 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
             />
             <div className="absolute inset-0 rounded-full bg-black/30" />
             <div className="relative z-10 flex flex-col items-center gap-1 px-1">
-              <Camera size={18} className="text-white/90 shrink-0" />
+              <IconComponent size={18} className="text-white/90 shrink-0" />
               <span className="text-[9px] font-mono text-white/80 leading-none">{elapsedLabel}</span>
             </div>
           </>
         ) : (
           <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-indigo-700 flex flex-col items-center justify-center px-3 py-3 gap-1">
-            <FileText size={16} className="text-white/80 shrink-0" />
+            <IconComponent size={16} className="text-white/80 shrink-0" />
             <p className="text-[9px] text-white/80 text-center leading-tight line-clamp-3 break-words w-full">
               {textContent.slice(0, 55)}
             </p>
             <span className="text-[8px] font-mono text-white/50 leading-none">{elapsedLabel}</span>
           </div>
         )}
+
+        {/* Selection checkmark overlay */}
+        {isSelectMode && (
+          <div className={[
+            'absolute inset-0 rounded-full flex items-center justify-center transition-colors',
+            isSelected ? 'bg-violet-500/40' : 'bg-black/0 hover:bg-black/20',
+          ].join(' ')}>
+            {isSelected && (
+              <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center shadow-lg">
+                <Check size={18} className="text-white" strokeWidth={3} />
+              </div>
+            )}
+          </div>
+        )}
       </button>
 
-      {/* Hover popup */}
-      {hovered && (
+      {/* Hover popup — only outside select mode */}
+      {hovered && !isSelectMode && (
         <div
           className={[
             'absolute top-1/2 -translate-y-1/2 z-50',

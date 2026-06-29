@@ -120,6 +120,13 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
         notes={props.bubbleNotes}
         onOpenNote={props.onOpenBubbleNote}
         onDeleteNote={handleDeleteNote}
+        isSelectMode={isSelectMode}
+        selectedNoteIds={selectedNoteIds}
+        onToggleSelectNote={(id) => setSelectedNoteIds(prev => {
+          const next = new Set(prev);
+          next.has(id) ? next.delete(id) : next.add(id);
+          return next;
+        })}
       />
 
       {/* Editor */}

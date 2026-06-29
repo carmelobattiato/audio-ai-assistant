@@ -6,6 +6,9 @@ interface NoteTimelineProps {
   notes: BubbleNote[];
   onOpenNote: (id: string) => void;
   onDeleteNote: (id: string) => void;
+  isSelectMode?: boolean;
+  selectedNoteIds?: Set<string>;
+  onToggleSelectNote?: (id: string) => void;
 }
 
 const NODES_PER_ROW = 4;
@@ -47,7 +50,7 @@ function buildPath(i: number): string {
   return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
 }
 
-export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, onDeleteNote }) => {
+export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, onDeleteNote, isSelectMode, selectedNoteIds, onToggleSelectNote }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(notes.length);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -122,6 +125,9 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
                 onDelete={onDeleteNote}
                 elapsedLabel={formatElapsed(note.recordingElapsedTime)}
                 popupLeft={popupLeft}
+                isSelectMode={isSelectMode}
+                isSelected={selectedNoteIds?.has(note.id)}
+                onToggleSelect={onToggleSelectNote}
               />
             </div>
           );
