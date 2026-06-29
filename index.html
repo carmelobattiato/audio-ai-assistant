@@ -1171,6 +1171,39 @@
         to   { opacity: 1; transform: translateX(-50%) translateY(0); }
       }
 
+      /* Tiptap note editor */
+      .note-editor-content .ProseMirror {
+        outline: none;
+        min-height: 72px;
+      }
+      .note-editor-content .ProseMirror p.is-editor-empty:first-child::before {
+        content: attr(data-placeholder);
+        float: left;
+        color: #6b7280;
+        pointer-events: none;
+        height: 0;
+      }
+      .note-editor-content .ProseMirror img {
+        max-width: 100%;
+        max-height: 200px;
+        border-radius: 6px;
+        object-fit: contain;
+      }
+      .note-editor-content .ProseMirror a {
+        color: #a78bfa;
+        text-decoration: underline;
+      }
+      .note-editor-content .ProseMirror code {
+        background: rgba(255,255,255,0.1);
+        border-radius: 3px;
+        padding: 0.1em 0.3em;
+        font-size: 0.9em;
+      }
+      .note-editor-content .ProseMirror h1 { font-size: 1.2em; font-weight: 700; margin: 0.4em 0; }
+      .note-editor-content .ProseMirror h2 { font-size: 1.05em; font-weight: 600; margin: 0.3em 0; }
+      .note-editor-content .ProseMirror ul { list-style: disc; padding-left: 1.4em; }
+      .note-editor-content .ProseMirror ol { list-style: decimal; padding-left: 1.4em; }
+
     </style>
 </head>
   <body class="bg-gray-900 text-gray-100 antialiased">
