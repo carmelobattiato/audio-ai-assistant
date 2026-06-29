@@ -186,7 +186,7 @@ export interface BubbleNote {
   recordingElapsedTime: number;
   isEditing: boolean;
   isProcessing: boolean;
-  type?: 'text' | 'screenshot' | 'auto-screenshot' | 'video';
+  type?: 'text' | 'screenshot' | 'auto-screenshot' | 'video' | 'audio';
 }
 
 export interface ModelInfo {

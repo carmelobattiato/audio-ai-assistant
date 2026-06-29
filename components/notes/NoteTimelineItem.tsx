@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Camera, FileText, FileImage, File, Film, Trash2, ExternalLink, Check } from 'lucide-react';
+import { Camera, FileText, FileImage, File, Film, Mic, CheckCircle, Trash2, ExternalLink, Check } from 'lucide-react';
 import { BubbleNote } from '@/types';
 
 interface NoteTimelineItemProps {
@@ -22,7 +22,17 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function extractAudioFilename(html: string): string {
+  const match = html.match(/data-audio-filename="([^"]+)"/);
+  return match ? (match[1] ?? '') : '';
+}
+
+function isAudioTranscribed(html: string): boolean {
+  return /data-transcribed="true"/.test(html);
+}
+
 function detectNoteIcon(note: BubbleNote) {
+  if (note.type === 'audio') return Mic;
   if (note.type === 'video') return Film;
   if (note.type === 'screenshot' || note.type === 'auto-screenshot') return Camera;
   const html = note.contentHtml;
@@ -52,9 +62,12 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
 
   const isScreenshot = note.type === 'screenshot' || note.type === 'auto-screenshot';
   const isVideo = note.type === 'video';
+  const isAudio = note.type === 'audio';
   const thumbnailSrc = useMemo(() => extractFirstImageSrc(note.contentHtml), [note.contentHtml]);
   const textContent = useMemo(() => stripHtml(note.contentHtml), [note.contentHtml]);
   const videoFilename = useMemo(() => extractVideoFilename(note.contentHtml), [note.contentHtml]);
+  const audioFilename = useMemo(() => extractAudioFilename(note.contentHtml), [note.contentHtml]);
+  const audioTranscribed = useMemo(() => isAudioTranscribed(note.contentHtml), [note.contentHtml]);
   const IconComponent = useMemo(() => detectNoteIcon(note), [note]);
 
   const handleClick = () => {
@@ -84,7 +97,27 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
         aria-label={isSelectMode ? `Select note at ${elapsedLabel}` : `Open note at ${elapsedLabel}`}
         style={{ padding: 0 }}
       >
-        {isVideo ? (
+        {isAudio ? (
+          <div className={[
+            'w-full h-full rounded-full flex flex-col items-center justify-center px-3 py-3 gap-1',
+            audioTranscribed
+              ? 'bg-gradient-to-br from-teal-600 to-cyan-700'
+              : 'bg-gradient-to-br from-blue-700 to-indigo-800',
+          ].join(' ')}>
+            <div className="relative">
+              <Mic size={20} className="text-white/90 shrink-0" />
+              {audioTranscribed && (
+                <CheckCircle size={10} className="text-teal-300 absolute -top-1 -right-1" />
+              )}
+            </div>
+            <p className="text-[7.5px] text-white/75 text-center leading-tight line-clamp-2 break-all w-full">
+              {audioFilename.replace(/^.*_segment_/, 'seg_') || textContent.slice(0, 30)}
+            </p>
+            <span className="text-[7px] font-mono text-white/40 leading-none">
+              {audioTranscribed ? '✓ ok' : '⏳'}
+            </span>
+          </div>
+        ) : isVideo ? (
           <div className="w-full h-full rounded-full bg-gradient-to-br from-red-600/80 to-violet-700 flex flex-col items-center justify-center px-3 py-3 gap-1">
             <Film size={20} className="text-white/90 shrink-0" />
             <p className="text-[8px] text-white/75 text-center leading-tight line-clamp-2 break-all w-full">

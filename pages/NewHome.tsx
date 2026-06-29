@@ -482,7 +482,39 @@ export const NewHome: React.FC = () => {
     if (shouldAutoTranscribe) {
       transLogic.handleTranscribeChunkDirect(chunk, chunkName);
     }
-  }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks, appSettings.transcription.enableAutoPipeline]);
+    // Audio bubble note for this chunk
+    setBubbleNotes(prev => [...prev, {
+      id: `audio_${chunkName}`,
+      contentHtml: `<p data-audio-filename="${chunkName}" data-transcribed="false"><strong>${chunkName}</strong></p>`,
+      timestamp: Date.now(),
+      recordingElapsedTime: recordingElapsedTime,
+      isEditing: false,
+      isProcessing: true,
+      type: 'audio' as const,
+    }]);
+  }, [transLogic.addChunkToQueue, transLogic.handleTranscribeChunkDirect, appSettings.transcription.autoTranscribeChunks, appSettings.transcription.enableAutoPipeline, recordingElapsedTime, setBubbleNotes]);
+
+  // Mark audio bubble notes as transcribed when queue item completes
+  useEffect(() => {
+    setBubbleNotes(prev => {
+      let changed = false;
+      const next = prev.map(note => {
+        if (note.type !== 'audio' || !note.isProcessing) return note;
+        const filename = note.id.replace(/^audio_/, '');
+        const qItem = transLogic.transcriptionQueue.find(q => q.file.name === filename);
+        if (qItem?.transcribed) {
+          changed = true;
+          return {
+            ...note,
+            isProcessing: false,
+            contentHtml: note.contentHtml.replace('data-transcribed="false"', 'data-transcribed="true"'),
+          };
+        }
+        return note;
+      });
+      return changed ? next : prev;
+    });
+  }, [transLogic.transcriptionQueue, setBubbleNotes]);
 
   const handleRecordingStop = useCallback(async (_id: string, wasChunked: boolean, transcript?: string | null) => {
     let finalTranscript = transcribedText;
