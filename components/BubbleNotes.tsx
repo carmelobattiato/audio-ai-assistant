@@ -1,15 +1,16 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { BubbleNote, AppSettings } from '../types';
-import { NoteBubble } from './NoteBubble';
 import { FullscreenNotesViewer } from './FullscreenNotesViewer';
 import { ConfirmModal } from './common/ConfirmModal';
 import { saveBlobToFile } from '../utils/fileUtils';
 import { formatTime } from '../utils/textUtils';
 import { useNoteEditor } from '../hooks/notes/useNoteEditor';
 import { useAutoScreenshot } from '../hooks/notes/useAutoScreenshot';
-import { NoteEditorToolbar } from './notes/NoteEditorToolbar';
+import { useVideoRecorder } from '../hooks/notes/useVideoRecorder';
 import { NoteActionsHeader } from './notes/NoteActionsHeader';
+import { NoteTimeline } from './notes/NoteTimeline';
+import { NoteEditor } from './notes/NoteEditor';
 import { loggingService } from '../services/loggingService';
 
 interface BubbleNotesProps {
@@ -30,109 +31,152 @@ interface BubbleNotesProps {
   recordingTitle: string;
   isVideoRecording: boolean;
   videoChunkCount: number;
+  displayStream?: MediaStream | null;
 }
 
 const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
-  const editor = useNoteEditor(
-    props.isEditorEditable, props.elapsedTime, props.bubbleNotes, props.onBubbleNotesChange,
-    props.pendingNoteHtml, props.onPendingNoteHtmlChange
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Hooks ---
+  const {
+    editor,
+    parsingMessage,
+    handleAddNote,
+    handleFileSelect,
+  } = useNoteEditor(
+    props.isEditorEditable,
+    props.elapsedTime,
+    props.bubbleNotes,
+    props.onBubbleNotesChange,
+    props.pendingNoteHtml,
+    props.onPendingNoteHtmlChange,
   );
-  
-  const handleTakeScreenshotLogged = React.useCallback((isAuto: boolean) => {
+
+  const handleTakeScreenshotLogged = useCallback((isAuto: boolean) => {
     loggingService.info('SCREENSHOT_TAKE', `${isAuto ? 'Auto' : 'Manual'} screenshot requested`, { isAuto, isScreenSharing: props.isScreenSharing });
     props.onTakeScreenshot(isAuto);
   }, [props.onTakeScreenshot, props.isScreenSharing]);
 
   const autoShot = useAutoScreenshot(
-    props.isRecordingCurrentlyActive, props.isScreenSharing,
-    props.transcriptionSettings.autoScreenshotIntervalSeconds ?? 60, handleTakeScreenshotLogged
+    props.isRecordingCurrentlyActive,
+    props.isScreenSharing,
+    props.transcriptionSettings.autoScreenshotIntervalSeconds ?? 60,
+    handleTakeScreenshotLogged,
   );
 
-  const toggleAutoScreenshotLogged = React.useCallback(() => {
+  const toggleAutoScreenshotLogged = useCallback(() => {
     loggingService.info('SCREENSHOT_AUTOSHOT_TOGGLE', `Auto-shot toggled`, { currentlyOn: autoShot.isAutoScreenshotOn, isScreenSharing: props.isScreenSharing });
     autoShot.toggleAutoScreenshot();
   }, [autoShot, props.isScreenSharing]);
 
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const {
+    isVideoRecording,
+    chunkCount: videoChunkCount,
+    startVideo,
+    stopVideo,
+  } = useVideoRecorder({ displayStream: props.displayStream ?? null });
 
-  const handleDownloadNotes = () => {
+  // --- Note management ---
+  const handleDeleteNote = useCallback((noteId: string) => {
+    props.onBubbleNotesChange(props.bubbleNotes.filter(n => n.id !== noteId));
+  }, [props.bubbleNotes, props.onBubbleNotesChange]);
+
+  const handleDeleteSelected = useCallback(() => {
+    loggingService.info('BUBBLE_NOTES_DELETE', `Deleting ${selectedNoteIds.size} notes`, { ids: Array.from(selectedNoteIds) });
+    props.onBubbleNotesChange(props.bubbleNotes.filter(n => !selectedNoteIds.has(n.id)));
+    setSelectedNoteIds(new Set());
+    setIsSelectMode(false);
+    setShowConfirmDelete(false);
+  }, [props.bubbleNotes, props.onBubbleNotesChange, selectedNoteIds]);
+
+  const handleDownloadNotes = useCallback(() => {
     if (props.bubbleNotes.length === 0) return;
     loggingService.info('BUBBLE_NOTES_EXPORT', 'Exporting bubble notes to HTML', { count: props.bubbleNotes.length });
     const notesHtml = props.bubbleNotes.map(n => `<div class="note"><h3>Time: ${formatTime(n.recordingElapsedTime)}</h3>${n.contentHtml}</div>`).join('');
     const blob = new Blob([`<html><body style="font-family:sans-serif;padding:20px"><h1>${props.recordingTitle}</h1>${notesHtml}</body></html>`], { type: 'text/html' });
     saveBlobToFile(blob, `notes_${props.recordingTitle.replace(/\s+/g, '_')}.html`);
-  };
-
-  const toggleSelection = (id: string) => {
-    setSelectedNoteIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+  }, [props.bubbleNotes, props.recordingTitle]);
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col h-full">
+      {/* Header */}
       <NoteActionsHeader
-        isSelectMode={isSelectMode} hasNotes={props.bubbleNotes.length > 0} selectedCount={selectedNoteIds.size}
-        isVideoRecording={props.isVideoRecording} videoChunkCount={props.videoChunkCount}
+        isSelectMode={isSelectMode}
+        selectedCount={selectedNoteIds.size}
+        hasNotes={props.bubbleNotes.length > 0}
+        isVideoRecording={isVideoRecording}
+        videoChunkCount={videoChunkCount}
         onToggleSelect={() => { setIsSelectMode(true); setSelectedNoteIds(new Set()); }}
-        onFullscreen={() => setIsFullscreen(true)} onDownload={handleDownloadNotes}
-        onCancelSelect={() => setIsSelectMode(false)} onDeleteRequest={() => setShowConfirmDelete(true)}
+        onFullscreen={() => setIsFullscreen(true)}
+        onDownload={handleDownloadNotes}
+        onDeleteRequest={() => setShowConfirmDelete(true)}
+        onCancelSelect={() => { setIsSelectMode(false); setSelectedNoteIds(new Set()); }}
       />
 
-      {props.bubbleNotes.length > 0 && (
-        <div className="bubble-notes-container">
-          {props.bubbleNotes.map(note => (
-            <NoteBubble key={note.id} note={note} onView={() => props.onOpenBubbleNote(note.id)} isActive={note.id === props.viewingBubbleNoteId} isSelectMode={isSelectMode} isSelected={selectedNoteIds.has(note.id)} onToggleSelect={toggleSelection} />
-          ))}
-        </div>
+      {/* Timeline */}
+      <NoteTimeline
+        notes={props.bubbleNotes}
+        onOpenNote={props.onOpenBubbleNote}
+        onDeleteNote={handleDeleteNote}
+      />
+
+      {/* Editor */}
+      <NoteEditor
+        editor={editor}
+        pendingNoteHtml={props.pendingNoteHtml}
+        isEditorEditable={props.isEditorEditable}
+        isScreenSharing={props.isScreenSharing}
+        isVideoRecording={isVideoRecording}
+        videoChunkCount={videoChunkCount}
+        isAutoScreenshotOn={autoShot.isAutoScreenshotOn}
+        countdown={autoShot.countdown}
+        currentInterval={autoShot.currentInterval}
+        parsingMessage={parsingMessage}
+        onFileUploadClick={() => fileInputRef.current?.click()}
+        onTakeScreenshot={() => handleTakeScreenshotLogged(false)}
+        onToggleAutoScreenshot={toggleAutoScreenshotLogged}
+        onAdjustTiming={autoShot.adjustTiming}
+        onStartVideo={startVideo}
+        onStopVideo={stopVideo}
+        onAddNote={handleAddNote}
+      />
+
+      {/* Hidden file input for NoteEditor file upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        accept="image/*,text/plain,text/html,.docx,.doc,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pdf,application/pdf"
+        onChange={(e) => e.target.files && handleFileSelect(Array.from(e.target.files))}
+      />
+
+      {/* Modals */}
+      {isFullscreen && (
+        <FullscreenNotesViewer
+          isOpen={isFullscreen}
+          onClose={() => setIsFullscreen(false)}
+          notes={props.bubbleNotes}
+          title={props.recordingTitle}
+        />
       )}
-
-      <div className="live-note-editor-wrapper">
-        <NoteEditorToolbar
-          {...autoShot}
-          toggleAutoScreenshot={toggleAutoScreenshotLogged}
-          isEditorEditable={props.isEditorEditable} isRecordingSessionActive={props.isRecordingSessionActive}
-          activeFormats={editor.activeFormats} applyFormat={editor.applyFormat} onFileUploadClick={() => fileInputRef.current?.click()}
-          onDownloadPendingClick={editor.handleDownloadPendingContent}
-          onTakeScreenshot={handleTakeScreenshotLogged} isScreenSharing={props.isScreenSharing}
-        />
-        <div
-          ref={editor.inputRef} contentEditable={props.isEditorEditable} suppressContentEditableWarning={true}
-          onInput={(e) => props.onPendingNoteHtmlChange(e.currentTarget.innerHTML)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); editor.handleAddNote(); } }}
-          onPaste={editor.handlePaste} className="simple-editor-content focus:ring-blue-500 focus:border-blue-500"
-        />
-        <input 
-            type="file" 
-            ref={fileInputRef} 
-            multiple 
-            accept="image/*,text/plain,text/html,.docx,.doc,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pdf,application/pdf"
-            className="hidden" 
-            onChange={(e) => e.target.files && editor.handleFileSelect(Array.from(e.target.files))} 
-        />
-      </div>
-
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-[10px] text-gray-500">
-        <p>Enter to add note. Shift+Enter for newline. Paste images or upload files (Img, Txt, HTML, DOCX, PPTX, PDF).</p>
-        {editor.parsingMessage && <p className="text-sky-300 animate-pulse">{editor.parsingMessage}</p>}
-      </div>
-
-      <FullscreenNotesViewer isOpen={isFullscreen} onClose={() => setIsFullscreen(false)} notes={props.bubbleNotes} title={props.recordingTitle} />
-      <ConfirmModal isOpen={showConfirmDelete} onClose={() => setShowConfirmDelete(false)} title="Delete Notes" confirmText={`Delete ${selectedNoteIds.size}`} onConfirm={() => { 
-        loggingService.info('BUBBLE_NOTES_DELETE', `Deleting ${selectedNoteIds.size} notes`, { ids: Array.from(selectedNoteIds) });
-        props.onBubbleNotesChange(props.bubbleNotes.filter(n => !selectedNoteIds.has(n.id))); 
-        setIsSelectMode(false); 
-        setShowConfirmDelete(false); 
-      }}>
-        <p>Permanently delete {selectedNoteIds.size} notes?</p>
-      </ConfirmModal>
+      {showConfirmDelete && (
+        <ConfirmModal
+          isOpen={showConfirmDelete}
+          onClose={() => setShowConfirmDelete(false)}
+          title="Delete Notes"
+          confirmText={`Delete ${selectedNoteIds.size}`}
+          onConfirm={handleDeleteSelected}
+        >
+          <p>Permanently delete {selectedNoteIds.size} notes?</p>
+        </ConfirmModal>
+      )}
     </div>
   );
 };
+
 export const BubbleNotes = React.memo(BubbleNotesBase);
