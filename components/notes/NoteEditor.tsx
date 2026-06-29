@@ -52,6 +52,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       <EditorContent
         editor={editor}
         className="note-editor-content px-3 py-2 min-h-[72px] max-h-[180px] overflow-y-auto text-sm text-gray-200 focus-within:outline-none"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            toolbarProps.onAddNote();
+          }
+        }}
       />
       <NoteStaticToolbar
         isEditorEditable={toolbarProps.isEditorEditable}
