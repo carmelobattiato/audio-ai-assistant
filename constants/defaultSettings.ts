@@ -30,7 +30,7 @@ export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
   autoSaveIntervalSeconds: 10,
   autoScreenshotIntervalSeconds: 60,
   enableChunkedRecording: true,
-  chunkRecordingIntervalSeconds: 900, // Updated to 15 minutes (15 * 60)
+  chunkRecordingIntervalSeconds: 300, // 5 minutes
   enableRealtimeTranscription: false,
   enableAutoPipeline: true,
   liveModel: 'gemini-2.5-flash-native-audio-latest',

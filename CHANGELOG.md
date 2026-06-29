@@ -8,6 +8,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.132] — 2026-06-29
+
+- `defaultSettings`: `chunkRecordingIntervalSeconds` 900 → 300 (5 min)
+- `NoteTimeline`: effetto "Pulse Trail" — particella verde (#6ee7b7) percorre ogni connettore, ring verde (#34d399) si espande dal nodo all'arrivo (Firefly + Cascade, RAF loop imperativo)
+
+---
+
 ## [1.131] — 2026-06-29
 
 - `BubbleNotes`/`NoteTimeline`/`NoteTimelineItem`: bubble audio creata al momento dell'avvio registrazione (stato "live" rosso pulsante), aggiornata con nome chunk a completamento, aggiornata con excerpt trascrizione dopo STT
