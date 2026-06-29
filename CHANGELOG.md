@@ -6,6 +6,10 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+---
+
+## [1.129] — 2026-06-29
+
 - `NoteEditor`: area testo +50% altezza (min 108px / max 270px), sfondo leggermente distinto
 - `NoteStaticToolbar`: icone 2× (size 22), padding aumentato
 - `NoteTimeline`: layout 4 nodi per riga boustrophedon, sfere 120px, S-curve SVG tratteggiata, z-index dal wrapper per popup sempre in primo piano, props select passati

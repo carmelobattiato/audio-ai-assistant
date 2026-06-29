@@ -1,0 +1,151 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - img "Audio AI Assistant" [ref=e6]
+      - generic [ref=e7]:
+        - heading "Audio AI Assistant" [level=1] [ref=e8]
+        - paragraph [ref=e9]: Developed by Carmelo Battiato · v1.128
+        - paragraph [ref=e10]: "Transcription & Analysis: gemini-2.5-flash-lite"
+    - navigation [ref=e11]:
+      - button "Calendar" [ref=e13] [cursor=pointer]:
+        - img [ref=e15]
+        - generic [ref=e17]: Calendar
+      - button "Sessions" [ref=e19] [cursor=pointer]:
+        - img [ref=e21]
+        - generic [ref=e23]: Sessions
+      - button "Export" [disabled] [ref=e25]:
+        - img [ref=e27]
+        - generic [ref=e29]: Export
+      - button "Stats" [ref=e31] [cursor=pointer]:
+        - img [ref=e33]
+        - generic [ref=e35]: Stats
+      - button "Settings" [ref=e37] [cursor=pointer]:
+        - img [ref=e39]
+        - generic [ref=e42]: Settings
+    - button "0 notifications today" [ref=e45] [cursor=pointer]:
+      - img [ref=e46]
+  - generic [ref=e48]:
+    - generic [ref=e49]:
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - generic [ref=e53]: Tips & Features
+          - generic [ref=e54]: Automation
+        - generic [ref=e56]:
+          - generic [ref=e57]: ⚡
+          - generic [ref=e58]:
+            - generic [ref=e59]: Smart Pipeline
+            - generic [ref=e60]: Enable the Smart Pipeline toggle before recording. When you stop, transcription and AI analysis run back-to-back automatically — your summary is ready by the time you grab a coffee.
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - button "Go to tip 1" [ref=e63] [cursor=pointer]
+            - button "Go to tip 2" [ref=e64] [cursor=pointer]
+            - button "Go to tip 3" [ref=e65] [cursor=pointer]
+            - button "Go to tip 4" [ref=e66] [cursor=pointer]
+            - button "Go to tip 5" [ref=e67] [cursor=pointer]
+            - button "Go to tip 6" [ref=e68] [cursor=pointer]
+            - button "Go to tip 7" [ref=e69] [cursor=pointer]
+            - button "Go to tip 8" [ref=e70] [cursor=pointer]
+            - button "Go to tip 9" [ref=e71] [cursor=pointer]
+            - button "Go to tip 10" [ref=e72] [cursor=pointer]
+            - button "Go to tip 11" [ref=e73] [cursor=pointer]
+            - button "Go to tip 12" [ref=e74] [cursor=pointer]
+            - button "Go to tip 13" [ref=e75] [cursor=pointer]
+            - button "Go to tip 14" [ref=e76] [cursor=pointer]
+            - button "Go to tip 15" [ref=e77] [cursor=pointer]
+            - button "Go to tip 16" [ref=e78] [cursor=pointer]
+            - button "Go to tip 17" [ref=e79] [cursor=pointer]
+          - generic [ref=e80]:
+            - button "Previous tip" [ref=e81] [cursor=pointer]: ‹
+            - button "Next tip" [ref=e82] [cursor=pointer]: ›
+      - generic [ref=e85]:
+        - generic [ref=e86]:
+          - generic [ref=e88]: 🎙 Recording Studio
+          - textbox "Session name..." [ref=e89]
+          - paragraph [ref=e90]: Session_290626_1452.webm
+        - generic [ref=e93]:
+          - img "Audio waveform visualization" [ref=e94]
+          - generic:
+            - generic:
+              - generic: Microphone
+        - generic [ref=e96]:
+          - button "Record" [ref=e97] [cursor=pointer]:
+            - img [ref=e99]
+            - generic [ref=e101]: Record
+            - generic "Nessuna cuffia rilevata — verrà registrato solo il microfono" [ref=e102]:
+              - img [ref=e104]
+              - img
+          - button "PiP" [ref=e106] [cursor=pointer]:
+            - img [ref=e107]
+            - generic [ref=e110]: PiP
+        - generic "Auto-run Transcription + AI Analysis when recording stops" [ref=e112]:
+          - button [ref=e113] [cursor=pointer]
+          - generic [ref=e115]: Smart Pipeline
+        - generic [ref=e116]:
+          - button "Upload" [ref=e117] [cursor=pointer]:
+            - img [ref=e118]
+            - text: Upload
+          - button "New session" [ref=e120] [cursor=pointer]:
+            - img [ref=e121]
+            - text: New session
+          - button "Reset" [ref=e124] [cursor=pointer]:
+            - img [ref=e125]
+            - text: Reset
+    - generic "Drag to resize panels" [ref=e127]
+    - generic [ref=e130]:
+      - generic [ref=e131]:
+        - button "Notes 5" [ref=e236] [cursor=pointer]:
+          - img [ref=e134]
+          - generic [ref=e136]: Notes
+          - generic [ref=e201]: "5"
+        - button "Transcript" [ref=e137] [cursor=pointer]:
+          - img [ref=e139]
+          - generic [ref=e141]: Transcript
+        - button "AI Analysis" [ref=e142] [cursor=pointer]:
+          - img [ref=e144]
+          - generic [ref=e146]: AI Analysis
+        - button "Chat" [ref=e147] [cursor=pointer]:
+          - img [ref=e149]
+          - generic [ref=e151]: Chat
+      - generic [ref=e154]:
+        - generic [ref=e155]:
+          - heading "Notes" [level=4] [ref=e157]
+          - generic [ref=e158]:
+            - button "Select" [ref=e159] [cursor=pointer]:
+              - img [ref=e160]
+              - text: Select
+            - button [ref=e163] [cursor=pointer]:
+              - img [ref=e164]
+            - button [ref=e169] [cursor=pointer]:
+              - img [ref=e170]
+        - generic [ref=e202]:
+          - img
+          - button "Open note at 00:00" [ref=e205] [cursor=pointer]:
+            - img [ref=e207]
+            - generic [ref=e210]: 00:00
+          - button "Open note at 00:00" [ref=e214] [cursor=pointer]:
+            - img [ref=e216]
+            - generic [ref=e219]: 00:00
+          - button "Open note at 00:00" [ref=e222] [cursor=pointer]:
+            - img [ref=e224]
+            - generic [ref=e227]: 00:00
+          - button "Open note at 00:00" [ref=e230] [cursor=pointer]:
+            - img [ref=e232]
+            - generic [ref=e235]: 00:00
+          - button "Open note at 00:00" [ref=e239] [cursor=pointer]:
+            - img [ref=e241]
+            - generic [ref=e244]: 00:00
+        - generic [ref=e174]:
+          - textbox [active] [ref=e176]:
+            - paragraph [ref=e177]: Enter to add note. Shift+Enter for newline. Paste images or upload files (Img, Txt, HTML, DOCX, PPTX, PDF).
+          - generic [ref=e178]:
+            - button "Attach file (Img, PDF, DOCX, PPTX, HTML, TXT)" [ref=e179] [cursor=pointer]:
+              - img [ref=e180]
+            - button "Take screenshot" [ref=e182] [cursor=pointer]:
+              - img [ref=e183]
+            - button "Auto" [ref=e187] [cursor=pointer]:
+              - img [ref=e188]
+              - generic [ref=e191]: Auto
+            - button "Start screen sharing first to enable video recording" [disabled] [ref=e192]:
+              - img [ref=e193]
+            - button "Save note (Enter)" [ref=e196] [cursor=pointer]:
+              - img [ref=e197]
