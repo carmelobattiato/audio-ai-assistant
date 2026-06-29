@@ -161,8 +161,9 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
 </body>
 </html>`;
 
-    const safeName = props.recordingTitle.replace(/[^a-zA-Z0-9_\-À-ÿ ]/g, '').replace(/\s+/g, '_').slice(0, 60);
-    saveBlobToFile(new Blob([html], { type: 'text/html' }), `${safeName}_note.html`);
+    const safeName = props.recordingTitle.replace(/[^a-zA-Z0-9_\-À-ÿ ]/g, '').replace(/\s+/g, '_').slice(0, 60) || 'Session';
+    // octet-stream: browser honors link.download filename instead of using blob UUID
+    saveBlobToFile(new Blob([html], { type: 'application/octet-stream' }), `${safeName}_note.html`);
   }, [props.bubbleNotes, props.recordingTitle]);
 
   return (
