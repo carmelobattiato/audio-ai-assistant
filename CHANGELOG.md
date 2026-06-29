@@ -7,6 +7,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 ## [Unreleased]
 
 - `NeoAudioGuideModal`: redesign completo — layout compatto, 3 step icon-led, nessun banner warning, nessun toggle mockup; footer 2 pulsanti allineati ("Solo mic" + "Condividi schermo")
+- Bubble Notes redesign: timeline verticale, editor Tiptap v3, toolbar floating + statica, Lucide icons
+- `useVideoRecorder`: registrazione schermo progressiva VP9 WebM su disco, chunk ogni 60s, zero IndexedDB
+- `NoteActionsHeader`: icone Lucide, badge REC pulsante rosso con contatore chunk
+- `BubbleNotes`: `NoteTimeline` + `NoteEditor` sostituiscono griglia `NoteBubble` e `NoteEditorToolbar`
+- `displayStream` esposto via `AudioRecorderRef.getDisplayStream()` e passato a `BubbleNotes`
+- Rimossi `NoteBubble.tsx` e `NoteEditorToolbar.tsx` (componenti legacy)
+- Screenshot type tagging: auto-screenshot → `type: 'auto-screenshot'`, manuale → `type: 'screenshot'`
 
 ---
 
