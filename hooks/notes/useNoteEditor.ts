@@ -125,7 +125,7 @@ export const useNoteEditor = (
     const trimmed = html.replace(/<[^>]*>/g, '').trim();
     if (!trimmed && !html.includes('<img')) return;
 
-    const isScreenshot = /^<p><img[^>]+><\/p>$/.test(html.trim()) || /^<img[^>]+>$/.test(html.trim());
+    const isScreenshot = /<img /i.test(html);
     const newNote: BubbleNote = {
       id: `note_${Date.now()}_${Math.random()}`,
       contentHtml: html,
