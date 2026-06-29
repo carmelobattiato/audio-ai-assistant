@@ -878,6 +878,7 @@ export const NewHome: React.FC = () => {
               onPendingNoteHtmlChange={setPendingNoteHtml}
               viewingBubbleNoteId={viewingBubbleNoteId}
               recordingTitle={finalEffectiveTitle}
+              displayStream={audioRecorderRef.current?.getDisplayStream() ?? null}
             />
             </Suspense>
 

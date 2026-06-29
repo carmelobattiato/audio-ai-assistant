@@ -309,6 +309,7 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
       triggerSystemAudioGuide: () => setGuideKey(k => k + 1),
       handleTakeScreenshot: screenshots.handleTakeScreenshot,
       getIsScreenSharing: () => !!(displayStream || screenshots.screenshotStream),
+      getDisplayStream: () => displayStream ?? null,
       startMicOnly: () => startMicOnlyRef.current(),
       continueRecording: () => continueRecordingRef.current(),
     }), [getAudioSnapshot, resetRecording, getRecordingSessionId, screenshots.handleTakeScreenshot, displayStream, screenshots.screenshotStream]);
