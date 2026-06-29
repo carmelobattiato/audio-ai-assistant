@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BubbleNote } from '@/types';
 import { NoteTimelineItem } from './NoteTimelineItem';
 
@@ -8,12 +8,12 @@ interface NoteTimelineProps {
   onDeleteNote: (id: string) => void;
 }
 
-const NODES_PER_ROW = 5;
-const ROW_H = 120;   // px per row
-const NODE_D = 80;   // node diameter
+const NODES_PER_ROW = 4;
+const ROW_H = 160;   // px per row
+const NODE_D = 120;  // node diameter (50% bigger than 80)
 const NODE_R = NODE_D / 2;
-const PAD_TOP = 16;
-const PAD_BOTTOM = 16;
+const PAD_TOP = 20;
+const PAD_BOTTOM = 20;
 
 function formatElapsed(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -37,13 +37,12 @@ function nodeY(i: number): number {
 }
 
 function buildPath(i: number): string {
-  const x1 = nodeX(i);   const y1 = nodeY(i);
+  const x1 = nodeX(i);     const y1 = nodeY(i);
   const x2 = nodeX(i + 1); const y2 = nodeY(i + 1);
   const sameRow = Math.floor(i / NODES_PER_ROW) === Math.floor((i + 1) / NODES_PER_ROW);
   if (sameRow) {
     return `M ${x1} ${y1} L ${x2} ${y2}`;
   }
-  // Row-turn: S-curve
   const midY = (y1 + y2) / 2;
   return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
 }
@@ -51,6 +50,7 @@ function buildPath(i: number): string {
 export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, onDeleteNote }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(notes.length);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (notes.length > prevLengthRef.current) {
@@ -83,7 +83,7 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-{notes.slice(0, -1).map((_, i) => (
+          {notes.slice(0, -1).map((_, i) => (
             <path
               key={i}
               d={buildPath(i)}
@@ -98,7 +98,7 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
           ))}
         </svg>
 
-        {/* Nodes */}
+        {/* Nodes — wrapper carries z-index so popup beats siblings */}
         {notes.map((note, i) => {
           const xPct = nodeX(i);
           const cy = nodeY(i);
@@ -111,7 +111,10 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
                 left: `${xPct}%`,
                 top: cy,
                 transform: 'translate(-50%, -50%)',
+                zIndex: hoveredIdx === i ? 50 : 1,
               }}
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(null)}
             >
               <NoteTimelineItem
                 note={note}

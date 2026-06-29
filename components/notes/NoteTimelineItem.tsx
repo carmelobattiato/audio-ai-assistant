@@ -38,18 +38,17 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Sphere — 80×80 circle with content inside */}
+      {/* Sphere — 120×120 circle with content inside */}
       <button
-        className="w-20 h-20 rounded-full flex flex-col items-center justify-center overflow-hidden relative
+        className="w-[120px] h-[120px] rounded-full flex flex-col items-center justify-center overflow-hidden relative
                    ring-2 ring-violet-500/30 hover:ring-violet-400/70
-                   shadow-[0_0_14px_rgba(124,58,237,0.4)]
+                   shadow-[0_0_18px_rgba(124,58,237,0.4)]
                    transition-all duration-150 hover:scale-110 focus:outline-none cursor-pointer"
         onClick={() => onOpen(note.id)}
         aria-label={`Open note at ${elapsedLabel}`}
         style={{ padding: 0 }}
       >
         {isScreenshot && thumbnailSrc ? (
-          /* Screenshot: fill circle with thumbnail */
           <>
             <img
               src={thumbnailSrc}
@@ -57,21 +56,19 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
               loading="lazy"
               className="absolute inset-0 w-full h-full object-cover rounded-full"
             />
-            {/* Dark overlay for readability */}
             <div className="absolute inset-0 rounded-full bg-black/30" />
-            <div className="relative z-10 flex flex-col items-center gap-0.5 px-1">
-              <Camera size={13} className="text-white/90 shrink-0" />
-              <span className="text-[7px] font-mono text-white/80 leading-none">{elapsedLabel}</span>
+            <div className="relative z-10 flex flex-col items-center gap-1 px-1">
+              <Camera size={18} className="text-white/90 shrink-0" />
+              <span className="text-[9px] font-mono text-white/80 leading-none">{elapsedLabel}</span>
             </div>
           </>
         ) : (
-          /* Text note: gradient bg + text preview */
-          <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-indigo-700 flex flex-col items-center justify-center px-2 py-2 gap-0.5">
-            <FileText size={12} className="text-white/80 shrink-0" />
-            <p className="text-[7.5px] text-white/80 text-center leading-tight line-clamp-2 break-words w-full">
-              {textContent.slice(0, 40)}
+          <div className="w-full h-full rounded-full bg-gradient-to-br from-violet-600 to-indigo-700 flex flex-col items-center justify-center px-3 py-3 gap-1">
+            <FileText size={16} className="text-white/80 shrink-0" />
+            <p className="text-[9px] text-white/80 text-center leading-tight line-clamp-3 break-words w-full">
+              {textContent.slice(0, 55)}
             </p>
-            <span className="text-[6.5px] font-mono text-white/50 leading-none">{elapsedLabel}</span>
+            <span className="text-[8px] font-mono text-white/50 leading-none">{elapsedLabel}</span>
           </div>
         )}
       </button>
@@ -80,8 +77,8 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
       {hovered && (
         <div
           className={[
-            'absolute top-1/2 -translate-y-1/2 z-20',
-            popupLeft ? 'right-[88px]' : 'left-[88px]',
+            'absolute top-1/2 -translate-y-1/2 z-50',
+            popupLeft ? 'right-[132px]' : 'left-[132px]',
             'w-52 rounded-xl px-3 py-2',
             'bg-gray-900/95 border border-white/10 shadow-xl backdrop-blur-sm',
           ].join(' ')}

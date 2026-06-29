@@ -8,8 +8,8 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 - `NoteEditor`: area testo +50% altezza (min 108px / max 270px), sfondo leggermente distinto
 - `NoteStaticToolbar`: icone 2× (size 22), padding aumentato
-- `NoteTimeline`: layout 5 nodi per riga boustrophedon, preview testo/thumbnail dentro la sfera (80px), S-curve SVG tratteggiata tra le righe
-- `NoteTimelineItem`: sfera 80px con preview contenuto, popup hover con Open/Delete
+- `NoteTimeline`: layout 4 nodi per riga boustrophedon, sfere 120px, S-curve SVG tratteggiata, z-index dal wrapper per popup sempre in primo piano
+- `NoteTimelineItem`: sfera 120px con preview contenuto, popup hover z-50 sopra tutte le bubble
 - `NeoAudioGuideModal`: redesign completo — layout compatto, 3 step icon-led, nessun banner warning, nessun toggle mockup; footer 2 pulsanti allineati ("Solo mic" + "Condividi schermo")
 - Bubble Notes redesign: timeline verticale, editor Tiptap v3, toolbar floating + statica, Lucide icons
 - `useVideoRecorder`: registrazione schermo progressiva VP9 WebM su disco, chunk ogni 60s, zero IndexedDB
