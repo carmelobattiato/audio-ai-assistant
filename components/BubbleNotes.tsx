@@ -28,6 +28,8 @@ interface BubbleNotesProps {
   onPendingNoteHtmlChange: (html: string) => void;
   viewingBubbleNoteId?: string | null;
   recordingTitle: string;
+  isVideoRecording: boolean;
+  videoChunkCount: number;
 }
 
 const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
@@ -75,8 +77,9 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
 
   return (
     <div className="space-y-3">
-      <NoteActionsHeader 
+      <NoteActionsHeader
         isSelectMode={isSelectMode} hasNotes={props.bubbleNotes.length > 0} selectedCount={selectedNoteIds.size}
+        isVideoRecording={props.isVideoRecording} videoChunkCount={props.videoChunkCount}
         onToggleSelect={() => { setIsSelectMode(true); setSelectedNoteIds(new Set()); }}
         onFullscreen={() => setIsFullscreen(true)} onDownload={handleDownloadNotes}
         onCancelSelect={() => setIsSelectMode(false)} onDeleteRequest={() => setShowConfirmDelete(true)}
