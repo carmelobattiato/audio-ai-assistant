@@ -8,12 +8,32 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
-## [1.125] — 2026-06-28
+## [1.126] — 2026-06-29
 
+- Eliminata cartella `/extension/` (sorgente extension v1) e `scripts/build-extension.sh` (build v1)
+- NewCalendar: due pill distinte — "Plugin attivo/offline" (viola/rosso) e "Outlook Live/offline/fetching/inattivo" (verde/rosso/giallo/grigio)
+- Extension v2 `background.js`: scrive `cal-bridge-v2-outlook-state` e `cal-bridge-v2-ext-ts` in localStorage su ogni cambio di stato Outlook (ok/error/idle/fetching)
+- `useCalBridgeV2`: legge `extensionOnline` (da `cal-bridge-v2-ext-ts` < 5min) e `outlookState` separati
+- `useCalendarSync`: espone `calOutlookState` derivato dall'estensione; `calExtensionConnected` ora riflette solo presenza heartbeat reale
+- NewCalendar: sync extension ora attende risposta reale (max 6s); timeout → errore; estensione offline → blocco immediato senza falso "Aggiornato!"
+- NewCalendar: bottone sync mostra "Ultimo sync Xm/h/g fa" nello stato idle; "Offline" quando estensione disconnessa
+- NewCalendar: rimossa sezione "Il mio calendario" dalla sidebar
+- NewCalendar: `lastSyncAt` persistito da localStorage e aggiornato ad ogni sync riuscita (tutte le sorgenti)
+- NewCalendar: keyword search estesa a tutti i campi evento (location, organizer, body, attendees) con normalizzazione NFD (diacritici insensibili)
+- NewCalendar: pill "Riunioni trovate" mostrate sotto la barra di ricerca keyword — click naviga al giorno/evento; solo sorgenti extension supportano `calOutlookState`
+- Fix: `apiKey` passato a `NewCalendarView` usa fallback `process.env.API_KEY` (env var) quando nessuna chiave custom è configurata
+- Fix: `CalEventDetailPanel` — spostato early return `if (!event) return null` dopo tutti gli hook (`useId`, `useFocusTrap`) per rispettare rules of hooks; click su risultati ricerca calendar non causava più errore "Rendered more hooks"
+- Rimosso "Cerca con AI" (semantic search) dal calendario: pulsante, `AiResultsPanel`, `useSemanticSearch`, prop `apiKey`/`llmModel`/`onAiSearchRequest` da `NewCalendarViewProps`; pill keyword e risultati riunioni sempre visibili durante ricerca
+
+---
+
+## [1.125] — 2026-06-28
 
 - B1 Phase 1: `contexts/SettingsContext.tsx` — `useReducer` per `appSettings + hasCustomApiKey + isReady`; init asincrono (localStorage migrate + IndexedDB decrypt), sync tema, `saveCustomApiKey`/`deleteCustomApiKey`/`persistSettings` come callback stabili; `<SettingsProvider>` in `index.tsx`; `NewHome` usa `useSettings()` (rimossi `APP_SETTINGS_KEY`, init effect settings, theme effect, `handleSaveCustomApiKey`, `handleDeleteCustomApiKey`)
 - B1 Phase 2: `contexts/UIStateContext.tsx` — 14 pezzi di stato UI estratti da `NewHome` (modal flags, `isBusy`, `appUserMessage`, `activeRightTab`, `leftWidthPct`, calendar flags); stessi nomi esposti via `useUIState()` → zero call-site changes in `NewHome`; `<UIStateProvider>` in `index.tsx`
 - B1 Phase 3: `contexts/SessionContext.tsx` — 28 pezzi di stato sessione estratti da `NewHome` (audio, trascrizione, LLM, pipeline FSM, bubble notes, recording state, saved sessions); azioni composte `resetSession`, `fetchSessions`, `addLlmUsageStat`; `resetAllDataStates` in `NewHome` semplificato a 4 righe; `<SessionProvider>` in `index.tsx`
+- B9 `hooks/usePipelineEffects.ts` — estratti da `NewHome` tutti i 10 `useEffect` del FSM pipeline (DB sync batched, transizioni IDLE/RECORDING/TRANSCRIBING/ANALYZING/DOWNLOADING/COMPLETED, ZIP worker, init crashed sessions, source text sync); `NewHome` 1270→1117 righe
+- B2 espanso: `migrateSettings` esportata e testata (9 casi: defaults, preserva valori esistenti, language fallback, diarization fallback, systemPrompts merge/dedup, immutabilità input); `SessionContext` testata (6 casi: resetSession con/senza preserveBubbleNotes, addLlmUsageStat accumulo, fetchSessions, stato iniziale); `vitest.config.ts` ora include `.test.tsx`
 
 ---
 

@@ -144,6 +144,8 @@ function pushToApp(events) {
           func: function(data, ts) {
             localStorage.setItem('cal-bridge-v2', JSON.stringify(data));
             localStorage.setItem('cal-bridge-v2-ts', String(ts));
+            localStorage.setItem('cal-bridge-v2-outlook-state', 'ok');
+            localStorage.setItem('cal-bridge-v2-ext-ts', String(ts));
             window.dispatchEvent(new StorageEvent('storage', {
               key: 'cal-bridge-v2',
               newValue: JSON.stringify(data),
@@ -151,6 +153,34 @@ function pushToApp(events) {
           },
           args: [events, now],
         }).then(function() { done(true, tabUrl); }).catch(function() { done(false, null); });
+      });
+    });
+  });
+}
+
+// ── Push Outlook state to app tabs ───────────────────────────────────────────
+
+function pushOutlookStateToApp(state) {
+  storeGet([K.appUrl], function(r) {
+    var customUrl = r[K.appUrl] || null;
+    chrome.tabs.query({}, function(tabs) {
+      var now = Date.now();
+      var appTabs = tabs.filter(function(tab) {
+        return tab.id && tab.url && isAppTab(tab.url, customUrl);
+      });
+      appTabs.forEach(function(tab) {
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: function(s, ts) {
+            localStorage.setItem('cal-bridge-v2-outlook-state', s);
+            localStorage.setItem('cal-bridge-v2-ext-ts', String(ts));
+            window.dispatchEvent(new StorageEvent('storage', {
+              key: 'cal-bridge-v2-outlook-state',
+              newValue: s,
+            }));
+          },
+          args: [state, now],
+        }).catch(function() {});
       });
     });
   });
@@ -221,6 +251,7 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
       [K.getState]: 'idle',
       [K.getError]: '',
     });
+    pushOutlookStateToApp('idle');
     sendResponse({ ok: true });
     return;
   }
@@ -233,6 +264,7 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
       [K.getTs]:    msg.ts || Date.now(),
       [K.getError]: msg.reason || 'errore sconosciuto',
     });
+    pushOutlookStateToApp('error');
     sendResponse({ ok: true });
     return;
   }
@@ -294,9 +326,12 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
     appendLog('SYNC_NOW', 'V2_SYNC_NOW richiesto dal popup');
     var syncTs = Date.now();
     chrome.storage.local.set({ [K.getState]: 'fetching', [K.getTs]: syncTs });
+    pushOutlookStateToApp('fetching');
     chrome.tabs.query({}, function(tabs) {
+      var hasOutlook = false;
       for (var i = 0; i < tabs.length; i++) {
         if (isOutlookTab(tabs[i].url)) {
+          hasOutlook = true;
           chrome.scripting.executeScript({
             target: { tabId: tabs[i].id },
             func: function() {
@@ -304,9 +339,14 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
             },
           }).catch(function() {
             chrome.storage.local.set({ [K.getState]: 'error', [K.getTs]: Date.now() });
+            pushOutlookStateToApp('error');
           });
           break;
         }
+      }
+      if (!hasOutlook) {
+        chrome.storage.local.set({ [K.getState]: 'error', [K.getTs]: Date.now() });
+        pushOutlookStateToApp('error');
       }
     });
     // Re-broadcast cache immediately

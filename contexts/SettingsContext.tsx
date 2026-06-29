@@ -79,7 +79,7 @@ const SettingsContext = createContext<SettingsCtxValue | null>(null);
 
 // ── Migration ─────────────────────────────────────────────────────────────────
 
-function migrateSettings(raw: Partial<AppSettings>): AppSettings {
+export function migrateSettings(raw: Partial<AppSettings>): AppSettings {
   let s: AppSettings = {
     ...DEFAULT_SETTINGS,
     ...raw,

@@ -1,0 +1,142 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - img "Audio AI Assistant" [ref=e6]
+      - generic [ref=e7]:
+        - heading "Audio AI Assistant" [level=1] [ref=e8]
+        - paragraph [ref=e9]: Developed by Carmelo Battiato · v1.125
+        - paragraph [ref=e10]: "Transcription & Analysis: gemini-2.5-flash-lite"
+    - navigation [ref=e11]:
+      - button "NewCalendar" [ref=e13] [cursor=pointer]:
+        - img [ref=e15]
+        - generic [ref=e17]: NewCalendar
+      - button "Calendar" [ref=e20] [cursor=pointer]:
+        - img [ref=e21]
+        - generic [ref=e23]: Calendar
+      - button "Sessions" [ref=e25] [cursor=pointer]:
+        - img [ref=e27]
+        - generic [ref=e29]: Sessions
+      - button "Export" [disabled] [ref=e31]:
+        - img [ref=e33]
+        - generic [ref=e35]: Export
+      - button "Stats" [disabled] [ref=e37]:
+        - img [ref=e39]
+        - generic [ref=e41]: Stats
+      - button "Settings" [ref=e43] [cursor=pointer]:
+        - img [ref=e45]
+        - generic [ref=e48]: Settings
+    - button "0 notifications today" [ref=e51] [cursor=pointer]:
+      - img [ref=e52]
+  - generic [ref=e54]:
+    - generic [ref=e55]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: Tips & Features
+          - generic [ref=e60]: Pro tip
+        - generic [ref=e62]:
+          - generic [ref=e63]: 🔊
+          - generic [ref=e64]:
+            - generic [ref=e65]: System Audio Capture
+            - generic [ref=e66]: Share your screen with audio to capture Teams, Zoom or Meet calls. Click "Rec + Headphones", select "Entire Screen" and enable "Also share system audio" — the app mixes mic and system audio automatically.
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - button "Go to tip 1" [ref=e69] [cursor=pointer]
+            - button "Go to tip 2" [ref=e70] [cursor=pointer]
+            - button "Go to tip 3" [ref=e71] [cursor=pointer]
+            - button "Go to tip 4" [ref=e72] [cursor=pointer]
+            - button "Go to tip 5" [ref=e73] [cursor=pointer]
+            - button "Go to tip 6" [ref=e74] [cursor=pointer]
+            - button "Go to tip 7" [ref=e75] [cursor=pointer]
+            - button "Go to tip 8" [ref=e76] [cursor=pointer]
+            - button "Go to tip 9" [ref=e77] [cursor=pointer]
+            - button "Go to tip 10" [ref=e78] [cursor=pointer]
+            - button "Go to tip 11" [ref=e79] [cursor=pointer]
+            - button "Go to tip 12" [ref=e80] [cursor=pointer]
+            - button "Go to tip 13" [ref=e81] [cursor=pointer]
+            - button "Go to tip 14" [ref=e82] [cursor=pointer]
+            - button "Go to tip 15" [ref=e83] [cursor=pointer]
+            - button "Go to tip 16" [ref=e84] [cursor=pointer]
+            - button "Go to tip 17" [ref=e85] [cursor=pointer]
+          - generic [ref=e86]:
+            - button "Previous tip" [ref=e87] [cursor=pointer]: ‹
+            - button "Next tip" [ref=e88] [cursor=pointer]: ›
+      - generic [ref=e91]:
+        - generic [ref=e92]:
+          - generic [ref=e94]: 🎙 Recording Studio
+          - textbox "Session name..." [ref=e95]
+          - paragraph [ref=e96]: Session_280626_1706.webm
+        - generic [ref=e99]:
+          - img "Audio waveform visualization" [ref=e100]
+          - generic:
+            - generic:
+              - generic: Microphone
+        - generic [ref=e102]:
+          - button "Mic only" [ref=e103] [cursor=pointer]:
+            - img [ref=e104]
+            - generic [ref=e106]: Mic only
+          - button "+ System audio" [ref=e107] [cursor=pointer]:
+            - img [ref=e108]
+            - generic [ref=e110]: + System audio
+          - button "PiP" [ref=e111] [cursor=pointer]:
+            - img [ref=e112]
+            - generic [ref=e115]: PiP
+        - generic "Auto-run Transcription + AI Analysis when recording stops" [ref=e117]:
+          - button [ref=e118] [cursor=pointer]
+          - generic [ref=e120]: Smart Pipeline
+        - generic [ref=e121]:
+          - button "Upload" [ref=e122] [cursor=pointer]:
+            - img [ref=e123]
+            - text: Upload
+          - button "New session" [ref=e125] [cursor=pointer]:
+            - img [ref=e126]
+            - text: New session
+          - button "Reset" [ref=e129] [cursor=pointer]:
+            - img [ref=e130]
+            - text: Reset
+    - generic "Drag to resize panels" [ref=e132]
+    - generic [ref=e135]:
+      - generic [ref=e136]:
+        - button "Notes" [ref=e137] [cursor=pointer]:
+          - img [ref=e139]
+          - generic [ref=e141]: Notes
+        - button "Transcript" [ref=e142] [cursor=pointer]:
+          - img [ref=e144]
+          - generic [ref=e146]: Transcript
+        - button "AI Analysis" [ref=e147] [cursor=pointer]:
+          - img [ref=e149]
+          - generic [ref=e151]: AI Analysis
+        - button "Chat" [ref=e152] [cursor=pointer]:
+          - img [ref=e154]
+          - generic [ref=e156]: Chat
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - heading "Bubble Notes" [level=4] [ref=e161]
+          - generic [ref=e162]:
+            - button "Select" [disabled] [ref=e163]
+            - button "Fullscreen" [disabled] [ref=e164]:
+              - img [ref=e166]
+              - text: Fullscreen
+            - button "Download" [disabled] [ref=e168]:
+              - img [ref=e170]
+              - text: Download
+        - generic [ref=e173]:
+          - generic [ref=e174]:
+            - button [ref=e175] [cursor=pointer]:
+              - img [ref=e176]
+            - button [ref=e178] [cursor=pointer]:
+              - img [ref=e179]
+            - button [ref=e181] [cursor=pointer]:
+              - img [ref=e182]
+            - button [ref=e184] [cursor=pointer]:
+              - img [ref=e185]
+            - button [ref=e187] [cursor=pointer]:
+              - img [ref=e188]
+          - generic [ref=e191]:
+            - button "Upload Image/Text/Doc" [ref=e192] [cursor=pointer]:
+              - img [ref=e193]
+            - button "Download Current Content" [ref=e195] [cursor=pointer]:
+              - img [ref=e196]
+            - button "Take Screenshot" [ref=e198] [cursor=pointer]:
+              - img [ref=e199]
+            - 'button "Auto-Shot: Off" [ref=e203] [cursor=pointer]'
+        - paragraph [ref=e206]: Enter to add note. Shift+Enter for newline. Paste images or upload files (Img, Txt, HTML, DOCX, PPTX, PDF).

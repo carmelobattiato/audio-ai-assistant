@@ -93,6 +93,8 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
   onOpenTeamsAndRecord,
 }) => {
   const [showSessionDropdown, setShowSessionDropdown] = useState(false);
+  const titleId = useId();
+  const dialogRef = useFocusTrap<HTMLDivElement>(!!event, onClose);
 
   if (!event) return null;
 
@@ -111,9 +113,6 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
   const transcriptPreview = linkedSession?.data.transcribedText
     ? linkedSession.data.transcribedText.slice(0, 200) + (linkedSession.data.transcribedText.length > 200 ? '…' : '')
     : null;
-
-  const titleId = useId();
-  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
   return (
     <>

@@ -17,10 +17,6 @@ fi
 rm -rf "$STAGING" "$ZIP"
 cp -r "$SRC" "$STAGING"
 
-# Copia icone dall'extension v1 se non presenti
-if [ ! -d "$STAGING/icons" ] && [ -d "$ROOT/extension/icons" ]; then
-  cp -r "$ROOT/extension/icons" "$STAGING/icons"
-fi
 
 cd "$ROOT/public"
 zip -r calendar-bridge-v2.zip calendar-bridge-v2/ -x "*.DS_Store"

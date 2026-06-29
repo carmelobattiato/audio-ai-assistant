@@ -47,10 +47,6 @@ import {
   countCharacters, countWords, estimateTokens,
   htmlToPlainText,
 } from '../utils/textUtils';
-import {
-  generateStandardMetadataHeader, generateAnalysisHtmlDocument, saveBlobToFile,
-} from '../utils/fileUtils';
-import type { ZipEntry } from '../utils/fileUtils';
 import { llmService } from '../services/geminiService';
 import { loggingService } from '../services/loggingService';
 import { useRecordingFavicon } from '../hooks/useRecordingFavicon';
@@ -58,6 +54,7 @@ import { useBatchedDbUpdate } from '../hooks/useBatchedDbUpdate';
 import { useSettings } from '../contexts/SettingsContext';
 import { useUIState } from '../contexts/UIStateContext';
 import { useSession } from '../contexts/SessionContext';
+import { usePipelineEffects } from '../hooks/usePipelineEffects';
 
 const DocumentIcon = () => (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -85,7 +82,7 @@ const ChatIcon = () => (
 );
 
 export const NewHome: React.FC = () => {
-  const { appSettings, hasCustomApiKey, isReady, setAppSettings, patchSettings, persistSettings, saveCustomApiKey, deleteCustomApiKey } = useSettings();
+  const { appSettings, hasCustomApiKey, setAppSettings, patchSettings, persistSettings, saveCustomApiKey, deleteCustomApiKey } = useSettings();
   const {
     isSettingsOpen, settingsInitialTab, isStatisticsModalOpen,
     showLoadSessionModal, sessionToPreview, showLoadChunksModal,
@@ -107,12 +104,12 @@ export const NewHome: React.FC = () => {
     recordingElapsedTime, setRecordingElapsedTime, isScreenSharing, setIsScreenSharing,
     meetingAttendees, setMeetingAttendees,
     bubbleNotes, setBubbleNotes, pendingNoteHtml, setPendingNoteHtml,
-    transcribedText, setTranscribedText, activeSourceText, setActiveSourceText,
+    transcribedText, setTranscribedText, activeSourceText,
     llmProcessedText, setLlmProcessedText, llmProcessingType, setLlmProcessingType,
-    llmUsageHistory, setLlmUsageHistory, llmResultsHistory, setLlmResultsHistory,
+    llmUsageHistory, setLlmUsageHistory, setLlmResultsHistory,
     meetingChatHistory, setMeetingChatHistory,
     coherenceAssessment, setCoherenceAssessment, coherenceStatus, setCoherenceStatus,
-    pipelineStep, setPipelineStep, llmAutoTrigger, setLlmAutoTrigger,
+    pipelineStep, setPipelineStep, llmAutoTrigger,
     savedSessions,
     resetSession, fetchSessions, addLlmUsageStat,
   } = useSession();
@@ -135,7 +132,7 @@ export const NewHome: React.FC = () => {
   // ── Calendar sync ───────────────────────────────────────────────────────
   const {
     calAppointments, calBridgeAvailable, calError, calRefreshing,
-    calExtensionConnected, calSource, calendarEventsDb, setCalendarEventsDb,
+    calExtensionConnected, calOutlookState, calSource, calendarEventsDb, setCalendarEventsDb, lastSyncAt,
     fetchCalendarData,
   } = useCalendarSync({ isCalendarOpen, isNewCalendarOpen });
 
@@ -405,169 +402,17 @@ export const NewHome: React.FC = () => {
     setTimeout(() => { audioRecorderRef.current?.continueRecording(); }, 150);
   }, [handleLoadSession]);
 
-  // ── Effects ───────────────────────────────────────────────────────────────
-
-  // Keep pipelineDataRef in sync so the DOWNLOADING effect always reads fresh values
-  // without capturing stale closures (no deps = runs after every render)
-  useEffect(() => {
-    pipelineDataRef.current = {
-      audioRecordingStartTime,
-      audioFileName,
-      language: appSettings.transcription.language,
-      llmProcessingType,
-      finalEffectiveTitle,
-      transcribedText,
-      llmProcessedText,
-    };
-  });
-
-  // Batched DB writes — individual state changes are coalesced into one write per 500ms
-  useEffect(() => { scheduleDbUpdate({ name: finalEffectiveTitle }); }, [finalEffectiveTitle]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    scheduleDbUpdate({ bubbleNotes, llmUsageHistory });
-  }, [bubbleNotes, llmUsageHistory]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    scheduleDbUpdate({ transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory });
-  }, [transcribedText, llmProcessedText, llmProcessingType, llmResultsHistory]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (pipelineStep === PipelineStep.COMPLETED) {
-      flushDbUpdate();
-      if (activeSessionIdRef.current && !isInitialLoadingRef.current) {
-        db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Success' })
-          .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Success', { err: String(err) }));
-      }
-    }
-  }, [pipelineStep]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { scheduleDbUpdate({ meetingChatHistory }); }, [meetingChatHistory]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (pipelineStep !== PipelineStep.TRANSCRIBING) wasTranscribingRef.current = false;
-  }, [pipelineStep]);
-
-  useEffect(() => {
-    if (transLogic.isTranscribing) {
-      wasTranscribingRef.current = true;
-      loggingService.debug('PIPELINE', `isTranscribing→true (step=${pipelineStep})`);
-    } else {
-      loggingService.debug('PIPELINE', `isTranscribing→false (step=${pipelineStep}, wasTranscribing=${wasTranscribingRef.current})`);
-    }
-  }, [transLogic.isTranscribing]);
-
-  useEffect(() => {
-    loggingService.info('PIPELINE', `Step changed → ${pipelineStep}`, {
-      autoPipeline: appSettings.transcription.enableAutoPipeline,
-      chunked: appSettings.transcription.enableChunkedRecording,
-      autoTranscribeChunks: appSettings.transcription.autoTranscribeChunks,
-    });
-  }, [pipelineStep]);
-
-  useEffect(() => {
-    if (pipelineStep === PipelineStep.TRANSCRIBING && !transLogic.isTranscribing && wasTranscribingRef.current) {
-      const timer = setTimeout(() => {
-        wasTranscribingRef.current = false;
-        loggingService.debug('PIPELINE', `Transcription done check: error=${transLogic.transcriptionError}, textLen=${transcribedText?.length ?? 0}`);
-        if (transLogic.transcriptionError) {
-          loggingService.error('PIPELINE_ERROR', `Transcription failed: ${transLogic.transcriptionError}`);
-          setPipelineStep(PipelineStep.ERROR);
-          if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Failed' })
-            .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Failed (transcription)', { err: String(err) }));
-          setAppUserMessage(`Pipeline failed: ${transLogic.transcriptionError}`);
-        } else if (transcribedText && transcribedText.trim().length > 0) {
-          loggingService.info('PIPELINE', 'Transcription OK → starting ANALYZING');
-          setLlmProcessedText('');
-          setPipelineStep(PipelineStep.ANALYZING);
-          setLlmAutoTrigger(prev => prev + 1);
-          setActiveRightTab('analysis');
-        } else {
-          loggingService.warn('PIPELINE', 'Transcription done but no text found → IDLE');
-          setPipelineStep(PipelineStep.IDLE);
-          setAppUserMessage('Transcription completed but no text was found.');
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [transLogic.isTranscribing, transLogic.transcriptionError, transcribedText, pipelineStep]);
-
-  useEffect(() => {
-    if (pipelineStep === PipelineStep.ANALYZING && llmProcessedText && llmProcessedText.trim().length > 0) {
-      loggingService.debug('PIPELINE', `LLM output received (len=${llmProcessedText.length}), checking for errors`);
-      if (llmProcessedText.toLowerCase().includes('error from') || llmProcessedText.toLowerCase().includes('failed')) {
-        loggingService.error('PIPELINE_ERROR', 'LLM analysis returned error string');
-        setPipelineStep(PipelineStep.ERROR);
-        if (activeSessionIdRef.current) db.updateSessionIncremental(activeSessionIdRef.current, { status: 'Failed' })
-          .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Failed (analysis)', { err: String(err) }));
-        setAppUserMessage('Pipeline failed at AI Analysis step.');
-      } else {
-        loggingService.info('PIPELINE', 'LLM analysis OK → DOWNLOADING');
-        setPipelineStep(PipelineStep.DOWNLOADING);
-        setAppUserMessage('AI Analysis completed. Preparing session download...');
-      }
-    }
-  }, [llmProcessedText, pipelineStep]);
-
-  useEffect(() => {
-    if (pipelineStep !== PipelineStep.DOWNLOADING) return;
-    const { audioRecordingStartTime: recStart, audioFileName: recFile, language,
-            llmProcessingType: procType, finalEffectiveTitle: title,
-            transcribedText: transcript, llmProcessedText: analysis } = pipelineDataRef.current;
-
-    loggingService.info('PIPELINE', 'Creating session ZIP via Web Worker');
-
-    const meta = generateStandardMetadataHeader(recStart, recFile, { transcriptionLanguage: language, llmProcessingType: procType });
-    const analysisHtml = generateAnalysisHtmlDocument(analysis, {
-      title, sourceTimestamp: recStart, sourceFileName: recFile, llmProcessingType: procType, transcriptionLanguage: language,
-    });
-    const entries: ZipEntry[] = [
-      { name: `${title}_transcription.txt`, content: meta + htmlToPlainText(transcript) },
-      { name: `${title}_ai_analysis.txt`,   content: meta + htmlToPlainText(analysis) },
-      { name: `${title}_ai_analysis.html`,  content: analysisHtml },
-    ];
-
-    const worker = new Worker(new URL('../workers/zipWorker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = (e: MessageEvent<{ blob?: Blob; fileName?: string; error?: string }>) => {
-      worker.terminate();
-      if (e.data.blob) {
-        saveBlobToFile(e.data.blob, `${title}_session.zip`);
-      } else {
-        loggingService.error('PIPELINE', 'ZIP worker failed', { err: e.data.error });
-      }
-      setPipelineStep(PipelineStep.COMPLETED);
-      setAppUserMessage('Processing Pipeline Completed.');
-    };
-    worker.onerror = (err) => {
-      worker.terminate();
-      loggingService.error('PIPELINE', 'ZIP worker error', { err: err.message });
-      setPipelineStep(PipelineStep.COMPLETED);
-    };
-    worker.postMessage({ entries, fileName: `${title}_session.zip` });
-
-    return () => worker.terminate();
-  }, [pipelineStep]);
-
-  // Triggered once settings are ready from SettingsContext
-  useEffect(() => {
-    if (!isReady) return;
-    (async () => {
-      const crashed = await db.markCrashedSessions();
-      if (crashed > 0) {
-        setAppUserMessage(`${crashed} interrupted session(s) detected and recovered.`);
-      }
-      fetchSessions();
-    })();
-  }, [isReady]); // eslint-disable-line react-hooks/exhaustive-deps — one-time on ready
-
-  useEffect(() => {
-    if (uploadedTextFileContent?.textContent) {
-      setActiveSourceText(uploadedTextFileContent.textContent.replace(/\n/g, '<br />'));
-    } else {
-      setActiveSourceText(transcribedText);
-    }
-  }, [uploadedTextFileContent, transcribedText]);
+  // ── Pipeline effects (FSM, DB sync, init) ────────────────────────────────
+  usePipelineEffects(
+    transLogic,
+    wasTranscribingRef,
+    activeSessionIdRef,
+    isInitialLoadingRef,
+    pipelineDataRef,
+    scheduleDbUpdate,
+    flushDbUpdate,
+    finalEffectiveTitle,
+  );
 
   // ── Stop handler ──────────────────────────────────────────────────────────
   const handleStopCurrentOperation = useCallback(() => {
@@ -1189,7 +1034,8 @@ export const NewHome: React.FC = () => {
       />
 
       {isNewCalendarOpen && (
-        <div className="fixed inset-0 z-50 bg-gray-900 flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="flex flex-col rounded-xl overflow-hidden shadow-2xl" style={{ width: '75vw', height: '75vh', background: 'rgb(17,24,39)', border: '1px solid rgba(255,255,255,0.1)' }}>
           <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(17,24,39,0.95)' }}>
             <span className="text-sm font-semibold text-purple-300">NewCalendar</span>
             <button
@@ -1235,8 +1081,11 @@ export const NewHome: React.FC = () => {
                 syncError={calError}
                 calSource={calSource}
                 calExtensionConnected={calExtensionConnected}
+                calOutlookState={calOutlookState}
+                lastSyncAt={lastSyncAt}
               />
             </Suspense>
+          </div>
           </div>
         </div>
       )}
