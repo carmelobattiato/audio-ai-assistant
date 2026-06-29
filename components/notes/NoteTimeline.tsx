@@ -43,7 +43,7 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
   const totalH = PAD_TOP + notes.length * ROW_H + 32;
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto">
+    <div ref={containerRef} className="flex-1 overflow-y-auto min-h-0">
       <div className="relative w-full" style={{ height: totalH }}>
 
         {/* SVG snake connectors */}
