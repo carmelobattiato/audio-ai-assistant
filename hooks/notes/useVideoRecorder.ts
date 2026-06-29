@@ -15,8 +15,14 @@ export const useVideoRecorder = ({
   const [chunkCount, setChunkCount] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunkCountRef = useRef(0);
+  const videoTrackRef = useRef<MediaStreamTrack | null>(null);
 
   const stopVideo = useCallback(() => {
+    // Remove listener from the tracked video track before clearing it
+    if (videoTrackRef.current) {
+      videoTrackRef.current.removeEventListener('ended', stopVideo);
+      videoTrackRef.current = null;
+    }
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       recorderRef.current.stop();
     }
@@ -59,14 +65,16 @@ export const useVideoRecorder = ({
       setChunkCount(chunkCountRef.current);
     };
 
-    recorder.onstop = () => {
-      setIsVideoRecording(false);
-      recorderRef.current = null;
-    };
+    // setIsVideoRecording(false) is handled synchronously by stopVideo; no need to duplicate here
+    recorder.onstop = () => {};
 
-    // Stop if the screen share ends
+    // Stop if the screen share ends — remove any lingering listener from a previous track first
     const videoTrack = displayStream.getVideoTracks()[0];
     if (videoTrack) {
+      if (videoTrackRef.current && videoTrackRef.current !== videoTrack) {
+        videoTrackRef.current.removeEventListener('ended', stopVideo);
+      }
+      videoTrackRef.current = videoTrack;
       videoTrack.addEventListener('ended', stopVideo, { once: true });
     }
 
