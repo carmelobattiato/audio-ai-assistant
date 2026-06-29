@@ -51,7 +51,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       <NoteFloatingToolbar editor={editor} />
       <EditorContent
         editor={editor}
-        className="note-editor-content px-3 py-2 min-h-[72px] max-h-[180px] overflow-y-auto text-sm text-gray-200 focus-within:outline-none"
+        className="note-editor-content px-3 py-2 min-h-[108px] max-h-[270px] overflow-y-auto text-sm text-gray-200 focus-within:outline-none bg-white/[0.04]"
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();

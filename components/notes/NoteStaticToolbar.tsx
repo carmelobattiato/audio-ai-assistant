@@ -31,7 +31,7 @@ const IconBtn: React.FC<{
     onClick={onClick}
     disabled={disabled}
     title={title}
-    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+    className={`flex items-center gap-1.5 px-2.5 py-2 rounded-md text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
       active
         ? 'bg-violet-600/30 text-violet-300'
         : 'text-gray-400 hover:text-white hover:bg-white/8'
@@ -42,14 +42,14 @@ const IconBtn: React.FC<{
 );
 
 export const NoteStaticToolbar: React.FC<NoteStaticToolbarProps> = (props) => (
-  <div className="flex items-center gap-1 px-2 py-1.5 border-t border-white/8 bg-gray-900/40">
+  <div className="flex items-center gap-1 px-2 py-2.5 border-t border-white/8 bg-gray-900/40">
     {/* Left: file ops */}
     <IconBtn onClick={props.onFileUploadClick} disabled={!props.isEditorEditable} title="Attach file (Img, PDF, DOCX, PPTX, HTML, TXT)">
-      <Paperclip size={15} />
+      <Paperclip size={22} />
     </IconBtn>
 
     <IconBtn onClick={props.onTakeScreenshot} disabled={!props.isEditorEditable} title="Take screenshot">
-      <Camera size={15} />
+      <Camera size={22} />
     </IconBtn>
 
     {/* Auto screenshot */}
@@ -59,7 +59,7 @@ export const NoteStaticToolbar: React.FC<NoteStaticToolbarProps> = (props) => (
         active={props.isAutoScreenshotOn}
         title={props.isAutoScreenshotOn ? 'Disable auto-screenshot' : 'Enable auto-screenshot'}
       >
-        <Timer size={15} />
+        <Timer size={22} />
         <span className="text-xs font-mono">
           {props.isAutoScreenshotOn ? `${props.countdown}s` : 'Auto'}
         </span>
@@ -83,7 +83,7 @@ export const NoteStaticToolbar: React.FC<NoteStaticToolbarProps> = (props) => (
     {/* Video recording */}
     {props.isVideoRecording ? (
       <IconBtn onClick={props.onStopVideo} title={`Stop video (${props.videoChunkCount} chunks saved)`} className="text-red-400 hover:text-red-300">
-        <Square size={15} className="fill-current" />
+        <Square size={22} className="fill-current" />
         <span className="text-xs font-mono">{props.videoChunkCount}</span>
       </IconBtn>
     ) : (
@@ -92,7 +92,7 @@ export const NoteStaticToolbar: React.FC<NoteStaticToolbarProps> = (props) => (
         disabled={!props.isScreenSharing}
         title={props.isScreenSharing ? 'Start screen recording (saves WebM chunks to Downloads)' : 'Start screen sharing first to enable video recording'}
       >
-        <Video size={15} />
+        <Video size={22} />
       </IconBtn>
     )}
 
@@ -109,7 +109,7 @@ export const NoteStaticToolbar: React.FC<NoteStaticToolbarProps> = (props) => (
       className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40"
       title="Save note (Enter)"
     >
-      <CornerDownLeft size={13} />
+      <CornerDownLeft size={22} />
     </button>
   </div>
 );
