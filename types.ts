@@ -181,10 +181,11 @@ export interface TranscriptionSettings {
 export interface BubbleNote {
   id: string;
   contentHtml: string;
-  timestamp: number; 
-  recordingElapsedTime: number; 
+  timestamp: number;
+  recordingElapsedTime: number;
   isEditing: boolean;
   isProcessing: boolean;
+  type?: 'text' | 'screenshot' | 'auto-screenshot';
 }
 
 export interface ModelInfo {
