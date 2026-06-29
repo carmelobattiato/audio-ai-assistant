@@ -62,7 +62,8 @@ export const useScreenshotHandler = (
           contentHtml: `<p>Auto-screenshot at ${ts}</p>${imgHtml}`,
           timestamp: Date.now(),
           recordingElapsedTime: elapsedTimeRef.current || 0,
-          isEditing: false, isProcessing: false
+          isEditing: false, isProcessing: false,
+          type: 'auto-screenshot'
         };
         onBubbleNotesChange([...bubbleNotes, newNote]);
         loggingService.info('SCREENSHOT_SAVED_AUTO', 'Auto-screenshot saved as new note', { ts });
