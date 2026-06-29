@@ -6,6 +6,8 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+- `BubbleNotes`: download note esporta HTML stilizzato con timeline verticale numerata, sfondo scuro, immagini inline; nome file `{titolo_sessione}_note.html`
+
 ---
 
 ## [1.129] — 2026-06-29

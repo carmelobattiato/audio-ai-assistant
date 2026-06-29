@@ -94,9 +94,75 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
   const handleDownloadNotes = useCallback(() => {
     if (props.bubbleNotes.length === 0) return;
     loggingService.info('BUBBLE_NOTES_EXPORT', 'Exporting bubble notes to HTML', { count: props.bubbleNotes.length });
-    const notesHtml = props.bubbleNotes.map(n => `<div class="note"><h3>Time: ${formatTime(n.recordingElapsedTime)}</h3>${n.contentHtml}</div>`).join('');
-    const blob = new Blob([`<html><body style="font-family:sans-serif;padding:20px"><h1>${props.recordingTitle}</h1>${notesHtml}</body></html>`], { type: 'text/html' });
-    saveBlobToFile(blob, `notes_${props.recordingTitle.replace(/\s+/g, '_')}.html`);
+
+    const noteItems = props.bubbleNotes.map((n, idx) => {
+      const isScreenshot = n.type === 'screenshot' || n.type === 'auto-screenshot';
+      const typeLabel = isScreenshot ? '📷 Screenshot' : '📝 Note';
+      const timeLabel = formatTime(n.recordingElapsedTime);
+      return `
+        <div class="note-item">
+          <div class="note-connector${idx === 0 ? ' first' : ''}"></div>
+          <div class="note-dot ${isScreenshot ? 'dot-screenshot' : 'dot-text'}">
+            <span class="dot-index">${idx + 1}</span>
+          </div>
+          <div class="note-card">
+            <div class="note-meta">
+              <span class="note-type">${typeLabel}</span>
+              <span class="note-time">⏱ ${timeLabel}</span>
+            </div>
+            <div class="note-content">${n.contentHtml}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const safeTitle = props.recordingTitle.replace(/[<>"&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', '&': '&amp;' }[c] ?? c));
+    const exportDate = new Date().toLocaleString();
+
+    const html = `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${safeTitle} — Note</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;color:#e2e8f0;padding:40px 20px;min-height:100vh}
+  .page{max-width:720px;margin:0 auto}
+  header{margin-bottom:40px;border-bottom:1px solid #2d2d4e;padding-bottom:24px}
+  h1{font-size:1.6rem;font-weight:700;color:#a78bfa;margin-bottom:6px}
+  .meta{font-size:0.8rem;color:#64748b}
+  .timeline{position:relative;padding-left:60px}
+  .note-item{position:relative;margin-bottom:32px}
+  .note-connector{position:absolute;left:-31px;top:-32px;width:2px;height:calc(100% + 32px);background:linear-gradient(to bottom,#7c3aed55,#4f46e555);border-left:2px dashed #7c3aed55}
+  .note-connector.first{top:0;height:100%}
+  .note-dot{position:absolute;left:-42px;top:0;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;z-index:1}
+  .dot-text{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;box-shadow:0 0 12px #7c3aed66}
+  .dot-screenshot{background:linear-gradient(135deg,#0ea5e9,#7c3aed);color:#fff;box-shadow:0 0 12px #0ea5e966}
+  .note-card{background:#1e1e2e;border:1px solid #2d2d4e;border-radius:12px;padding:16px;margin-left:4px}
+  .note-meta{display:flex;align-items:center;gap:12px;margin-bottom:12px;font-size:0.75rem}
+  .note-type{color:#a78bfa;font-weight:600}
+  .note-time{color:#64748b;font-family:monospace}
+  .note-content{font-size:0.875rem;line-height:1.6;color:#cbd5e1}
+  .note-content img{max-width:100%;border-radius:8px;margin:8px 0;display:block}
+  .note-content p{margin-bottom:8px}
+  .note-content em{color:#94a3b8}
+  footer{margin-top:48px;padding-top:16px;border-top:1px solid #2d2d4e;font-size:0.75rem;color:#374151;text-align:center}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>${safeTitle}</h1>
+    <div class="meta">Esportato il ${exportDate} · ${props.bubbleNotes.length} note</div>
+  </header>
+  <div class="timeline">${noteItems}</div>
+  <footer>Generato da Audio AI Assistant</footer>
+</div>
+</body>
+</html>`;
+
+    const safeName = props.recordingTitle.replace(/[^a-zA-Z0-9_\-À-ÿ ]/g, '').replace(/\s+/g, '_').slice(0, 60);
+    saveBlobToFile(new Blob([html], { type: 'text/html' }), `${safeName}_note.html`);
   }, [props.bubbleNotes, props.recordingTitle]);
 
   return (
