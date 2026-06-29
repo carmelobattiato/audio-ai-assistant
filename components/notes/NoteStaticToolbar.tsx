@@ -89,8 +89,7 @@ export const NoteStaticToolbar: React.FC<NoteStaticToolbarProps> = (props) => (
     ) : (
       <IconBtn
         onClick={props.onStartVideo}
-        disabled={!props.isScreenSharing}
-        title={props.isScreenSharing ? 'Start screen recording (saves WebM chunks to Downloads)' : 'Start screen sharing first to enable video recording'}
+        title="Start screen recording (saves WebM chunks to Downloads)"
       >
         <Video size={22} />
       </IconBtn>

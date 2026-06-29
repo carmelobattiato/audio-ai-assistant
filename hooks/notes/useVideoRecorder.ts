@@ -16,9 +16,10 @@ export const useVideoRecorder = ({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunkCountRef = useRef(0);
   const videoTrackRef = useRef<MediaStreamTrack | null>(null);
+  // owned stream: acquired independently when no displayStream is provided
+  const ownedStreamRef = useRef<MediaStream | null>(null);
 
   const stopVideo = useCallback(() => {
-    // Remove listener from the tracked video track before clearing it
     if (videoTrackRef.current) {
       videoTrackRef.current.removeEventListener('ended', stopVideo);
       videoTrackRef.current = null;
@@ -27,19 +28,22 @@ export const useVideoRecorder = ({
       recorderRef.current.stop();
     }
     recorderRef.current = null;
+    // Stop and release any independently acquired stream
+    if (ownedStreamRef.current) {
+      ownedStreamRef.current.getTracks().forEach(t => t.stop());
+      ownedStreamRef.current = null;
+    }
     setIsVideoRecording(false);
   }, []);
 
-  const startVideo = useCallback(() => {
-    if (!displayStream || isVideoRecording) return;
-
+  const startRecordingOnStream = useCallback((stream: MediaStream) => {
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
       ? 'video/webm;codecs=vp9'
       : 'video/webm';
 
     let recorder: MediaRecorder;
     try {
-      recorder = new MediaRecorder(displayStream, {
+      recorder = new MediaRecorder(stream, {
         mimeType,
         videoBitsPerSecond: bitrateKbps * 1000,
       });
@@ -65,11 +69,9 @@ export const useVideoRecorder = ({
       setChunkCount(chunkCountRef.current);
     };
 
-    // setIsVideoRecording(false) is handled synchronously by stopVideo; no need to duplicate here
     recorder.onstop = () => {};
 
-    // Stop if the screen share ends — remove any lingering listener from a previous track first
-    const videoTrack = displayStream.getVideoTracks()[0];
+    const videoTrack = stream.getVideoTracks()[0];
     if (videoTrack) {
       if (videoTrackRef.current && videoTrackRef.current !== videoTrack) {
         videoTrackRef.current.removeEventListener('ended', stopVideo);
@@ -81,7 +83,25 @@ export const useVideoRecorder = ({
     recorder.start(chunkIntervalMs);
     recorderRef.current = recorder;
     setIsVideoRecording(true);
-  }, [displayStream, isVideoRecording, chunkIntervalMs, bitrateKbps, stopVideo]);
+  }, [bitrateKbps, chunkIntervalMs, stopVideo]);
+
+  const startVideo = useCallback(async () => {
+    if (isVideoRecording) return;
+
+    if (displayStream) {
+      startRecordingOnStream(displayStream);
+      return;
+    }
+
+    // No existing display stream — request screen capture independently
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      ownedStreamRef.current = stream;
+      startRecordingOnStream(stream);
+    } catch {
+      // User cancelled or permission denied — silently ignore
+    }
+  }, [displayStream, isVideoRecording, startRecordingOnStream]);
 
   return { isVideoRecording, chunkCount, startVideo, stopVideo };
 };
