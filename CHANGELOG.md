@@ -8,6 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.128] — 2026-06-29
+
+- Fix notifiche meeting: `useCalendarSync` ora popola `calAppointments` anche da eventi extension v2; prima `useMeetingNotifications` riceveva array vuoto
+- `useHeadphoneDetection`: nuovo hook — rileva cuffie cablate e Bluetooth via `enumerateDevices()` + listener `devicechange`
+- `AudioSettings`: aggiunto campo `autoDetectHeadphones` (default `true`); toggle in Settings → Audio
+- `NeoRecordingPanel`: pulsante "Mic only" e "+ System audio" fusi in un singolo "Record" smart — cuffie rilevate → guide modal System Audio, altrimenti mic only diretto
+- `NeoRecordingPanel`: icona mic sempre verde (sinistra), icona cuffie a destra — verde se rilevate, grigio con diagonale rossa se assenti
+- `NeoRecordingPanel`: rimosso banner testuale headphone detection e pulsante separato "+ System audio"
+
+---
+
 ## [1.127] — 2026-06-29
 
 - Rinominato "NewCalendar" → "Calendar" nella topbar e nel titolo del modal; "Calendar" (vecchio) → "Old Calendar"

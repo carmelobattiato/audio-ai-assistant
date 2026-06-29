@@ -17,6 +17,7 @@ export const DEFAULT_AUDIO_SETTINGS: AppSettings['audio'] = {
   autoNotifyAfterPausedMinutes: 5,
   autoStopAfterPausedMinutes: 15,
   autoStopWarningSeconds: 60,
+  autoDetectHeadphones: true,
 };
 
 export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {

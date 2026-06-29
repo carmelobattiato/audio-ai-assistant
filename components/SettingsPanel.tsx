@@ -803,6 +803,21 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                 onChange={(e) => handleLocalGenericChange('audio', 'channels', e.target.value as "mono" | "stereo")}
               />
               <div className="pt-4 mt-4 border-t border-gray-600">
+                <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-600 mb-3">
+                  <Checkbox
+                    label="Auto-detect cuffie e suggerisci System Audio"
+                    id="audioAutoDetectHeadphones"
+                    checked={localSettings.audio.autoDetectHeadphones ?? true}
+                    onChange={(e) => handleLocalGenericChange('audio', 'autoDetectHeadphones', e.target.checked)}
+                    title="Rileva automaticamente cuffie (cablate e Bluetooth) e apre il flusso System Audio al click su Rec"
+                  />
+                  <p className="text-[10px] text-gray-400 leading-tight mt-1">
+                    Quando cuffie rilevate, Rec avvia automaticamente con System Audio (cattura partecipanti Teams).
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-4 mt-4 border-t border-gray-600">
                 <h4 className="text-md font-semibold text-sky-400 mb-3">Microphone Hardware Filters</h4>
                 
                 <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-600 mb-3 space-y-3">

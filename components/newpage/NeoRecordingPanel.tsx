@@ -7,6 +7,7 @@ import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useRecorderPlayer } from '../../hooks/recorder/useRecorderPlayer';
 import { useScreenshotHandler } from '../../hooks/recorder/useScreenshotHandler';
 import { usePipWindow } from '../../hooks/usePipWindow';
+import { useHeadphoneDetection } from '../../hooks/useHeadphoneDetection';
 import { AudioVisualizerCanvas } from '../AudioVisualizerCanvas';
 import { FreqWaveform } from '../FreqWaveform';
 import { PipRecordingWidget } from '../PipRecordingWidget';
@@ -247,6 +248,10 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
     const [showAutoStopNotification, setShowAutoStopNotification] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
     const [guideKey, setGuideKey] = useState(0);
+
+    const { headphonesDetected, detectedDeviceName } = useHeadphoneDetection(
+      props.audioSettings.autoDetectHeadphones ?? true
+    );
     const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const elapsedTimeRef = useRef(0);
@@ -362,16 +367,19 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
 
     // ── Handlers ─────────────────────────────────────────────────────────────
     const handleStartMicOnly = useCallback(async () => {
+      if (headphonesDetected && !isAppAudioActive) {
+        setShowGuide(true);
+        return;
+      }
       const res = await props.onRecordingSessionStart();
       if (res === false) return;
       startRecording(false);
-    }, [props.onRecordingSessionStart, startRecording]);
+    }, [props.onRecordingSessionStart, startRecording, headphonesDetected, isAppAudioActive]);
 
     startMicOnlyRef.current = handleStartMicOnly;
     // continueRecording: start mic without session reset (used by Load & Continue flow)
     continueRecordingRef.current = () => startRecording(false);
 
-    const handleStartWithHeadphones = useCallback(() => setShowGuide(true), []);
 
     const handleConfirmGuide = useCallback(async () => {
       setShowGuide(false);
@@ -615,37 +623,48 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
           {/* ── PRIMARY CONTROLS ──────────────────────────────────────────── */}
           <div>
             {isStartMode ? (
-              /* Start mode: three buttons */
+              /* Start mode: Record button (smart) + PiP */
+              <>
               <div className="flex gap-3">
                 <button
                   onClick={handleStartMicOnly}
                   disabled={!!props.disabled || !!isFinalizing}
-                  className="flex-1 flex items-center justify-center gap-2.5 py-3 rounded-xl font-semibold text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex-1 flex items-center py-3 rounded-xl font-semibold text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed px-4"
                   style={{
-                    background: 'linear-gradient(135deg, rgba(124,58,237,0.4), rgba(109,40,217,0.3))',
-                    border: '1px solid rgba(139,92,246,0.45)',
+                    background: headphonesDetected
+                      ? 'linear-gradient(135deg, rgba(192,38,211,0.45), rgba(124,58,237,0.35))'
+                      : 'linear-gradient(135deg, rgba(124,58,237,0.4), rgba(109,40,217,0.3))',
+                    border: headphonesDetected
+                      ? '1px solid rgba(192,38,211,0.55)'
+                      : '1px solid rgba(139,92,246,0.45)',
                     color: 'var(--neo-text)',
-                    boxShadow: '0 4px 20px rgba(124,58,237,0.2)',
                   }}
-                  title="Record with microphone only — system audio not captured"
+                  title={headphonesDetected
+                    ? `Cuffie rilevate: ${detectedDeviceName ?? ''} — avvia con System Audio`
+                    : 'Avvia registrazione microfono'}
                 >
-                  <MicOnIcon />
-                  <span>Mic only</span>
-                </button>
-                <button
-                  onClick={handleStartWithHeadphones}
-                  disabled={!!props.disabled || !!isFinalizing}
-                  className="flex-1 flex items-center justify-center gap-2.5 py-3 rounded-xl font-semibold text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(192,38,211,0.4), rgba(124,58,237,0.3))',
-                    border: '1px solid rgba(192,38,211,0.5)',
-                    color: 'var(--neo-text)',
-                    boxShadow: '0 4px 20px rgba(192,38,211,0.2)',
-                  }}
-                  title="Opens system audio capture — required for Teams / Zoom / Meet recording"
-                >
-                  <HeadphonesIcon />
-                  <span>+ System audio</span>
+                  {/* Mic icon — sempre verde */}
+                  <span style={{ color: '#10B981', display: 'flex', flexShrink: 0 }}><MicOnIcon /></span>
+                  {/* Label centrata */}
+                  <span style={{ flex: 1, textAlign: 'center' }}>Record</span>
+                  {/* Headphones icon — verde se rilevate, grigio+divieto se no */}
+                  <div style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}
+                    title={headphonesDetected
+                      ? `Cuffie: ${detectedDeviceName ?? 'rilevate'}`
+                      : 'Nessuna cuffia rilevata — verrà registrato solo il microfono'}
+                  >
+                    <span style={{ color: headphonesDetected ? '#10B981' : '#6B7280', display: 'flex' }}>
+                      <HeadphonesIcon />
+                    </span>
+                    {!headphonesDetected && (
+                      <svg
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                        viewBox="0 0 20 20"
+                      >
+                        <line x1="2" y1="18" x2="18" y2="2" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </div>
                 </button>
                 {pip.isSupported && (
                   <button
@@ -670,6 +689,7 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
                   </button>
                 )}
               </div>
+              </>
             ) : (
               /* Recording mode: mic | big button | headphones */
               <div className="flex items-center justify-between gap-4">

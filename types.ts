@@ -157,6 +157,7 @@ export interface AudioSettings {
   autoNotifyAfterPausedMinutes: number;
   autoStopAfterPausedMinutes: number;
   autoStopWarningSeconds: number;
+  autoDetectHeadphones?: boolean;
 }
 
 export interface TranscriptionSettings {

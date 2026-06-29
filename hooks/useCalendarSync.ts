@@ -292,6 +292,20 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
     if (calV2.events.length === 0) return;
     if (calV2.lastSyncTs) setLastSyncAt(calV2.lastSyncTs);
     db.upsertCalendarEvents(calV2.events).catch(console.error);
+    // Populate calAppointments so useMeetingNotifications fires for extension events
+    const asAppointments: OutlookAppointment[] = calV2.events.map(ev => ({
+      id: ev.id,
+      subject: ev.subject,
+      start: ev.start,
+      end: ev.end,
+      location: ev.location ?? '',
+      body: ev.body ?? '',
+      attendees: ev.attendees ?? [],
+      organizer: ev.organizer ?? '',
+      onlineMeetingUrl: ev.onlineMeetingUrl,
+      responseStatus: ev.responseStatus,
+    }));
+    setCalAppointments(asAppointments);
     if (isNewCalendarOpen) {
       db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
     }
