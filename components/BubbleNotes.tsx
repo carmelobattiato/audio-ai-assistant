@@ -76,7 +76,23 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
     chunkCount: videoChunkCount,
     startVideo,
     stopVideo,
-  } = useVideoRecorder({ displayStream: props.displayStream ?? null });
+  } = useVideoRecorder({
+    displayStream: props.displayStream ?? null,
+    sessionTitle: props.recordingTitle,
+    elapsedTime: props.elapsedTime,
+    onChunkSaved: (filename, _idx, elapsedMs) => {
+      const newNote: BubbleNote = {
+        id: `n_video_${Date.now()}`,
+        contentHtml: `<p>🎥 <strong>${filename}</strong></p>`,
+        timestamp: Date.now(),
+        recordingElapsedTime: elapsedMs,
+        isEditing: false,
+        isProcessing: false,
+        type: 'text',
+      };
+      props.onBubbleNotesChange([...props.bubbleNotes, newNote]);
+    },
+  });
 
   // --- Note management ---
   const handleDeleteNote = useCallback((noteId: string) => {

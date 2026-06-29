@@ -7,7 +7,8 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 ## [Unreleased]
 
 - `BubbleNotes`: download note esporta HTML stilizzato con timeline verticale numerata, sfondo scuro, immagini inline; nome file `{titolo_sessione}_note.html`
-- `useVideoRecorder`: pulsante video sempre attivo — se non c'è display stream acquisisce schermo autonomamente via `getDisplayMedia`; rimosso `disabled` da toolbar
+- `useVideoRecorder`: acquisisce mic + audio sistema via AudioContext mix; chunk nominati `{sessione}_video{N}.webm`; aggiunge bubble note per ogni chunk salvato
+- `BubbleNotes`: passa sessionTitle/elapsedTime/onChunkSaved a useVideoRecorder; bubble note automatica con nome video a ogni chunk
 
 ---
 
