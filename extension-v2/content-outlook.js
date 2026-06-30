@@ -90,10 +90,11 @@
   }
 
   function doDirect() {
+    // Sync window: CAL_SYNC_PAST_HOURS=-24h to CAL_SYNC_FUTURE_DAYS=+7d (appConfig.ts)
     var tz = capturedTimezone || 'UTC';
     var now = new Date();
-    var wl  = new Date(now); wl.setDate(wl.getDate() + 7);
-    var yd  = new Date(now); yd.setDate(yd.getDate() - 1);
+    var wl  = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    var yd  = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     var rs  = fmtDate(yd) + 'T00:00:00.000';
     var re  = fmtDate(wl) + 'T23:59:59.999';
 
@@ -178,7 +179,8 @@
         var action = decoded && decoded.Action;
         var b = decoded && decoded.Body;
         if (b && b.RangeStart) {
-          var now = new Date(); var wl = new Date(now); wl.setDate(now.getDate() + 7); var yd = new Date(now); yd.setDate(now.getDate() - 1);
+          // Sync window: CAL_SYNC_PAST_HOURS=-24h to CAL_SYNC_FUTURE_DAYS=+7d (appConfig.ts)
+          var now = new Date(); var wl = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); var yd = new Date(now.getTime() - 24 * 60 * 60 * 1000);
           var oldStart = b.RangeStart;
           b.RangeStart = fmtDate(yd) + 'T00:00:00.000';
           b.RangeEnd = fmtDate(wl) + 'T23:59:59.999';

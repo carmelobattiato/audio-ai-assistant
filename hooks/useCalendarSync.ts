@@ -4,6 +4,7 @@ import { useCalBridgeV2, type OutlookState } from './useCalBridgeV2';
 import { loggingService } from '../services/loggingService';
 import type { OutlookAppointment } from '../components/OutlookCalendarModal';
 import type { CalendarEventRecord } from '../types';
+import { CAL_SYNC_PAST_HOURS, CAL_SYNC_FUTURE_DAYS, CAL_AUDIO_RETENTION_DAYS } from '../constants/appConfig';
 
 interface UseCalendarSyncParams {
   isCalendarOpen: boolean;
@@ -176,12 +177,12 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
         }
         const events = await fetchIcs(cfg.icsUrl);
         const now2 = new Date();
-        const weekLater = new Date(now2);
-        weekLater.setDate(now2.getDate() + 7);
+        const past24h = new Date(now2.getTime() - CAL_SYNC_PAST_HOURS * 60 * 60 * 1000);
+        const weekLater = new Date(now2.getTime() + CAL_SYNC_FUTURE_DAYS * 24 * 60 * 60 * 1000);
         weekLater.setHours(23, 59, 59, 999);
         const teamsRe = /https:\/\/teams\.microsoft\.com\/l\/[^\s<>"']+/;
         const mapped: OutlookAppointment[] = events
-          .filter(ev => { if (!ev.start) return false; const d = new Date(ev.start); return d >= now2 && d <= weekLater; })
+          .filter(ev => { if (!ev.start) return false; const d = new Date(ev.start); return d >= past24h && d <= weekLater; })
           .sort((a, b) => a.start.localeCompare(b.start))
           .map(ev => ({
             id: ev.id, subject: ev.subject, start: ev.start, end: ev.end,
@@ -267,15 +268,16 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
     }
   }, []);
 
-  // Sync calAppointments → IndexedDB (next 7 days window)
+  // Sync calAppointments → IndexedDB (-24h to +7 days window)
   useEffect(() => {
     if (calAppointments.length === 0) return;
     const now = new Date();
-    const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const past24h = new Date(now.getTime() - CAL_SYNC_PAST_HOURS * 60 * 60 * 1000);
+    const oneWeekLater = new Date(now.getTime() + CAL_SYNC_FUTURE_DAYS * 24 * 60 * 60 * 1000);
     const toSync = calAppointments.filter(apt => {
       const start = new Date(apt.start);
       const end = new Date(apt.end || apt.start);
-      return end >= now && start <= oneWeekLater;
+      return end >= past24h && start <= oneWeekLater;
     });
     const records: CalendarEventRecord[] = toSync.map(apt => ({
       id: apt.id, subject: apt.subject, start: apt.start, end: apt.end,
@@ -293,7 +295,7 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
     if (!isNewCalendarOpen) return;
     db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
     db.deleteStaleCalendarEvents().catch(console.error);
-    db.deleteAudioOlderThan(10).catch(console.error);
+    db.deleteAudioOlderThan(CAL_AUDIO_RETENTION_DAYS).catch(console.error);
   }, [isNewCalendarOpen, calAppointments]);
 
   // Calendar Bridge v2 — sync localStorage→DB; track extension+outlook state

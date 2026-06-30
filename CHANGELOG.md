@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.133] — 2026-07-01
+
+- `appConfig.ts`: costanti canoniche `CAL_SYNC_PAST_HOURS=24`, `CAL_SYNC_FUTURE_DAYS=7`, `CAL_AUDIO_RETENTION_DAYS=10` — unica source of truth per tutte le sorgenti di sync
+- `vite.config.ts` PowerShell: finestra sync estesa da solo-oggi a -24h / +7gg
+- `useCalendarSync.ts`: filtro ICS e upsert IndexedDB allineati a -24h / +7gg via costanti
+- `utils/db.ts`: `deleteStaleCalendarEvents` e `deleteAudioOlderThan` usano costanti da `appConfig.ts`
+- `StorageTab.tsx`: `AUDIO_RETENTION_DAYS` importato da `appConfig.ts` (non più hardcoded)
+- `extension-v2/content-outlook.js` e `background.js`: finestra allineata a -24h / +7gg con commento canonico
+- `OutlookCalendarModal`: bottone "i" info — mostra finestra sync, retention audio/note, regola sessioni collegate
+- `NewCalendarView`: bottone "i" info nel toolbar in-line al sync button (stesse informazioni)
+
+
 ## [1.132] — 2026-06-29
 
 - `defaultSettings`: `chunkRecordingIntervalSeconds` 900 → 300 (5 min)

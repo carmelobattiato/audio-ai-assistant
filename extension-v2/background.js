@@ -208,8 +208,8 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
         return new Date(e.end).getTime() > rawCutoff;
       });
 
-      // filter for app: only -1d to +7d window
-      var winStart = now - 1 * 24 * 60 * 60 * 1000;
+      // Sync window: CAL_SYNC_PAST_HOURS=-24h to CAL_SYNC_FUTURE_DAYS=+7d (appConfig.ts)
+      var winStart = now - 24 * 60 * 60 * 1000;
       var winEnd   = now + 7 * 24 * 60 * 60 * 1000;
       var byId = {};
       existing.forEach(function(e) { if (e.id) byId[e.id] = e; });

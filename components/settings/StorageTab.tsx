@@ -4,12 +4,13 @@ import { StorageStats, SavedSession } from '../../types';
 import { db } from '../../utils/db';
 import { Button } from '../common/Button';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { CAL_AUDIO_RETENTION_DAYS } from '../../constants/appConfig';
 
 interface StorageTabProps {
   onClose?: () => void;
 }
 
-const AUDIO_RETENTION_DAYS = 10;
+const AUDIO_RETENTION_DAYS = CAL_AUDIO_RETENTION_DAYS;
 
 function formatMb(mb: number): string {
   if (mb < 0.01) return '< 0.01 MB';

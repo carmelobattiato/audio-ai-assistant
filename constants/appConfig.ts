@@ -3,7 +3,7 @@ import { ModelInfo } from '../types';
 
 export const APP_TITLE = "Audio AI Assistant";
 export const APP_CREATOR = "Carmelo Battiato";
-export const APP_VERSION = "1.132";
+export const APP_VERSION = "1.133";
 export const APP_BUILD_TIMESTAMP = "2025-06-28_00-00-00";
 
 export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl?: boolean; docsUrl?: string, isCustom?: boolean } } = {
@@ -72,3 +72,8 @@ export const MAX_SESSIONS = 15;
 export const MAX_SESSION_SIZE_MB = 50;
 export const DEBOUNCE_DELAY = 300;
 export const MAX_FILE_SIZE_MB = 100;
+
+// ── Calendar sync window (single source of truth for all sync sources) ────────
+export const CAL_SYNC_PAST_HOURS = 24;    // how far back to fetch/keep events
+export const CAL_SYNC_FUTURE_DAYS = 7;    // how far ahead to fetch/keep events
+export const CAL_AUDIO_RETENTION_DAYS = 10; // audio deleted after N days; transcriptions kept forever

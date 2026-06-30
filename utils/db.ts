@@ -1,7 +1,7 @@
 
 import { openDB, DBSchema, IDBPDatabase, IDBPTransaction } from 'idb';
 import { SavedSession, InProgressSessionData, CalendarEventRecord, SessionEmbedding, StorageStats } from '../types';
-import { MAX_SESSIONS } from '../constants';
+import { MAX_SESSIONS, CAL_SYNC_PAST_HOURS, CAL_AUDIO_RETENTION_DAYS } from '../constants';
 import type { EncryptedBlob } from './crypto';
 import { loggingService } from '../services/loggingService';
 
@@ -410,8 +410,8 @@ export const db = {
     return dbOp('deleteStaleCalendarEvents', async () => {
       const dbInstance = await dbPromise;
       const now = Date.now();
-      const cutoff24h = now - 24 * 60 * 60 * 1000;
-      const cutoff10d = now - 10 * 24 * 60 * 60 * 1000;
+      const cutoff24h = now - CAL_SYNC_PAST_HOURS * 60 * 60 * 1000;
+      const cutoff10d = now - CAL_AUDIO_RETENTION_DAYS * 24 * 60 * 60 * 1000;
       const all = await dbInstance.getAll(CALENDAR_EVENTS_STORE_NAME);
       let deleted = 0;
       for (const ev of all) {

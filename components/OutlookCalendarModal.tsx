@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { CAL_SYNC_PAST_HOURS, CAL_SYNC_FUTURE_DAYS, CAL_AUDIO_RETENTION_DAYS } from '../constants/appConfig';
 
 const OUTLOOK_API = '/api/outlook';
 
@@ -157,6 +158,8 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
   const [intErrorMsg, setIntErrorMsg] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<OutlookAppointment | null>(null);
+  const [showSyncInfo, setShowSyncInfo] = useState(false);
+  const syncInfoRef = useRef<HTMLDivElement>(null);
 
   // Resolve active data from external props or internal state
   const appointments   = isExternallyManaged ? (externalAppointments ?? []) : intAppointments;
@@ -285,15 +288,62 @@ export const OutlookCalendarModal: React.FC<OutlookCalendarModalProps> = ({
               />
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors rounded p-1 ml-2"
-            aria-label="Chiudi"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Sync info button */}
+            <div className="relative" ref={syncInfoRef}>
+              <button
+                onClick={() => setShowSyncInfo(v => !v)}
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
+                style={{ background: showSyncInfo ? 'rgba(56,189,248,0.2)' : 'rgba(55,65,81,0.8)', color: '#38BDF8', border: '1px solid rgba(56,189,248,0.3)' }}
+                aria-label="Informazioni sincronizzazione"
+                title="Informazioni sincronizzazione"
+              >
+                i
+              </button>
+              {showSyncInfo && (
+                <div
+                  className="absolute right-0 top-8 z-50 rounded-xl shadow-2xl p-4 w-72 text-xs space-y-3"
+                  style={{ background: '#1E293B', border: '1px solid rgba(56,189,248,0.2)' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <p className="font-semibold text-sky-400 text-sm">Regole di sincronizzazione</p>
+                  <div className="space-y-2 text-gray-300">
+                    <div className="flex gap-2">
+                      <span className="text-sky-400 mt-0.5">⏱</span>
+                      <span>Finestra: ultime <strong className="text-white">{CAL_SYNC_PAST_HOURS}h</strong> e prossimi <strong className="text-white">{CAL_SYNC_FUTURE_DAYS} giorni</strong></span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="text-emerald-400 mt-0.5">🔗</span>
+                      <span>Meeting con sessione di registrazione collegata: conservati a <strong className="text-white">tempo indeterminato</strong></span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="text-amber-400 mt-0.5">🎙</span>
+                      <span>Audio: eliminato automaticamente dopo <strong className="text-white">{CAL_AUDIO_RETENTION_DAYS} giorni</strong></span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="text-violet-400 mt-0.5">📝</span>
+                      <span>Trascrizioni e note: <strong className="text-white">conservate sempre</strong></span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowSyncInfo(false)}
+                    className="mt-1 text-gray-500 hover:text-gray-300 text-xs transition-colors"
+                  >
+                    Chiudi
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors rounded p-1"
+              aria-label="Chiudi"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* ── Body ───────────────────────────────────────────────────────── */}

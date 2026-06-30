@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { CAL_SYNC_PAST_HOURS, CAL_SYNC_FUTURE_DAYS, CAL_AUDIO_RETENTION_DAYS } from '@/constants/appConfig';
 import { SavedSession } from '@/types';
 import { CalendarEventRecord, CalEventDetailPanel } from './CalEventDetailPanel';
 import { NewCalMonthView } from './NewCalMonthView';
@@ -259,7 +260,9 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
   const [selectedEvent,  setSelectedEvent]  = useState<CalendarEventRecord | null>(null);
   const [searchQuery,    setSearchQuery]    = useState('');
   const [syncState,      setSyncState]      = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [showSyncInfo,   setShowSyncInfo]   = useState(false);
   const syncTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncInfoRef  = useRef<HTMLDivElement>(null);
 
   const formatLastSync = (ts: number): string => {
     const mins = Math.floor((Date.now() - ts) / 60_000);
@@ -522,6 +525,52 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
              lastSyncAt                     ? `Ultimo sync ${formatLastSync(lastSyncAt)}` :
                                               'Sincronizza'}
           </button>
+
+          {/* Sync info button */}
+          <div className="relative" ref={syncInfoRef}>
+            <button
+              onClick={() => setShowSyncInfo(v => !v)}
+              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors flex-shrink-0"
+              style={{ background: showSyncInfo ? 'rgba(56,189,248,0.2)' : 'rgba(55,65,81,0.8)', color: '#38BDF8', border: '1px solid rgba(56,189,248,0.3)' }}
+              aria-label="Informazioni sincronizzazione"
+              title="Informazioni sincronizzazione"
+            >
+              i
+            </button>
+            {showSyncInfo && (
+              <div
+                className="absolute right-0 top-8 z-50 rounded-xl shadow-2xl p-4 w-72 text-xs space-y-3"
+                style={{ background: '#1E293B', border: '1px solid rgba(56,189,248,0.2)' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <p className="font-semibold text-sky-400 text-sm">Regole di sincronizzazione</p>
+                <div className="space-y-2 text-gray-300">
+                  <div className="flex gap-2">
+                    <span className="text-sky-400 mt-0.5">⏱</span>
+                    <span>Finestra: ultime <strong className="text-white">{CAL_SYNC_PAST_HOURS}h</strong> e prossimi <strong className="text-white">{CAL_SYNC_FUTURE_DAYS} giorni</strong></span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-emerald-400 mt-0.5">🔗</span>
+                    <span>Meeting con sessione di registrazione collegata: conservati a <strong className="text-white">tempo indeterminato</strong></span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-amber-400 mt-0.5">🎙</span>
+                    <span>Audio: eliminato automaticamente dopo <strong className="text-white">{CAL_AUDIO_RETENTION_DAYS} giorni</strong></span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-violet-400 mt-0.5">📝</span>
+                    <span>Trascrizioni e note: <strong className="text-white">conservate sempre</strong></span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSyncInfo(false)}
+                  className="mt-1 text-gray-500 hover:text-gray-300 text-xs transition-colors"
+                >
+                  Chiudi
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

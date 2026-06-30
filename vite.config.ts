@@ -25,13 +25,16 @@ try {
     $timings.comInit = $sw.ElapsedMilliseconds
 
     $sw.Restart()
-    $today = Get-Date
-    # CRITICAL: Outlook COM Restrict() expects the date string in the USER'S CURRENT REGIONAL FORMAT,
-    # not MM/dd/yyyy as some MSDN pages claim. On it-IT systems a US-format string like '05/11/2026'
-    # is read as 5 November (dd/MM/yyyy), silently returning the wrong day. ToString('d') uses the
-    # current culture's short date pattern. AM/PM 12h time is mandatory.
-    $ds = $today.ToString('d')
-    $filter = "[Start] >= '$ds 12:00 AM' AND [Start] <= '$ds 11:59 PM'"
+    $now   = Get-Date
+    # Sync window: -24h to +7 days (CAL_SYNC_PAST_HOURS / CAL_SYNC_FUTURE_DAYS in appConfig.ts).
+    # CRITICAL: Outlook COM Restrict() expects dates in the USER'S CURRENT REGIONAL FORMAT.
+    # On it-IT systems a US-format string like '05/11/2026' is read as 5 November (dd/MM/yyyy).
+    # ToString('d') uses the current culture's short date pattern. AM/PM 12h time is mandatory.
+    $start = $now.AddHours(-24)
+    $end   = $now.AddDays(7)
+    $ds    = $start.ToString('d')
+    $de    = $end.ToString('d')
+    $filter = "[Start] >= '$ds 12:00 AM' AND [Start] <= '$de 11:59 PM'"
     $restricted = $items.Restrict($filter)
     $timings.restrict = $sw.ElapsedMilliseconds
 
@@ -141,7 +144,7 @@ try {
         appointments = $appts.ToArray()
         skipped      = $skipped.ToArray()
         totalSeen    = $totalSeen
-        date         = $today.ToString('yyyy-MM-dd')
+        date         = $now.ToString('yyyy-MM-dd')
         filter       = $filter
         timings      = $timings
     } | ConvertTo-Json -Depth 6 -Compress
