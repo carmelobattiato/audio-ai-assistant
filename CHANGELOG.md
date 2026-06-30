@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.135] — 2026-07-01
+
+- `useFocusTrap`: `onEscape` letto via `useRef` — effect dipende solo da `[active]`; elimina focus-steal ad ogni re-render del parent causato da arrow function inline in `AppModals`
+- `SettingsPanel`: `useEffect` snapshot settings solo all'apertura del modal (`[isOpen]` senza `settings`) — le modifiche dell'utente non vengono più sovrascritte da aggiornamenti del parent
+- `StatisticsModal`: `MODEL_PRICING` riscritto come array con fuzzy matching (`includes`) — copre tutti i modelli attuali (gemini-2.5-flash-lite/flash/pro, gemini-3.x, gemini-2.0/1.5); prima il costo era sempre $0.00 per modelli non in mappa
+- Rimossa cartella `extension-v2/` — unica versione mantenuta è `extension-v3`
+
+
 ## [1.134] — 2026-07-01
 
 - `extension-v3/content-outlook.js`: fix sync `outlook.cloud.microsoft` — `captureCtx` cattura `Authorization: Bearer JWT` (non solo MSAuth1.0); cattura `x-anchormailbox` e `x-tenantid`; `maybeDirect` richiede `capturedAuth` per cloud.microsoft; `serviceUrl` ignora `/published/`; fallback esplicito a `/owa/service.svc` in DO_SYNC

@@ -4,7 +4,7 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-1.118-6366f1?style=for-the-badge&logo=github)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.135-6366f1?style=for-the-badge&logo=github)](CHANGELOG.md)
 [![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
@@ -530,16 +530,20 @@ audio-ai-assistant/
 
 ## 📋 Latest Changes
 
-### v1.118
+### v1.135
 
-- Rimosso `TranscriptionQuality` enum — prompt accuratezza massima sempre fisso
-- Settings > General: card "Aggiornamento App" con verifica versione remota
-- `github.sh --pull-force`: mostra repo, branch e ultimi 5 commit remoti prima della conferma
-- Aggiornamento via `git fetch + reset --hard` con NDJSON streaming
-- README redesign: hero section, badge shields.io, tabelle stack, sezioni collassabili
+- Fix focus stealing nei modal: `useFocusTrap` non ri-sposta il focus ad ogni re-render del parent
+- Fix settings reset: `SettingsPanel` non sovrascrive le modifiche in corso se il parent aggiorna `appSettings`
+- Fix cost tracker: `StatisticsModal` ora calcola il costo reale per tutti i modelli Gemini (era sempre $0.00)
+- Rimossa cartella `extension-v2/` — unica versione è v3 (Bearer JWT + outlook.cloud.microsoft)
 
 <details>
 <summary>📜 Older versions</summary>
+
+### v1.134 — 2026-07-01
+- Extension v3: fix sync `outlook.cloud.microsoft` — Bearer JWT + `x-anchormailbox` / `x-tenantid`
+- Old calendar (`NeoCalendarDayView`) rimosso — unico entry point è `NewCalendarView`
+- Settings ZIP aggiornato a `calendar-bridge-v3.zip`
 
 ### v1.93 — 2026-04-29
 - Chat textarea: double-height (4 rows, min 80 px), resizable up to 300 px

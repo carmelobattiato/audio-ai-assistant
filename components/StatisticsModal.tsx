@@ -15,19 +15,32 @@ interface StatisticsModalProps {
   coherenceStatus: CoherenceAssessmentStatus;
 }
 
-// Map models to costs (per 1,000,000 tokens)
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  'gemini-3-pro-preview': { input: 4.00, output: 18.00 },
-  'gemini-3-flash-preview': { input: 0.50, output: 3.00 },
-  'gemini-2.5-pro': { input: 2.50, output: 15.00 },
-  'gemini-2.5-flash': { input: 0.30, output: 2.50 },
-};
+// Costs per 1,000,000 tokens. Keys ordered longest-first so prefix matching
+// picks the most specific entry (e.g. flash-lite before flash).
+const MODEL_PRICING: { key: string; input: number; output: number }[] = [
+  // Gemini 3.x
+  { key: 'gemini-3.5-flash',       input: 1.50,  output: 9.00  },
+  { key: 'gemini-3.1-pro',         input: 2.00,  output: 12.00 },
+  { key: 'gemini-3.1-flash-lite',  input: 0.25,  output: 1.50  },
+  { key: 'gemini-3.1-flash',       input: 0.50,  output: 3.00  },
+  { key: 'gemini-3-flash-preview', input: 0.50,  output: 3.00  },
+  { key: 'gemini-3-flash',         input: 0.50,  output: 3.00  },
+  { key: 'gemini-3-pro',           input: 4.00,  output: 18.00 },
+  // Gemini 2.5
+  { key: 'gemini-2.5-flash-lite',  input: 0.10,  output: 0.40  },
+  { key: 'gemini-2.5-flash',       input: 0.30,  output: 2.50  },
+  { key: 'gemini-2.5-pro',         input: 1.25,  output: 10.00 },
+  // Gemini 2.0 / 1.5 fallbacks
+  { key: 'gemini-2.0-flash',       input: 0.10,  output: 0.40  },
+  { key: 'gemini-1.5-flash',       input: 0.075, output: 0.30  },
+  { key: 'gemini-1.5-pro',         input: 1.25,  output: 5.00  },
+];
 
 const calculateCost = (usage: LlmUsageStats): number => {
-    const pricing = MODEL_PRICING[usage.model] || { input: 0, output: 0 };
-    const inputCost = (usage.inputTokens / 1_000_000) * pricing.input;
-    const outputCost = (usage.outputTokens / 1_000_000) * pricing.output;
-    return inputCost + outputCost;
+  const modelLower = (usage.model ?? '').toLowerCase();
+  const pricing = MODEL_PRICING.find(p => modelLower.includes(p.key)) ?? { input: 0, output: 0 };
+  return (usage.inputTokens / 1_000_000) * pricing.input
+       + (usage.outputTokens / 1_000_000) * pricing.output;
 };
 
 const StatItem: React.FC<{ label: string; value: string | number | undefined | null }> = ({ label, value }) => {

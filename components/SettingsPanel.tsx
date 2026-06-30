@@ -233,17 +233,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     : '';
 
   useEffect(() => {
-    if (isOpen) {
-      const s: AppSettings = structuredClone(settings);
-      setLocalSettings(s);
-      setCustomKeyInput(
-        settings.llm.apiKeySource === 'custom' ? settings.llm.googleApiKey || '' : ''
-      );
-      setShowSystemKey(false);
-      setShowCustomKey(false);
-      setKeyFeedback(null);
-    }
-  }, [isOpen, settings]);
+    if (!isOpen) return;
+    // Snapshot settings only when the modal opens, not on every parent re-render.
+    // If settings changed while open the user's in-progress edits must not be lost.
+    const s: AppSettings = structuredClone(settings);
+    setLocalSettings(s);
+    setCustomKeyInput(
+      settings.llm.apiKeySource === 'custom' ? settings.llm.googleApiKey || '' : ''
+    );
+    setShowSystemKey(false);
+    setShowCustomKey(false);
+    setKeyFeedback(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // intentionally omits `settings` — snapshot on open only
 
   const handleSaveKey = async () => {
     if (!customKeyInput.trim()) return;

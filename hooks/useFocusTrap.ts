@@ -20,6 +20,11 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
   onEscape?: () => void,
 ) {
   const containerRef = useRef<T>(null);
+  // Ref keeps onEscape stable so the main effect only depends on `active`.
+  // Without this, every new inline arrow passed as onEscape would re-run the
+  // effect and call first.focus(), stealing focus from whatever the user typed.
+  const onEscapeRef = useRef(onEscape);
+  useEffect(() => { onEscapeRef.current = onEscape; });
 
   useEffect(() => {
     if (!active) return undefined;
@@ -38,7 +43,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onEscape?.();
+        onEscapeRef.current?.();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -64,7 +69,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
       container.removeEventListener('keydown', onKeyDown);
       previouslyFocused?.focus?.();
     };
-  }, [active, onEscape]);
+  }, [active]); // onEscape read via ref — no focus-steal on parent re-renders
 
   return containerRef;
 }
