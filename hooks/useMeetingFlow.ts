@@ -11,7 +11,7 @@ interface UseMeetingFlowParams {
   calAppointments: OutlookAppointment[];
   appSettings: AppSettings;
   audioRecorderRef: React.RefObject<AudioRecorderRef | null>;
-  setIsCalendarOpen: (v: boolean) => void;
+  setIsNewCalendarOpen: (v: boolean) => void;
   handleOutlookImport: (title: string, noteHtml: string, attendees: { name: string; email: string }[]) => void;
 }
 
@@ -34,7 +34,7 @@ export interface MeetingFlowState {
 }
 
 export function useMeetingFlow({
-  calAppointments, appSettings, audioRecorderRef, setIsCalendarOpen, handleOutlookImport,
+  calAppointments, appSettings, audioRecorderRef, setIsNewCalendarOpen, handleOutlookImport,
 }: UseMeetingFlowParams): MeetingFlowState {
   const [meetingToasts, setMeetingToasts] = useState<MeetingToastData[]>([]);
   const [pendingAutoStart, setPendingAutoStart] = useState<{ startMs: number; subject: string } | null>(null);
@@ -86,8 +86,8 @@ export function useMeetingFlow({
   }, [playMeetingChime]);
 
   const handleToastOpen = useCallback((_t: MeetingToastData) => {
-    setIsCalendarOpen(true);
-  }, [setIsCalendarOpen]);
+    setIsNewCalendarOpen(true);
+  }, [setIsNewCalendarOpen]);
 
   const handleTestMeetingNotification = useCallback(() => {
     const now = new Date();

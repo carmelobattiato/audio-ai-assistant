@@ -223,16 +223,16 @@ export const Calendar2IntegrationTab: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <a
-                  href="/calendar-bridge-v2.zip"
-                  download="calendar-bridge-v2.zip"
+                  href="/calendar-bridge-v3.zip"
+                  download="calendar-bridge-v3.zip"
                   className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:scale-105"
                   style={{ background: 'linear-gradient(135deg, #7C3AED, #C026D3)', boxShadow: '0 0 16px rgba(124,58,237,0.35)' }}
-                  title="v2.11 — direct call con x-owa-canary CSRF"
+                  title="v3 — Bearer JWT + outlook.cloud.microsoft"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  v2.11 · Scarica .zip
+                  v3 · Scarica .zip
                 </a>
               </div>
             </div>
@@ -243,12 +243,12 @@ export const Calendar2IntegrationTab: React.FC = () => {
             <p className="font-semibold text-gray-200">Guida installazione</p>
             <ol className="list-none space-y-2 text-gray-400">
               {[
-                { n: '1', text: 'Scarica il file <code class="text-violet-300">calendar-bridge-v2.zip</code> e decomprimi in una cartella.' },
+                { n: '1', text: 'Scarica il file <code class="text-violet-300">calendar-bridge-v3.zip</code> e decomprimi in una cartella.' },
                 { n: '2', text: 'Apri <span class="text-violet-300">chrome://extensions</span> (o <span class="text-violet-300">edge://extensions</span>).' },
                 { n: '3', text: 'Attiva <span class="text-violet-300">Modalità sviluppatore</span> (toggle in alto a destra).' },
                 { n: '4', text: 'Clicca <span class="text-violet-300">Carica estensione non pacchettizzata</span> → seleziona la cartella decompressa.' },
                 { n: '5', text: 'L\'icona <strong>Calendar Bridge</strong> appare nella barra del browser.' },
-                { n: '6', text: 'Apri <span class="text-violet-300">outlook.live.com</span> e naviga al calendario — la sincronizzazione parte automaticamente.' },
+                { n: '6', text: 'Apri <span class="text-violet-300">outlook.cloud.microsoft</span> (o outlook.live.com) e naviga al calendario — la sincronizzazione parte automaticamente.' },
                 { n: '7', text: 'Torna qui: il badge <span class="text-emerald-300">● Connessa</span> apparirà entro 30s.' },
               ].map(step => (
                 <li key={step.n} className="flex items-start gap-3">

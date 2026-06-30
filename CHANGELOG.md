@@ -8,6 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.134] — 2026-07-01
+
+- `extension-v3/content-outlook.js`: fix sync `outlook.cloud.microsoft` — `captureCtx` cattura `Authorization: Bearer JWT` (non solo MSAuth1.0); cattura `x-anchormailbox` e `x-tenantid`; `maybeDirect` richiede `capturedAuth` per cloud.microsoft; `serviceUrl` ignora `/published/`; fallback esplicito a `/owa/service.svc` in DO_SYNC
+- `public/calendar-bridge-v3.zip`: pacchetto scaricabile aggiornato alla v3
+- `Calendar2IntegrationTab.tsx`: download aggiornato a `calendar-bridge-v3.zip`; step 6 guida aggiornato a `outlook.cloud.microsoft`
+- `NewHome.tsx`: rimosso `NeoCalendarDayView` (old calendar modal) e bottone "Old Calendar" — unico entry point è `NewCalendarView`; `MeetingNotificationBell.onOpenCalendar` e `handleToastOpen` aprono `NewCalendarView`
+- `UIStateContext.tsx`: rimossi `isCalendarOpen` / `setIsCalendarOpen`
+- `useCalendarSync.ts`: rimosso parametro `isCalendarOpen` e relativo effect di refresh
+- `useMeetingFlow.ts`: sostituito `setIsCalendarOpen` con `setIsNewCalendarOpen`
+
+
 ## [1.133] — 2026-07-01
 
 - `appConfig.ts`: costanti canoniche `CAL_SYNC_PAST_HOURS=24`, `CAL_SYNC_FUTURE_DAYS=7`, `CAL_AUDIO_RETENTION_DAYS=10` — unica source of truth per tutte le sorgenti di sync

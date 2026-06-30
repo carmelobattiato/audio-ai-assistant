@@ -22,7 +22,6 @@ const BubbleNotes       = lazy(() => import('../components/BubbleNotes').then(m 
 const TranscriptionView = lazy(() => import('../components/TranscriptionView').then(m => ({ default: m.TranscriptionView })));
 const LlmProcessor      = lazy(() => import('../components/LlmProcessor').then(m => ({ default: m.LlmProcessor as React.ComponentType<React.ComponentProps<typeof m.LlmProcessor>> })));
 const MeetingChatPanel  = lazy(() => import('../components/MeetingChatPanel').then(m => ({ default: m.MeetingChatPanel })));
-const NeoCalendarDayView = lazy(() => import('../components/newpage/NeoCalendarDayView').then(m => ({ default: m.NeoCalendarDayView })));
 const NewCalendarView = lazy(() => import('../components/newcalendar/NewCalendarView').then(m => ({ default: m.NewCalendarView })));
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
@@ -87,11 +86,11 @@ export const NewHome: React.FC = () => {
     isSettingsOpen, settingsInitialTab, isStatisticsModalOpen,
     showLoadSessionModal, sessionToPreview, showLoadChunksModal,
     startChoiceModal, viewingBubbleNoteId, isBusy, appUserMessage,
-    isCalendarOpen, isNewCalendarOpen, activeRightTab, leftWidthPct,
+    isNewCalendarOpen, activeRightTab, leftWidthPct,
     setIsSettingsOpen, setSettingsInitialTab, setIsStatisticsModalOpen,
     setShowLoadSessionModal, setSessionToPreview, setShowLoadChunksModal,
     setStartChoiceModal, setViewingBubbleNoteId, setIsBusy, setAppUserMessage,
-    setIsCalendarOpen, setIsNewCalendarOpen, setActiveRightTab, setLeftWidthPct,
+    setIsNewCalendarOpen, setActiveRightTab, setLeftWidthPct,
   } = useUIState();
   // ── Session state (via SessionContext) ────────────────────────────────────
   const {
@@ -132,10 +131,10 @@ export const NewHome: React.FC = () => {
 
   // ── Calendar sync ───────────────────────────────────────────────────────
   const {
-    calAppointments, calBridgeAvailable, calError, calRefreshing,
+    calAppointments, calError, calRefreshing,
     calExtensionConnected, calOutlookState, calSource, calendarEventsDb, setCalendarEventsDb, lastSyncAt,
     fetchCalendarData,
-  } = useCalendarSync({ isCalendarOpen, isNewCalendarOpen });
+  } = useCalendarSync({ isNewCalendarOpen });
 
 
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -251,7 +250,7 @@ export const NewHome: React.FC = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setIsCalendarOpen(false);
+    setIsNewCalendarOpen(false);
     if (systemAudioGuideTimerRef.current) clearTimeout(systemAudioGuideTimerRef.current);
     systemAudioGuideTimerRef.current = setTimeout(() => audioRecorderRef.current?.triggerSystemAudioGuide(), 150);
   }, [handleOutlookImport]);
@@ -711,7 +710,7 @@ export const NewHome: React.FC = () => {
     handleTestMeetingNotification, handleStartSessionForMeeting, handleStartSessionFromToast,
     pendingAutoStart, autoStartCountdownMs, handleAutoStartNow, handleAutoStartCancel,
     scheduleAutoStart,
-  } = useMeetingFlow({ calAppointments, appSettings, audioRecorderRef, setIsCalendarOpen, handleOutlookImport });
+  } = useMeetingFlow({ calAppointments, appSettings, audioRecorderRef, setIsNewCalendarOpen, handleOutlookImport });
 
 
   // ── Divider drag handler ──────────────────────────────────────────────────
@@ -811,7 +810,7 @@ export const NewHome: React.FC = () => {
         notificationBell={
           <MeetingNotificationBell
             records={meetingHistory}
-            onOpenCalendar={() => setIsCalendarOpen(true)}
+            onOpenCalendar={() => setIsNewCalendarOpen(true)}
             onStartSessionForMeeting={handleStartSessionForMeeting}
             onDelete={(id) => { void deleteMeetingHistoryItem(id); }}
             onClearAll={() => { void clearAllMeetingHistory(); }}
@@ -1109,13 +1108,6 @@ export const NewHome: React.FC = () => {
             <span className="text-sm font-semibold text-purple-300">Calendar</span>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { setIsNewCalendarOpen(false); setIsCalendarOpen(true); }}
-                className="text-xs px-2 py-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors border border-white/10"
-                title="Apri Old Calendar"
-              >
-                Old Calendar
-              </button>
-              <button
                 onClick={() => setIsNewCalendarOpen(false)}
                 className="text-gray-400 hover:text-white transition-colors p-1 rounded"
                 title="Chiudi"
@@ -1167,32 +1159,6 @@ export const NewHome: React.FC = () => {
           </div>
         </div>
       )}
-
-      <Suspense fallback={null}>
-      <NeoCalendarDayView
-        isOpen={isCalendarOpen}
-        onClose={() => setIsCalendarOpen(false)}
-        onImport={handleOutlookImport}
-        onImportAndSchedule={(title, noteHtml, attendees, startIso, subject) => {
-          handleOutlookImport(title, noteHtml, attendees);
-          const startMs = new Date(startIso).getTime();
-          if (Number.isFinite(startMs)) scheduleAutoStart(startMs, subject);
-        }}
-        onOpenTeamsAndRecord={handleOutlookOpenTeams}
-        externalAppointments={calAppointments}
-        externalBridgeAvailable={calBridgeAvailable}
-        externalError={calError}
-        isBackgroundRefreshing={calRefreshing}
-        onRequestRefresh={() => fetchCalendarData(true)}
-        extensionConnected={calExtensionConnected}
-        calSource={calSource}
-        onConfigureIcs={() => {
-          setIsCalendarOpen(false);
-          setSettingsInitialTab('integrations');
-          setIsSettingsOpen(true);
-        }}
-      />
-      </Suspense>
 
     </div>
   );

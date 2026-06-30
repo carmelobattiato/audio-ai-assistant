@@ -17,7 +17,6 @@ interface UIState {
   viewingBubbleNoteId: string | null;
   isBusy: boolean;
   appUserMessage: string | null;
-  isCalendarOpen: boolean;
   isNewCalendarOpen: boolean;
   activeRightTab: string;
   leftWidthPct: number;
@@ -34,7 +33,6 @@ interface UIStateCtxValue extends UIState {
   setViewingBubbleNoteId: (v: string | null) => void;
   setIsBusy: (v: boolean) => void;
   setAppUserMessage: (v: string | null) => void;
-  setIsCalendarOpen: (v: boolean) => void;
   setIsNewCalendarOpen: (v: boolean) => void;
   setActiveRightTab: (v: string) => void;
   setLeftWidthPct: (v: number) => void;
@@ -57,7 +55,6 @@ export function UIStateProvider({ children }: { children: React.ReactNode }) {
   const [viewingBubbleNoteId, setViewingBubbleNoteId] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [appUserMessage, setAppUserMessage] = useState<string | null>(null);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isNewCalendarOpen, setIsNewCalendarOpen] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState<string>('notes');
   const [leftWidthPct, setLeftWidthPct] = useState<number>(28);
@@ -72,7 +69,6 @@ export function UIStateProvider({ children }: { children: React.ReactNode }) {
   const stableSetViewingBubbleNoteId = useCallback((v: string | null) => setViewingBubbleNoteId(v), []);
   const stableSetIsBusy = useCallback((v: boolean) => setIsBusy(v), []);
   const stableSetAppUserMessage = useCallback((v: string | null) => setAppUserMessage(v), []);
-  const stableSetIsCalendarOpen = useCallback((v: boolean) => setIsCalendarOpen(v), []);
   const stableSetIsNewCalendarOpen = useCallback((v: boolean) => setIsNewCalendarOpen(v), []);
   const stableSetActiveRightTab = useCallback((v: string) => setActiveRightTab(v), []);
   const stableSetLeftWidthPct = useCallback((v: number) => setLeftWidthPct(v), []);
@@ -82,7 +78,7 @@ export function UIStateProvider({ children }: { children: React.ReactNode }) {
       isSettingsOpen, settingsInitialTab, isStatisticsModalOpen,
       showLoadSessionModal, sessionToPreview, showLoadChunksModal,
       startChoiceModal, viewingBubbleNoteId, isBusy, appUserMessage,
-      isCalendarOpen, isNewCalendarOpen, activeRightTab, leftWidthPct,
+      isNewCalendarOpen, activeRightTab, leftWidthPct,
       setIsSettingsOpen: stableSetIsSettingsOpen,
       setSettingsInitialTab: stableSetSettingsInitialTab,
       setIsStatisticsModalOpen: stableSetIsStatisticsModalOpen,
@@ -93,7 +89,6 @@ export function UIStateProvider({ children }: { children: React.ReactNode }) {
       setViewingBubbleNoteId: stableSetViewingBubbleNoteId,
       setIsBusy: stableSetIsBusy,
       setAppUserMessage: stableSetAppUserMessage,
-      setIsCalendarOpen: stableSetIsCalendarOpen,
       setIsNewCalendarOpen: stableSetIsNewCalendarOpen,
       setActiveRightTab: stableSetActiveRightTab,
       setLeftWidthPct: stableSetLeftWidthPct,

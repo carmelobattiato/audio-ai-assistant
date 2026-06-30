@@ -7,7 +7,6 @@ import type { CalendarEventRecord } from '../types';
 import { CAL_SYNC_PAST_HOURS, CAL_SYNC_FUTURE_DAYS, CAL_AUDIO_RETENTION_DAYS } from '../constants/appConfig';
 
 interface UseCalendarSyncParams {
-  isCalendarOpen: boolean;
   isNewCalendarOpen: boolean;
 }
 
@@ -30,7 +29,7 @@ const CAL_LOCK_KEY = 'calendar:fetching';
 const CAL_LOCK_TTL = 120_000;
 const CAL_BC = 'calendar-sync-v1';
 
-export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalendarSyncParams): CalendarSyncState {
+export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): CalendarSyncState {
   const [calAppointments, setCalAppointments] = useState<OutlookAppointment[]>([]);
   const [calBridgeAvailable, setCalBridgeAvailable] = useState<boolean | null>(null);
   const [calError, setCalError] = useState<string | null>(null);
@@ -336,9 +335,6 @@ export function useCalendarSync({ isCalendarOpen, isNewCalendarOpen }: UseCalend
 
   // Fetch once silently on mount
   useEffect(() => { fetchCalendarData(); }, [fetchCalendarData]);
-
-  // Refresh when calendar modal opens
-  useEffect(() => { if (isCalendarOpen) fetchCalendarData(); }, [isCalendarOpen, fetchCalendarData]);
 
   // Auto-refresh every 60s (bypasses throttle) + opportunistic on focus/visibility
   useEffect(() => {
