@@ -131,6 +131,11 @@ function extractNoteImages(notes: BubbleNote[]): Array<{ mimeType: string; data:
     while ((m = rx.exec(note.contentHtml)) !== null) {
       result.push({ mimeType: m[1] ?? 'image/png', data: m[2] ?? '' });
     }
+    if (note.inlineDataParts) {
+      for (const part of note.inlineDataParts) {
+        result.push({ mimeType: part.mimeType, data: part.data });
+      }
+    }
   }
   return result;
 }
@@ -217,20 +222,10 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
       : new Date().toLocaleDateString();
     const durationStr = audioDuration ? formatTime(audioDuration) : 'N/A';
 
-    const baseInstructions = chatSystemInstruction ?? `You are a meeting intelligence assistant with full access to the transcript, AI analysis, and notes of a recorded session.
-
-INSTRUCTIONS:
-- Answer questions directly and concisely, referencing actual content from the meeting
-- The Bubble Notes are first-person notes taken by the user during the session; treat them as high-priority context
-- Use markdown for formatting (headings, bold, lists, tables)
-- For tabular data always use markdown tables
-- For data visualizations use a chart code block with this exact JSON format:
-  \`\`\`chart
-  {"type":"bar","title":"Chart Title","labels":["A","B","C"],"values":[10,25,15],"unit":"%"}
-  \`\`\`
-- For rich document output, produce well-structured markdown that the user can download
-- Always respond in the same language as the transcript
-- Be precise and factual; never invent content not present in the meeting`;
+    const baseInstructions = chatSystemInstruction ?? `You are a meeting assistant. Answer only based on the transcript, AI analysis, and notes provided. Always respond in the same language as the transcript. Never invent content not present in the meeting. Bubble Notes are first-person notes from the user — treat them as high-priority context. For data visualizations use exactly this format:
+\`\`\`chart
+{"type":"bar","title":"...","labels":[...],"values":[...],"unit":"..."}
+\`\`\``;
 
     const activeRules = (customInstructions ?? []).filter(r => r.enabled);
     const rulesSection = activeRules.length > 0

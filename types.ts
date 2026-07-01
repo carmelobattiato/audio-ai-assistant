@@ -179,6 +179,8 @@ export interface TranscriptionSettings {
   autoTranscribeChunks?: boolean;
 }
 
+export type DocumentProcessingMode = 'text' | 'mixed' | 'vision';
+
 export interface BubbleNote {
   id: string;
   contentHtml: string;
@@ -187,6 +189,8 @@ export interface BubbleNote {
   isEditing: boolean;
   isProcessing: boolean;
   type?: 'text' | 'screenshot' | 'auto-screenshot' | 'video' | 'audio';
+  inlineDataParts?: Array<{ mimeType: string; data: string }>;
+  documentMode?: DocumentProcessingMode;
 }
 
 export interface ModelInfo {

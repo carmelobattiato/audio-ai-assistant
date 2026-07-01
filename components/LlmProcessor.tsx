@@ -135,6 +135,12 @@ const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
           }
       };
       tempDiv.childNodes.forEach(processNode);
+      if (bubble.inlineDataParts && bubble.inlineDataParts.length > 0) {
+        allParts.push({ text: `[Documento allegato: ${bubble.inlineDataParts.length} parte/i (${bubble.documentMode ?? 'text'})]` });
+        for (const part of bubble.inlineDataParts) {
+          allParts.push({ inlineData: { mimeType: part.mimeType, data: part.data } });
+        }
+      }
       allParts.push({ text: `\n` });
     });
     allParts.push({ text: `\n--- END OF BUBBLE NOTES ---\n\n` });

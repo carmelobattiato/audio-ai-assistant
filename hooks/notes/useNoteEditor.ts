@@ -5,7 +5,7 @@ import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
-import { BubbleNote } from '@/types';
+import { BubbleNote, DocumentProcessingMode } from '@/types';
 import { saveBlobToFile } from '@/utils/fileUtils';
 import { loggingService } from '@/services/loggingService';
 
@@ -151,51 +151,137 @@ export const useNoteEditor = (
   }, [editor]);
 
   const handleFileSelect = useCallback(
-    async (files: File[]) => {
+    async (files: File[], mode: DocumentProcessingMode = 'text') => {
       if (!editor) return;
+
+      const addNoteDirectly = (contentHtml: string, inlineDataParts: Array<{ mimeType: string; data: string }>, docMode: DocumentProcessingMode) => {
+        const newNote: BubbleNote = {
+          id: `note_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          contentHtml,
+          timestamp: Date.now(),
+          recordingElapsedTime: elapsedTime ?? 0,
+          isEditing: false,
+          isProcessing: false,
+          type: 'text',
+          inlineDataParts,
+          documentMode: docMode,
+        };
+        onBubbleNotesChange([...bubbleNotes, newNote]);
+      };
+
+      const extractZipImages = async (file: File, mediaPath: string): Promise<Array<{ mimeType: string; data: string }>> => {
+        const JSZip = (await import('jszip')).default;
+        const zip = await JSZip.loadAsync(file);
+        const parts: Array<{ mimeType: string; data: string }> = [];
+        const mimeMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
+        for (const [filename, zipFile] of Object.entries(zip.files)) {
+          if (!filename.startsWith(mediaPath)) continue;
+          const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+          const mimeType = mimeMap[ext];
+          if (!mimeType) continue;
+          parts.push({ mimeType, data: await zipFile.async('base64') });
+        }
+        return parts;
+      };
+
       for (const file of files) {
         loggingService.info('BUBBLE_NOTE_FILE_PARSE_START', `Parsing file for bubble note: ${file.name}`, {
           type: file.type,
           size: file.size,
+          mode,
         });
         setParsingMessage(`Processing "${file.name}"...`);
         try {
           if (file.type.startsWith('image/')) {
             const dataUrl = await compressImage(file);
             editor.commands.insertContent(`<p><img src="${dataUrl}" alt="${file.name}" /></p>`);
+            onPendingNoteHtmlChange(editor.getHTML());
           } else if (file.type === 'text/plain') {
             const text = await file.text();
             editor.commands.insertContent(`<p>${text.replace(/\n/g, '<br>')}</p>`);
+            onPendingNoteHtmlChange(editor.getHTML());
           } else if (file.type === 'text/html' || file.name.endsWith('.html')) {
             const htmlContent = await file.text();
             editor.commands.insertContent(`<div><p><em>--- ${file.name} ---</em></p>${htmlContent}</div>`);
+            onPendingNoteHtmlChange(editor.getHTML());
+          } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+            if (mode === 'vision' || mode === 'mixed') {
+              // Convert to base64 for Gemini native PDF support
+              const ab = await file.arrayBuffer();
+              const bytes = new Uint8Array(ab);
+              const binary = Array.from(bytes, (b) => String.fromCharCode(b)).join('');
+              const pdfBase64 = btoa(binary);
+
+              if (mode === 'vision') {
+                addNoteDirectly(
+                  `<div><p><em>--- ${file.name} ---</em></p><p><em>[PDF inviato a Gemini per analisi visiva (VLM)]</em></p></div>`,
+                  [{ mimeType: 'application/pdf', data: pdfBase64 }],
+                  mode,
+                );
+              } else {
+                // mixed: extract text + send raw PDF
+                const pdfjsModule = await import('pdfjs-dist');
+                const pdfjs = (pdfjsModule as any).GlobalWorkerOptions ? pdfjsModule : ((pdfjsModule as any).default || pdfjsModule);
+                if (pdfjs.GlobalWorkerOptions) {
+                  pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
+                }
+                const pdf = await pdfjs.getDocument({ data: ab }).promise;
+                let fullText = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                  const page = await pdf.getPage(i);
+                  const textContent = await page.getTextContent();
+                  fullText += `<p><strong>[Page ${i}]</strong> ${textContent.items.map((item: any) => item.str).join(' ')}</p>`;
+                }
+                addNoteDirectly(
+                  `<div><p><em>--- ${file.name} (Misto: testo + PDF) ---</em></p>${fullText}</div>`,
+                  [{ mimeType: 'application/pdf', data: pdfBase64 }],
+                  mode,
+                );
+              }
+            } else {
+              const pdfjsModule = await import('pdfjs-dist');
+              const pdfjs = (pdfjsModule as any).GlobalWorkerOptions
+                ? pdfjsModule
+                : ((pdfjsModule as any).default || pdfjsModule);
+              if (!pdfjs.GlobalWorkerOptions) {
+                throw new Error('PDF parser library loaded but GlobalWorkerOptions is missing.');
+              }
+              pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+                'pdfjs-dist/build/pdf.worker.min.mjs',
+                import.meta.url
+              ).href;
+              const arrayBuffer = await file.arrayBuffer();
+              const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+              let fullText = '';
+              for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map((item: any) => item.str).join(' ');
+                fullText += `<p><strong>[Page ${i}]</strong> ${pageText}</p>`;
+              }
+              editor.commands.insertContent(`<div><p><em>--- ${file.name} ---</em></p>${fullText}</div>`);
+              onPendingNoteHtmlChange(editor.getHTML());
+            }
           } else if (file.name.endsWith('.docx') || file.type.includes('wordprocessingml')) {
             const mammoth = (await import('mammoth')).default;
             const arrayBuffer = await file.arrayBuffer();
             const result = await mammoth.convertToHtml({ arrayBuffer });
-            editor.commands.insertContent(`<div><p><em>--- ${file.name} ---</em></p>${result.value}</div>`);
-          } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-            const pdfjsModule = await import('pdfjs-dist');
-            const pdfjs = (pdfjsModule as any).GlobalWorkerOptions
-              ? pdfjsModule
-              : ((pdfjsModule as any).default || pdfjsModule);
-            if (!pdfjs.GlobalWorkerOptions) {
-              throw new Error('PDF parser library loaded but GlobalWorkerOptions is missing.');
+
+            if (mode === 'vision' || mode === 'mixed') {
+              const imgParts = await extractZipImages(file, 'word/media/');
+              const label = mode === 'vision'
+                ? `[DOCX: ${imgParts.length} immagini inviate a Gemini VLM]`
+                : `(Misto: testo + ${imgParts.length} immagini)`;
+              const body = mode === 'vision' ? `<p><em>${label}</em></p>` : `<p><em>${label}</em></p>${result.value}`;
+              addNoteDirectly(
+                `<div><p><em>--- ${file.name} ---</em></p>${body}</div>`,
+                imgParts,
+                mode,
+              );
+            } else {
+              editor.commands.insertContent(`<div><p><em>--- ${file.name} ---</em></p>${result.value}</div>`);
+              onPendingNoteHtmlChange(editor.getHTML());
             }
-            pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-              'pdfjs-dist/build/pdf.worker.min.mjs',
-              import.meta.url
-            ).href;
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-            let fullText = '';
-            for (let i = 1; i <= pdf.numPages; i++) {
-              const page = await pdf.getPage(i);
-              const textContent = await page.getTextContent();
-              const pageText = textContent.items.map((item: any) => item.str).join(' ');
-              fullText += `<p><strong>[Page ${i}]</strong> ${pageText}</p>`;
-            }
-            editor.commands.insertContent(`<div><p><em>--- ${file.name} ---</em></p>${fullText}</div>`);
           } else if (file.name.endsWith('.pptx') || file.type.includes('presentationml')) {
             const JSZip = (await import('jszip')).default;
             const zip = await JSZip.loadAsync(file);
@@ -212,16 +298,38 @@ export const useNoteEditor = (
               }
               slideIndex++;
             }
-            if (pptText) {
-              editor.commands.insertContent(`<div><p><em>--- ${file.name} ---</em></p>${pptText}</div>`);
+
+            if (mode === 'vision' || mode === 'mixed') {
+              const imgParts: Array<{ mimeType: string; data: string }> = [];
+              const mimeMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
+              for (const [filename, zipFile] of Object.entries(zip.files)) {
+                if (!filename.startsWith('ppt/media/')) continue;
+                const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+                const mimeType = mimeMap[ext];
+                if (!mimeType) continue;
+                imgParts.push({ mimeType, data: await zipFile.async('base64') });
+              }
+              const label = mode === 'vision'
+                ? `[PPTX: ${imgParts.length} immagini inviate a Gemini VLM]`
+                : `(Misto: testo + ${imgParts.length} immagini)`;
+              const body = mode === 'vision' ? `<p><em>${label}</em></p>` : `<p><em>${label}</em></p>${pptText || '<p>Nessun testo trovato</p>'}`;
+              addNoteDirectly(
+                `<div><p><em>--- ${file.name} ---</em></p>${body}</div>`,
+                imgParts,
+                mode,
+              );
             } else {
-              setParsingMessage(`Could not extract text from PPTX "${file.name}".`);
+              if (pptText) {
+                editor.commands.insertContent(`<div><p><em>--- ${file.name} ---</em></p>${pptText}</div>`);
+              } else {
+                setParsingMessage(`Could not extract text from PPTX "${file.name}".`);
+              }
+              onPendingNoteHtmlChange(editor.getHTML());
             }
           } else {
             console.warn(`Unsupported file type: ${file.type}`);
             setParsingMessage(`Unsupported file type: ${file.name}`);
           }
-          onPendingNoteHtmlChange(editor.getHTML());
         } catch (e) {
           const errorMsg = e instanceof Error ? e.message : String(e);
           loggingService.error('BUBBLE_NOTE_FILE_PARSE_ERROR', `Error parsing file: ${file.name}`, {
@@ -233,7 +341,7 @@ export const useNoteEditor = (
       }
       setTimeout(() => setParsingMessage(null), 2000);
     },
-    [editor, onPendingNoteHtmlChange]
+    [editor, onPendingNoteHtmlChange, bubbleNotes, onBubbleNotesChange, elapsedTime]
   );
 
   return {

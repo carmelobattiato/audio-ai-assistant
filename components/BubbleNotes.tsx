@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback } from 'react';
-import { BubbleNote, AppSettings } from '../types';
+import { BubbleNote, AppSettings, DocumentProcessingMode } from '../types';
 import { FullscreenNotesViewer } from './FullscreenNotesViewer';
 import { ConfirmModal } from './common/ConfirmModal';
 import { saveBlobToFile } from '../utils/fileUtils';
@@ -39,7 +39,17 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [pendingDocFiles, setPendingDocFiles] = useState<File[] | null>(null);
+  const [showDocModeDialog, setShowDocModeDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isDocumentFile = (file: File) =>
+    file.type === 'application/pdf' ||
+    file.name.endsWith('.pdf') ||
+    file.name.endsWith('.docx') ||
+    file.type.includes('wordprocessingml') ||
+    file.name.endsWith('.pptx') ||
+    file.type.includes('presentationml');
 
   // --- Hooks ---
   const {
@@ -55,6 +65,26 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
     props.pendingNoteHtml,
     props.onPendingNoteHtmlChange,
   );
+
+  const handleDocModeSelect = useCallback((mode: DocumentProcessingMode) => {
+    setShowDocModeDialog(false);
+    if (pendingDocFiles) {
+      handleFileSelect(pendingDocFiles, mode);
+      setPendingDocFiles(null);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [pendingDocFiles, handleFileSelect]);
+
+  const handleFileInputChange = useCallback((files: File[]) => {
+    const hasDoc = files.some(isDocumentFile);
+    if (hasDoc) {
+      setPendingDocFiles(files);
+      setShowDocModeDialog(true);
+    } else {
+      handleFileSelect(files, 'text');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, [handleFileSelect]);
 
   const handleTakeScreenshotLogged = useCallback((isAuto: boolean) => {
     loggingService.info('SCREENSHOT_TAKE', `${isAuto ? 'Auto' : 'Manual'} screenshot requested`, { isAuto, isScreenSharing: props.isScreenSharing });
@@ -244,7 +274,7 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
         className="hidden"
         multiple
         accept="image/*,text/plain,text/html,.docx,.doc,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pdf,application/pdf"
-        onChange={(e) => e.target.files && handleFileSelect(Array.from(e.target.files))}
+        onChange={(e) => e.target.files && handleFileInputChange(Array.from(e.target.files))}
       />
 
       {/* Modals */}
@@ -266,6 +296,70 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
         >
           <p>Permanently delete {selectedNoteIds.size} notes?</p>
         </ConfirmModal>
+      )}
+      {showDocModeDialog && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => { setShowDocModeDialog(false); setPendingDocFiles(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-secondary, #1e1e2e)',
+              border: '1px solid var(--border-color, #3a3a5c)',
+              borderRadius: 12,
+              padding: '24px 28px',
+              minWidth: 340,
+              maxWidth: 440,
+              color: 'var(--text-primary, #cdd6f4)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            }}
+          >
+            <p style={{ fontWeight: 600, marginBottom: 6, fontSize: 15 }}>
+              Elaborazione documento
+            </p>
+            <p style={{ fontSize: 13, opacity: 0.7, marginBottom: 20 }}>
+              {pendingDocFiles?.map(f => f.name).join(', ')}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { mode: 'text' as DocumentProcessingMode, label: 'Testo', desc: 'Estrae il testo leggibile dal documento' },
+                { mode: 'mixed' as DocumentProcessingMode, label: 'Misto', desc: 'Testo estratto + immagini embedded inviate a Gemini' },
+                { mode: 'vision' as DocumentProcessingMode, label: 'Visione VLM', desc: 'Documento inviato direttamente a Gemini per analisi visiva (PDF: nativo; DOCX/PPTX: immagini embedded)' },
+              ].map(({ mode, label, desc }) => (
+                <button
+                  key={mode}
+                  onClick={() => handleDocModeSelect(mode)}
+                  style={{
+                    textAlign: 'left',
+                    padding: '12px 14px',
+                    borderRadius: 8,
+                    border: '1px solid var(--border-color, #3a3a5c)',
+                    background: 'var(--bg-tertiary, #2a2a3e)',
+                    color: 'var(--text-primary, #cdd6f4)',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-color-muted, #45475a)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-tertiary, #2a2a3e)')}
+                >
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{label}</div>
+                  <div style={{ fontSize: 12, opacity: 0.65, marginTop: 3 }}>{desc}</div>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => { setShowDocModeDialog(false); setPendingDocFiles(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+              style={{ marginTop: 16, fontSize: 12, opacity: 0.5, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
