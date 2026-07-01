@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.137] — 2026-07-01
+
+- `extension-v3/content-outlook.js`: fix timezone — Outlook REST restituisce datetime in UTC senza suffisso `Z`; `mapRest` aggiunge `Z` quando `TimeZone === "UTC"` per evitare che JS interpreti come ora locale
+
+---
+
 ## [1.136] — 2026-07-01
 
 - `extension-v3/content-outlook.js`: fix sync `outlook.cloud.microsoft` — `maybeDirect` non resetta il timer ad ogni fetch (era la causa per cui `doDirect` non scattava mai); per `cloud.microsoft` non richiede più `capturedServiceUrl` (basta `capturedAuth`); `doDirect` usa REST API `/api/v2.0/me/CalendarView` con Bearer (niente canary); range esteso da -24h a -7gg (il vecchio range escludeva eventi recenti); `tryExtract` aggiunge mapping unificato PascalCase/camelCase per risposte Outlook REST v2.0; cattura `X-OWA-CANARY` da response headers; log diagnostici migliorati in `maybeDirect` e `doDirect`

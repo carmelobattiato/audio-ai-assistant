@@ -370,10 +370,20 @@
     };
   }
 
+  // Aggiunge 'Z' se TimeZone è UTC e manca il suffisso — evita che JS interpreti come ora locale
+  function restDt(obj, fallback) {
+    if (!obj) return fallback || '';
+    var dt = obj.DateTime || obj.dateTime || '';
+    if (!dt) return fallback || '';
+    var tz = obj.TimeZone || obj.timeZone || '';
+    if (tz === 'UTC' && dt.indexOf('Z') === -1 && dt.indexOf('+') === -1) dt += 'Z';
+    return dt;
+  }
+
   // Mappa risposta Outlook REST v2.0 (PascalCase) o Graph (camelCase)
   function mapRest(ev) {
-    var startDt = (ev.Start && ev.Start.DateTime) || (ev.start && ev.start.dateTime) || ev.Start || ev.start || '';
-    var endDt   = (ev.End   && ev.End.DateTime)   || (ev.end   && ev.end.dateTime)   || ev.End   || ev.end   || '';
+    var startDt = restDt(ev.Start || ev.start, ev.Start || ev.start || '');
+    var endDt   = restDt(ev.End   || ev.end,   ev.End   || ev.end   || '');
     var loc     = (ev.Location && ev.Location.DisplayName) || (ev.location && ev.location.displayName)
                 || (typeof ev.Location === 'string' ? ev.Location : '') || (typeof ev.location === 'string' ? ev.location : '') || '';
     var isTeams = !!(ev.OnlineMeetingUrl || ev.onlineMeetingUrl || (ev.onlineMeeting && ev.onlineMeeting.joinUrl));
