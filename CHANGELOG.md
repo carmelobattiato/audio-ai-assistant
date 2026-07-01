@@ -8,6 +8,11 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.140] — 2026-07-01
+
+- `vitest` aggiornato da ^2.1.9 a ^4.1.9: risolte 5 vulnerabilità npm (1 critical, 1 high, 3 moderate) in vitest/vite/esbuild/vite-node/@vitest/mocker
+
+
 ## [1.139] — 2026-07-01
 
 - Notifiche meeting unificate: eliminato il toast floating separato; la campanella si auto-apre (30s timeout) quando scatta una notifica, con badge e icona animati
