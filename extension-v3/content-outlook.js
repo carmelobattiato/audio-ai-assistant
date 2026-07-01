@@ -53,13 +53,42 @@
     return 'https://outlook.office.com/owa/service.svc';
   }
 
-  // ── Leggi canary dal cookie ───────────────────────────────────────────────────
+  // ── Leggi canary dal cookie o dal DOM ────────────────────────────────────────
   function readCanaryFromCookie() {
     try {
       var m = document.cookie.match(/X-OWA-CANARY=([^;]+)/i);
       if (m && m[1]) return m[1];
     } catch(_) {}
     return null;
+  }
+
+  function readCanaryFromDom() {
+    try {
+      if (window.OWA && window.OWA.canary) return window.OWA.canary;
+    } catch(_) {}
+    try {
+      if (window.__owa_canary__) return window.__owa_canary__;
+    } catch(_) {}
+    try {
+      var meta = document.querySelector('meta[name="canary"],meta[name="X-OWA-CANARY"]');
+      if (meta && meta.content) return meta.content;
+    } catch(_) {}
+    try {
+      if (window.__RequestVerificationToken) return window.__RequestVerificationToken;
+    } catch(_) {}
+    return null;
+  }
+
+  function isOwaBearer(auth) {
+    try {
+      var parts = auth.replace(/^Bearer\s+/i, '').split('.');
+      if (parts.length < 2) return false;
+      var pad = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (pad.length % 4) pad += '=';
+      var payload = JSON.parse(atob(pad));
+      var aud = (payload.aud || '');
+      return aud.indexOf('outlook.office.com') !== -1 || aud.indexOf('outlook.live.com') !== -1;
+    } catch(_) { return true; }
   }
 
   // ── Auth capture ─────────────────────────────────────────────────────────────
@@ -72,8 +101,12 @@
           if (!capturedAuth) csLog('auth MSAuth1.0 catturata');
           capturedAuth = auth;
         } else if (auth.indexOf('Bearer ') !== -1) {
-          if (!capturedAuth) csLog('auth Bearer catturata');
-          capturedAuth = auth;
+          if (!isOwaBearer(auth)) {
+            // skip: token per servizio diverso da OWA (es. Teams Presence, Graph)
+          } else {
+            if (!capturedAuth) csLog('auth Bearer OWA catturata');
+            capturedAuth = auth;
+          }
         }
         if (capturedAuth) {
           var sess = getHeader(h, 'x-owa-sessionid');
@@ -98,33 +131,72 @@
 
   function maybeDirect() {
     if (directCallDone) return;
+    if (_directTimer) return; // timer già impostato — non resettare ad ogni fetch
     var consumer = isLiveConsumer();
     var cloudMs  = isCloudMicrosoft();
     // live.com: auth via cookie, basta serviceUrl
-    // cloud.microsoft: usa Bearer JWT, serve serviceUrl + Bearer
+    // cloud.microsoft: REST API — serve solo Bearer (no serviceUrl, no canary)
     // office.com: usa MSAuth1.0, serve capturedAuth
-    if (consumer && !capturedServiceUrl) return;
-    if (cloudMs  && (!capturedServiceUrl || !capturedAuth)) return;
-    if (!consumer && !cloudMs && !capturedAuth) return;
-    clearTimeout(_directTimer);
+    if (consumer && !capturedServiceUrl) { csLog('maybeDirect: in attesa serviceUrl (live.com)'); return; }
+    if (cloudMs  && !capturedAuth)        { csLog('maybeDirect: in attesa auth Bearer (cloud.microsoft)'); return; }
+    if (!consumer && !cloudMs && !capturedAuth) { csLog('maybeDirect: in attesa auth (office.com)'); return; }
+    csLog('maybeDirect: avvio timer 800ms | auth=' + (capturedAuth ? 'si' : 'no') + ' serviceUrl=' + (capturedServiceUrl ? 'si' : 'no'));
     _directTimer = setTimeout(function () {
+      _directTimer = null;
       if (!directCallDone && !pageCallSeen) {
         directCallDone = true;
         csLog('maybeDirect: lancio doDirect | host=' + _host + ' | tz=' + (capturedTimezone || 'UTC'));
         doDirect();
+      } else {
+        csLog('maybeDirect: timer saltato | done=' + directCallDone + ' pageSeen=' + pageCallSeen);
       }
     }, 800);
   }
 
   function doDirect() {
-    // Sync window: CAL_SYNC_PAST_HOURS=-24h to CAL_SYNC_FUTURE_DAYS=+7d (appConfig.ts)
     var tz  = capturedTimezone || 'UTC';
     var now = new Date();
-    var wl  = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    var yd  = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    var wl  = new Date(now.getTime() + 7  * 24 * 60 * 60 * 1000);
+    var yd  = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000); // -7gg (era -24h)
     var rs  = fmtDate(yd) + 'T00:00:00.000';
     var re  = fmtDate(wl) + 'T23:59:59.999';
 
+    // cloud.microsoft: usa Outlook REST API v2.0 con Bearer (niente canary)
+    if (isCloudMicrosoft() && capturedAuth) {
+      // camelCase params, no ms, no $select (evita 400 su campi non selezionabili)
+      var rsClean = rs.replace('.000', '');
+      var reClean = re.replace('.999', '');
+      var apiUrl = 'https://outlook.cloud.microsoft/api/v2.0/me/CalendarView'
+        + '?startDateTime=' + rsClean + '&endDateTime=' + reClean
+        + '&$top=200';
+      csLog('doDirect: REST /api/v2.0/me/CalendarView | range=' + rs.slice(0,10) + '/' + re.slice(0,10));
+      _fetch(apiUrl, {
+        method: 'GET',
+        headers: { 'authorization': capturedAuth, 'accept': 'application/json' },
+        credentials: 'include',
+      })
+      .then(function(r) {
+        csLog('doDirect REST: HTTP ' + r.status + (r.ok ? '' : ' ERRORE'));
+        if (!r.ok) {
+          window.postMessage({ type: '__CAL_V2_GET_ERROR__', ts: Date.now(), reason: 'REST HTTP ' + r.status }, '*');
+          directCallDone = false;
+          return null;
+        }
+        return r.json();
+      })
+      .then(function(json) {
+        if (!json) return;
+        csLog('doDirect REST: risposta ok, keys=' + Object.keys(json).slice(0,5).join(','));
+        dispatch('direct', json);
+      })
+      .catch(function(e) {
+        csLog('doDirect REST: network error -> ' + (e && e.message || 'unknown'));
+        directCallDone = false;
+      });
+      return;
+    }
+
+    // live.com / office.com: fallback service.svc
     var reqBody = JSON.stringify({
       __type: 'GetCalendarViewJsonRequest:#Exchange',
       Header: {
@@ -149,8 +221,8 @@
     var baseUrl    = capturedServiceUrl || guessServiceUrl();
     var serviceUrl = baseUrl + '?action=GetCalendarView&app=Calendar&n=v3direct';
 
-    var canary = capturedCanary || readCanaryFromCookie();
-    if (!canary) csLog('doDirect: ATTENZIONE — canary non disponibile, POST potrebbe fallire con 400');
+    var canary = capturedCanary || readCanaryFromCookie() || readCanaryFromDom();
+    if (!canary) csLog('doDirect: ATTENZIONE — canary non disponibile, POST potrebbe fallire con 401');
     else csLog('doDirect: canary=' + canary.slice(0, 8) + '...');
 
     var headers = {
@@ -171,7 +243,7 @@
     console.log(V, 'direct ->', _host, '| tz:', tz, '| canary:', canary ? 'si' : 'NO');
     csLog('doDirect: POST -> ' + serviceUrl.split('?')[0]);
 
-    _fetch(serviceUrl, { method: 'POST', headers: headers, body: reqBody })
+    _fetch(serviceUrl, { method: 'POST', headers: headers, body: reqBody, credentials: 'include', mode: 'cors' })
       .then(function (r) {
         csLog('doDirect: risposta HTTP ' + r.status);
         if (!r.ok) {
@@ -182,7 +254,22 @@
         }
         return r.json();
       })
-      .then(function (json) { if (json) dispatch('direct', json); })
+      .then(function (json) {
+        if (!json) return;
+        // Diagnostica struttura risposta OWA
+        try {
+          var topKeys = Object.keys(json).join(',');
+          var body = json.Body;
+          var bodyKeys = body ? Object.keys(body).join(',') : 'n/a';
+          var bodyType = body ? (body.__type || '?') : '?';
+          csLog('doDirect JSON: topKeys=[' + topKeys + '] bodyKeys=[' + bodyKeys + '] bodyType=' + bodyType);
+          if (body && body.ResponseMessages && body.ResponseMessages.Items) {
+            var item0 = body.ResponseMessages.Items[0] || {};
+            csLog('doDirect ResponseMessages.Items[0] keys=[' + Object.keys(item0).join(',') + '] ResponseCode=' + item0.ResponseCode);
+          }
+        } catch(de) { csLog('doDirect diag error: ' + de.message); }
+        dispatch('direct', json);
+      })
       .catch(function (e) {
         csLog('doDirect: catch network error -> ' + (e && e.message || 'unknown'));
         directCallDone = false;
@@ -283,15 +370,73 @@
     };
   }
 
+  // Mappa risposta Outlook REST v2.0 (PascalCase) o Graph (camelCase)
+  function mapRest(ev) {
+    var startDt = (ev.Start && ev.Start.DateTime) || (ev.start && ev.start.dateTime) || ev.Start || ev.start || '';
+    var endDt   = (ev.End   && ev.End.DateTime)   || (ev.end   && ev.end.dateTime)   || ev.End   || ev.end   || '';
+    var loc     = (ev.Location && ev.Location.DisplayName) || (ev.location && ev.location.displayName)
+                || (typeof ev.Location === 'string' ? ev.Location : '') || (typeof ev.location === 'string' ? ev.location : '') || '';
+    var isTeams = !!(ev.OnlineMeetingUrl || ev.onlineMeetingUrl || (ev.onlineMeeting && ev.onlineMeeting.joinUrl));
+    var joinUrl = ev.OnlineMeetingUrl || ev.onlineMeetingUrl || (ev.onlineMeeting && ev.onlineMeeting.joinUrl) || null;
+    return {
+      id:               ev.Id || ev.id || String(Math.random()),
+      subject:          ev.Subject || ev.subject || '(senza titolo)',
+      start:            startDt,
+      end:              endDt,
+      location:         loc,
+      organizer:        (ev.Organizer && ev.Organizer.EmailAddress && ev.Organizer.EmailAddress.Name)
+                     || (ev.organizer && ev.organizer.emailAddress && ev.organizer.emailAddress.name) || '',
+      attendees:        [].concat(ev.RequiredAttendees || ev.attendees || [], ev.OptionalAttendees || []).map(function(a) {
+        return {
+          name:  (a.EmailAddress && a.EmailAddress.Name)    || (a.emailAddress && a.emailAddress.name)    || '',
+          email: (a.EmailAddress && a.EmailAddress.Address) || (a.emailAddress && a.emailAddress.address) || '',
+          type:  'required'
+        };
+      }),
+      isAllDay:         ev.IsAllDay  || ev.isAllDay  || false,
+      isMeeting:        ev.IsMeeting !== undefined ? ev.IsMeeting : (ev.isMeeting !== undefined ? ev.isMeeting : true),
+      isCancelled:      ev.IsCancelled || ev.isCancelled || false,
+      isTeams:          isTeams,
+      onlineMeetingUrl: joinUrl,
+      body:             ev.BodyPreview || ev.bodyPreview || (ev.body && ev.body.content) || '',
+    };
+  }
+
   function tryExtract(json) {
     if (!json || typeof json !== 'object') return null;
     var arr = Array.isArray(json) ? json : json.value;
-    if (Array.isArray(arr) && arr.length > 0 && arr[0] && typeof arr[0].subject === 'string') {
-      return { events: arr.map(mapGraph), fmt: 'Graph' };
+    if (Array.isArray(arr) && arr.length > 0 && arr[0]) {
+      var s0 = arr[0];
+      // Outlook REST v2.0 (PascalCase Subject) o Graph (camelCase subject)
+      if (typeof s0.Subject === 'string' || typeof s0.subject === 'string') {
+        csLog('tryExtract REST/Graph: ' + arr.length + ' eventi');
+        return { events: arr.map(mapRest), fmt: 'REST' };
+      }
+    }
+    // value array vuoto ma presente = 0 eventi validi
+    if (Array.isArray(arr) && arr.length === 0 && json.value !== undefined) {
+      csLog('tryExtract REST/Graph: 0 eventi (array vuoto)');
+      return { events: [], fmt: 'REST' };
     }
     var body = json.Body;
     if (body) {
       var btype = body.__type || '?';
+
+      // OWA standard: Body.ResponseMessages.Items[].CalendarView
+      if (body.ResponseMessages && body.ResponseMessages.Items && Array.isArray(body.ResponseMessages.Items)) {
+        var msgs = body.ResponseMessages.Items;
+        var allEvs = [];
+        var hasNoError = false;
+        for (var mi = 0; mi < msgs.length; mi++) {
+          var msg = msgs[mi];
+          if (msg.ResponseCode === 'NoError') hasNoError = true;
+          var cv = msg.CalendarView || msg.Items || msg.CalendarEvents;
+          if (Array.isArray(cv)) allEvs = allEvs.concat(cv);
+        }
+        csLog('tryExtract OWA ResponseMessages: ' + allEvs.length + ' eventi | type=' + btype);
+        return { events: allEvs.map(mapOwa), fmt: 'OWA' };
+      }
+
       var items = body.Items || body.CalendarEvents || body.CalendarItems || body.Events;
       if (Array.isArray(items)) {
         csLog('tryExtract OWA: ' + items.length + ' items | type=' + btype);
@@ -360,6 +505,12 @@
 
     return _fetch(input, init).then(function (response) {
       try {
+        // Cattura canary da response headers (OWA lo restituisce nelle risposte service.svc)
+        var respCanary = response.headers.get('X-OWA-CANARY') || response.headers.get('x-owa-canary');
+        if (respCanary && !capturedCanary) {
+          capturedCanary = respCanary;
+          csLog('canary catturato da response header');
+        }
         var ct = response.headers.get('content-type') || '';
         if (ct.indexOf('application/json') !== -1) {
           response.clone().json().then(function (json) {

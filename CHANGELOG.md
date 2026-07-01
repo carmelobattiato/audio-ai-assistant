@@ -8,6 +8,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.136] — 2026-07-01
+
+- `extension-v3/content-outlook.js`: fix sync `outlook.cloud.microsoft` — `maybeDirect` non resetta il timer ad ogni fetch (era la causa per cui `doDirect` non scattava mai); per `cloud.microsoft` non richiede più `capturedServiceUrl` (basta `capturedAuth`); `doDirect` usa REST API `/api/v2.0/me/CalendarView` con Bearer (niente canary); range esteso da -24h a -7gg (il vecchio range escludeva eventi recenti); `tryExtract` aggiunge mapping unificato PascalCase/camelCase per risposte Outlook REST v2.0; cattura `X-OWA-CANARY` da response headers; log diagnostici migliorati in `maybeDirect` e `doDirect`
+- `test-outlook-api/test_api.py`: script Python/Playwright per testare chiamate Outlook API intercettando Bearer token dal browser — identifica endpoint validi e struttura risposta reale
+
+---
+
 ## [1.135] — 2026-07-01
 
 - `useFocusTrap`: `onEscape` letto via `useRef` — effect dipende solo da `[active]`; elimina focus-steal ad ogni re-render del parent causato da arrow function inline in `AppModals`

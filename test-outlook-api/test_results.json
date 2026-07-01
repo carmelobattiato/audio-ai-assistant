@@ -1,0 +1,151 @@
+[
+  {
+    "name": "REST v2.0 CalendarView",
+    "status": 200,
+    "data": {
+      "@odata.context": "https://outlook.cloud.microsoft/api/v2.0/$metadata#Me/CalendarView",
+      "value": []
+    },
+    "elapsed": 194
+  },
+  {
+    "name": "REST beta calendarview",
+    "status": 200,
+    "data": {
+      "@odata.context": "https://outlook.cloud.microsoft/api/beta/$metadata#Me/CalendarView",
+      "value": []
+    },
+    "elapsed": 213
+  },
+  {
+    "name": "service.svc GetCalendarView (canary=NO)",
+    "status": 200,
+    "data": {
+      "Header": {
+        "ServerVersionInfo": {
+          "MajorVersion": 15,
+          "MinorVersion": 21,
+          "MajorBuildNumber": 181,
+          "MinorBuildNumber": 8,
+          "Version": "V2018_01_08"
+        }
+      },
+      "Body": {
+        "Items": [],
+        "ResponseCode": "NoError",
+        "ResponseClass": "Success"
+      }
+    },
+    "elapsed": 204
+  },
+  {
+    "name": "service.svc GetCalendarView (senza canary)",
+    "status": 200,
+    "data": {
+      "Header": {
+        "ServerVersionInfo": {
+          "MajorVersion": 15,
+          "MinorVersion": 21,
+          "MajorBuildNumber": 181,
+          "MinorBuildNumber": 8,
+          "Version": "V2018_01_08"
+        }
+      },
+      "Body": {
+        "Items": [],
+        "ResponseCode": "NoError",
+        "ResponseClass": "Success"
+      }
+    },
+    "elapsed": 199
+  },
+  {
+    "name": "REST v2.0 me/events",
+    "status": 200,
+    "data": {
+      "@odata.context": "https://outlook.cloud.microsoft/api/v2.0/$metadata#Me/Events",
+      "value": [
+        {
+          "@odata.id": "https://outlook.cloud.microsoft/api/v2.0/Users('8fb5a14f-065a-4aad-85cf-057b0fff74fe@8db5205c-5caa-452f-9442-2e1166ca0046')/Events('AAMkADlmZmY1NTMwLTgzZGQtNDc4NS05NjU1LWQyNTZiMDEzYWRkMQBGAAAAAACwNt9q9nwDSJk7hrrpOImtBwCo28T5pE7wSZ_nplXv78oLAAAAAAENAACo28T5pE7wSZ_nplXv78oLAAKXmEEuAAA=')",
+          "@odata.etag": "W/\"qNvE+aRO8Emfp6ZV7+/KCwACl5FwqQ==\"",
+          "Id": "AAMkADlmZmY1NTMwLTgzZGQtNDc4NS05NjU1LWQyNTZiMDEzYWRkMQBGAAAAAACwNt9q9nwDSJk7hrrpOImtBwCo28T5pE7wSZ_nplXv78oLAAAAAAENAACo28T5pE7wSZ_nplXv78oLAAKXmEEuAAA=",
+          "CreatedDateTime": "2026-06-29T18:30:45.9273335Z",
+          "LastModifiedDateTime": "2026-06-29T18:32:49.4888656Z",
+          "ChangeKey": "qNvE+aRO8Emfp6ZV7+/KCwACl5FwqQ==",
+          "Categories": [],
+          "TransactionId": "localevent:9103c587-cc65-7c11-f5e6-cfdfc21fcfdc",
+          "OriginalStartTimeZone": "W. Europe Standard Time",
+          "OriginalEndTimeZone": "W. Europe Standard Time",
+          "iCalUId": "040000008200E00074C5B7101A82E0080000000075B28466F507DD010000000000000000100000000D1D504EE2EE7740877BFF54F0A31CB9",
+          "Uid": "040000008200E00074C5B7101A82E0080000000075B28466F507DD010000000000000000100000000D1D504EE2EE7740877BFF54F0A31CB9",
+          "RequestedAttendanceMode": "Default",
+          "ReminderMinutesBeforeStart": 15,
+          "IsReminderOn": true,
+          "HasAttachments": false,
+          "Subject": "test luned\u00ec",
+          "BodyPreview": "",
+          "Importance": "Normal",
+          "Sensitivity": "Normal",
+          "IsAllDay": false,
+          "IsCancelled": false,
+          "IsOrganizer": true,
+          "IsRoomRequested": false,
+          "AutoRoomBookingStatus": "None",
+          "ResponseRequested": true,
+          "SeriesMasterId": null,
+          "ShowAs": "Busy",
+          "Type": "SingleInstance",
+          "WebLink": "https://outlook.office365.com/owa/?itemid=AAMkADlmZmY1NTMwLTgzZGQtNDc4NS05NjU1LWQyNTZiMDEzYWRkMQBGAAAAAACwNt9q9nwDSJk7hrrpOImtBwCo28T5pE7wSZ%2BnplXv78oLAAAAAAENAACo28T5pE7wSZ%2BnplXv78oLAAKXmEEuAAA%3D&exvsurl=1&path=/calendar/item",
+          "OnlineMeetingUrl": null,
+          "IsOnlineMeeting": false,
+          "OnlineMeetingProvider": "Unknown",
+          "AllowNewTimeProposals": true,
+          "OccurrenceId": null,
+          "IsDraft": false,
+          "HideAttendees": false,
+          "CalendarEventClassifications": [],
+          "MuteNotifications": false,
+          "ResponseStatus": {
+            "Response": "Organizer",
+            "Time": "0001-01-01T00:00:00Z"
+          },
+          "Body": {
+            "ContentType": "HTML",
+            "Content": ""
+          },
+          "Start": {
+            "DateTime": "2026-06-29T18:30:00.0000000",
+            "TimeZone": "UTC"
+          },
+          "End": {
+            "DateTime": "2026-06-29T19:00:00.0000000",
+            "TimeZone": "UTC"
+          },
+          "Location": {
+            "DisplayName": "",
+            "LocationType": "Default",
+            "UniqueIdType": "Unknown",
+            "Address": {
+              "Type": "Unknown"
+            },
+            "Coordinates": {}
+          },
+          "Locations": [],
+          "Recurrence": null,
+          "AutoRoomBookingOptions": null,
+          "Attendees": [],
+          "Organizer": {
+            "EmailAddress": {
+              "Name": "Office",
+              "Address": "99706@365net.co"
+            }
+          },
+          "OnlineMeeting": null,
+          "Calendar@odata.associationLink": "https://outlook.cloud.microsoft/api/v2.0/Users('8fb5a14f-065a-4aad-85cf-057b0fff74fe@8db5205c-5caa-452f-9442-2e1166ca0046')/Calendars('AAMkADlmZmY1NTMwLTgzZGQtNDc4NS05NjU1LWQyNTZiMDEzYWRkMQBGAAAAAACwNt9q9nwDSJk7hrrpOImtBwCo28T5pE7wSZ_nplXv78oLAAAAAAEGAACo28T5pE7wSZ_nplXv78oLAABpVsupAAA=')/$ref",
+          "Calendar@odata.navigationLink": "https://outlook.cloud.microsoft/api/v2.0/Users('8fb5a14f-065a-4aad-85cf-057b0fff74fe@8db5205c-5caa-452f-9442-2e1166ca0046')/Calendars('AAMkADlmZmY1NTMwLTgzZGQtNDc4NS05NjU1LWQyNTZiMDEzYWRkMQBGAAAAAACwNt9q9nwDSJk7hrrpOImtBwCo28T5pE7wSZ_nplXv78oLAAAAAAEGAACo28T5pE7wSZ_nplXv78oLAABpVsupAAA=')"
+        }
+      ]
+    },
+    "elapsed": 383
+  }
+]
