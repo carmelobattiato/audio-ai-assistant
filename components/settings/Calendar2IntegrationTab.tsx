@@ -5,6 +5,7 @@ import {
   loadIcsConfig, saveIcsConfig, clearIcsConfig, fetchIcs,
   loadCalendarSource, saveCalendarSource, type CalendarSource,
 } from '../../services/icsService';
+import { db } from '../../utils/db';
 
 const HEARTBEAT_KEY = 'calendar:extension-heartbeat';
 const HEARTBEAT_STALE_MS = 90_000; // 90s — extension heartbeats every 30s
@@ -276,6 +277,35 @@ export const Calendar2IntegrationTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── Reset calendar ────────────────────────────────────────────────────── */}
+      <div className="border-t border-gray-700/60 pt-4">
+        <h4 className="text-sm font-semibold text-gray-300 mb-1">Manutenzione</h4>
+        <p className="text-xs text-gray-500 mb-3">
+          Elimina tutti gli eventi del calendario senza una sessione collegata.
+          Utile per ripulire duplicati prima di risincronizzare.
+        </p>
+        <Button
+          variant="ghost"
+          disabled={busy}
+          onClick={async () => {
+            if (!window.confirm('Eliminare tutti gli eventi calendario senza sessione collegata?')) return;
+            setBusy(true);
+            setStatus('Reset in corso…');
+            try {
+              const n = await db.resetOrphanCalendarEvents();
+              setStatus(`✅ Rimossi ${n} event${n === 1 ? 'o' : 'i'}. Riapri il Calendario per risincronizzare.`);
+            } catch (e) {
+              setStatus(`❌ ${(e as Error).message}`);
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className="border border-red-800/50 text-red-400 hover:bg-red-900/20"
+        >
+          Reset Calendar
+        </Button>
+      </div>
 
       {status && (
         <div className="text-xs text-gray-300">{status}</div>

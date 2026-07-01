@@ -8,6 +8,11 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.138] — 2026-07-01
+
+- Settings → Integrations: bottone "Reset Calendar" elimina tutti gli eventi calendario senza sessione collegata (utile per ripulire duplicati prima di risincronizzare)
+
+
 ## [1.137] — 2026-07-01
 
 - `extension-v3/content-outlook.js`: fix timezone — Outlook REST restituisce datetime in UTC senza suffisso `Z`; `mapRest` aggiunge `Z` quando `TimeZone === "UTC"` per evitare che JS interpreti come ora locale

@@ -442,6 +442,21 @@ export const db = {
     });
   },
 
+  async resetOrphanCalendarEvents(): Promise<number> {
+    return dbOp('resetOrphanCalendarEvents', async () => {
+      const dbInstance = await dbPromise;
+      const all = await dbInstance.getAll(CALENDAR_EVENTS_STORE_NAME);
+      let deleted = 0;
+      for (const ev of all) {
+        if (!ev.linkedSessionId) {
+          await dbInstance.delete(CALENDAR_EVENTS_STORE_NAME, ev.id);
+          deleted++;
+        }
+      }
+      return deleted;
+    });
+  },
+
   // ── Retention ───────────────────────────────────────────────────────────────
   async deleteAudioOlderThan(days: number): Promise<number> {
     return dbOp('deleteAudioOlderThan', async () => {
