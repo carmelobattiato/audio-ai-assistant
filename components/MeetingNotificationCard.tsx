@@ -38,48 +38,71 @@ export interface MeetingNotificationCardProps {
   endIso?: string;
   role: CardRole;
   summary?: string;
-  minutesToStart?: number;        // shown only on toasts (variant='toast')
+  minutesToStart?: number;
   variant: 'toast' | 'panel';
   isPast?: boolean;
   isNewest?: boolean;             // shows "Recente" badge in the panel variant
+  isActive?: boolean;             // panel item just fired — shows pulse + minutesToStart
   onDismiss: () => void;
   actions: React.ReactNode;       // buttons row at the bottom
 }
 
 export const MeetingNotificationCard: React.FC<MeetingNotificationCardProps> = ({
   subject, organizer, startIso, endIso, role, summary,
-  minutesToStart, variant, isPast, isNewest,
+  minutesToStart, variant, isPast, isNewest, isActive,
   onDismiss, actions,
 }) => {
   const isToast = variant === 'toast';
-  const headerLine = isToast
-    ? `📅 In ${minutesToStart ?? 0}m · ${fmtTime(startIso)}${endIso ? `–${fmtTime(endIso)}` : ''}`
-    : `📅 ${fmtTime(startIso)}${endIso ? `–${fmtTime(endIso)}` : ''}`;
+  const showLive = isActive && !isToast;
+  const timeHeader = `${fmtTime(startIso)}${endIso ? `–${fmtTime(endIso)}` : ''}`;
+  const headerLine = (isToast || showLive)
+    ? `📅 In ${minutesToStart ?? 0}m · ${timeHeader}`
+    : `📅 ${timeHeader}`;
   const roleLabel = cardRoleLabel(role);
   const accent = cardRoleColor(role);
 
   return (
+    <>
+      {showLive && (
+        <style>{`@keyframes accent-pulse {
+          0%,100% { opacity: 1; }
+          50% { opacity: 0.35; }
+        }`}</style>
+      )}
     <div
       className="relative rounded-xl overflow-hidden"
       style={{
         width: isToast ? '380px' : '100%',
         background: isPast
           ? 'linear-gradient(135deg, rgba(55,65,81,0.6), rgba(31,41,55,0.6))'
-          : 'linear-gradient(135deg, rgba(30,41,59,0.98), rgba(15,23,42,0.98))',
-        border: `1px solid ${isPast ? 'rgba(107,114,128,0.4)' : 'rgba(124,58,237,0.45)'}`,
+          : showLive
+            ? 'linear-gradient(135deg, rgba(30,58,80,0.98), rgba(15,30,55,0.98))'
+            : 'linear-gradient(135deg, rgba(30,41,59,0.98), rgba(15,23,42,0.98))',
+        border: `1px solid ${isPast ? 'rgba(107,114,128,0.4)' : showLive ? 'rgba(56,189,248,0.55)' : 'rgba(124,58,237,0.45)'}`,
         color: '#f1f5f9',
         opacity: isPast ? 0.7 : 1,
-        boxShadow: isToast ? '0 10px 30px rgba(0,0,0,0.4)' : 'none',
+        boxShadow: isToast ? '0 10px 30px rgba(0,0,0,0.4)' : showLive ? '0 0 16px rgba(56,189,248,0.2)' : 'none',
         animation: isToast ? 'meeting-toast-slide-in 0.35s ease-out' : undefined,
       }}
     >
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: accent }} />
+      <div style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: accent,
+        animation: showLive ? 'accent-pulse 1.6s ease-in-out infinite' : undefined,
+      }} />
 
       <div className="p-3 pl-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              {isNewest && !isToast && (
+              {showLive && (
+                <span
+                  className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+                  style={{ background: 'rgba(56,189,248,0.3)', color: '#7dd3fc', letterSpacing: '0.05em' }}
+                >
+                  Live
+                </span>
+              )}
+              {isNewest && !isToast && !showLive && (
                 <span
                   className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
                   style={{ background: 'rgba(16,185,129,0.3)', color: '#a7f3d0', letterSpacing: '0.05em' }}
@@ -125,5 +148,6 @@ export const MeetingNotificationCard: React.FC<MeetingNotificationCardProps> = (
         {actions && <div className="flex items-center gap-2 mt-3 flex-wrap">{actions}</div>}
       </div>
     </div>
+    </>
   );
 };

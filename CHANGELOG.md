@@ -8,6 +8,16 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.139] — 2026-07-01
+
+- Notifiche meeting unificate: eliminato il toast floating separato; la campanella si auto-apre (30s timeout) quando scatta una notifica, con badge e icona animati
+- `MeetingNotificationBell`: accetta `activeMeetingIds`, `forceOpen`, `onSnooze`, `onActiveItemDismiss`; pannello si chiude automaticamente dopo 30s senza interazione
+- `MeetingNotificationCard`: nuova prop `isActive` — badge "Live", header "In Xm · HH:MM", bordo e glow azzurro, pulsazione accent bar
+- `useMeetingFlow`: sostituito `meetingToasts[]` con `activeMeetingIds: Set<string>` + `bellForceOpen`; snooze riattiva lo stesso record senza creare copie; test notification salva su IndexedDB
+- `MeetingNotificationToast.tsx`: eliminato
+- Fix: `LlmProcessor` non passava `usageMetadata` a `onProcessingComplete` — le chiamate Write Minutes/Summary/ecc. non apparivano nell'LLM Call History; ora tracciati correttamente
+
+
 ## [1.138] — 2026-07-01
 
 - Settings → Integrations: bottone "Reset Calendar" elimina tutti gli eventi calendario senza sessione collegata (utile per ripulire duplicati prima di risincronizzare)

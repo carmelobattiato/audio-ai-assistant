@@ -16,16 +16,16 @@ interface UseMeetingFlowParams {
 }
 
 export interface MeetingFlowState {
-  meetingToasts: MeetingToastData[];
   meetingHistory: MeetingNotificationRecord[];
+  activeMeetingIds: Set<string>;
+  bellForceOpen: boolean;
+  onBellForceOpenHandled: () => void;
+  handleSnoozeActive: (id: string, minutes: number) => void;
+  handleActiveItemDismiss: (id: string) => void;
   deleteMeetingHistoryItem: (id: string) => Promise<void>;
   clearAllMeetingHistory: () => Promise<void>;
-  handleToastDismiss: (id: string) => void;
-  handleToastSnooze: (id: string, minutes: number) => void;
-  handleToastOpen: (t: MeetingToastData) => void;
   handleTestMeetingNotification: () => void;
   handleStartSessionForMeeting: (rec: Pick<MeetingNotificationRecord, 'apptId' | 'date'>) => void;
-  handleStartSessionFromToast: (toast: MeetingToastData) => void;
   pendingAutoStart: { startMs: number; subject: string } | null;
   autoStartCountdownMs: number | null;
   handleAutoStartNow: () => void;
@@ -34,9 +34,10 @@ export interface MeetingFlowState {
 }
 
 export function useMeetingFlow({
-  calAppointments, appSettings, audioRecorderRef, setIsNewCalendarOpen, handleOutlookImport,
+  calAppointments, appSettings, audioRecorderRef, setIsNewCalendarOpen: _setIsNewCalendarOpen, handleOutlookImport,
 }: UseMeetingFlowParams): MeetingFlowState {
-  const [meetingToasts, setMeetingToasts] = useState<MeetingToastData[]>([]);
+  const [activeMeetingIds, setActiveMeetingIds] = useState<Set<string>>(new Set());
+  const [bellForceOpen, setBellForceOpen] = useState(false);
   const [pendingAutoStart, setPendingAutoStart] = useState<{ startMs: number; subject: string } | null>(null);
   const [autoStartCountdownMs, setAutoStartCountdownMs] = useState<number | null>(null);
 
@@ -63,46 +64,70 @@ export function useMeetingFlow({
   }, []);
 
   const handleMeetingTrigger = useCallback((data: MeetingToastData) => {
-    setMeetingToasts(prev => (prev.some(t => t.id === data.id) ? prev : [...prev, data]));
+    setActiveMeetingIds(prev => {
+      if (prev.has(data.id)) return prev;
+      const next = new Set(prev);
+      next.add(data.id);
+      return next;
+    });
+    setBellForceOpen(true);
     playMeetingChime();
   }, [playMeetingChime]);
 
-  const handleToastDismiss = useCallback((id: string) => {
-    setMeetingToasts(prev => prev.filter(t => t.id !== id));
+  const onBellForceOpenHandled = useCallback(() => {
+    setBellForceOpen(false);
   }, []);
 
-  const handleToastSnooze = useCallback((id: string, minutes: number) => {
-    setMeetingToasts(prev => {
-      const t = prev.find(x => x.id === id);
-      if (t) {
-        const snoozed: MeetingToastData = { ...t, id: `${t.apptId}::snooze::${Date.now()}` };
-        window.setTimeout(() => {
-          setMeetingToasts(cur => (cur.some(c => c.id === snoozed.id) ? cur : [...cur, snoozed]));
-          playMeetingChime();
-        }, minutes * 60_000);
-      }
-      return prev.filter(x => x.id !== id);
+  const handleSnoozeActive = useCallback((id: string, minutes: number) => {
+    setActiveMeetingIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
     });
+    window.setTimeout(() => {
+      setActiveMeetingIds(cur => {
+        const next = new Set(cur);
+        next.add(id);
+        return next;
+      });
+      setBellForceOpen(true);
+      playMeetingChime();
+    }, minutes * 60_000);
   }, [playMeetingChime]);
 
-  const handleToastOpen = useCallback((_t: MeetingToastData) => {
-    setIsNewCalendarOpen(true);
-  }, [setIsNewCalendarOpen]);
+  const { records: meetingHistory, deleteOne: deleteMeetingHistoryItem, clearAll: clearAllMeetingHistory } = useMeetingNotificationHistory();
+
+  const handleActiveItemDismiss = useCallback((id: string) => {
+    setActiveMeetingIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    void deleteMeetingHistoryItem(id);
+  }, [deleteMeetingHistoryItem]);
 
   const handleTestMeetingNotification = useCallback(() => {
     const now = new Date();
     const start = new Date(now.getTime() + 10 * 60_000);
-    const fake: MeetingToastData = {
-      id: `test::${Date.now()}`,
+    const id = `test::${Date.now()}`;
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const seedRecord: MeetingNotificationRecord = {
+      id,
       apptId: 'test',
+      date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
       subject: 'Test meeting · review demo',
       organizer: appSettings.appearance?.userEmail || 'you@company.com',
       startIso: start.toISOString(),
-      minutesToStart: 10,
+      endIso: new Date(start.getTime() + 30 * 60_000).toISOString(),
       role: 'required',
       summary: 'Questa è una notifica di prova. La call simulata richiede una breve presentazione dei progressi: PREPARA 2-3 slide sullo stato attuale, poi sarà discussione aperta.',
+      generatedAt: Date.now(),
+      expiresAt: Date.now() + ONE_DAY_MS,
+      shownAt: Date.now(),
     };
-    setMeetingToasts(prev => [...prev, fake]);
+    db.tryClaimMeetingNotification(seedRecord).catch(() => undefined);
+    setActiveMeetingIds(prev => { const next = new Set(prev); next.add(id); return next; });
+    setBellForceOpen(true);
     playMeetingChime();
   }, [appSettings.appearance, playMeetingChime]);
 
@@ -115,21 +140,11 @@ export function useMeetingFlow({
     onTrigger: handleMeetingTrigger,
   });
 
-  const { records: meetingHistory, deleteOne: deleteMeetingHistoryItem, clearAll: clearAllMeetingHistory } = useMeetingNotificationHistory();
-
   const handleStartSessionForMeeting = useCallback((rec: Pick<MeetingNotificationRecord, 'apptId' | 'date'>) => {
     const u = new URL(window.location.href);
     u.searchParams.set('startMeeting', `${rec.apptId}::${rec.date}`);
     window.open(u.toString(), '_blank', 'noopener');
   }, []);
-
-  const handleStartSessionFromToast = useCallback((toast: MeetingToastData) => {
-    const date = toast.startIso ? new Date(toast.startIso) : new Date();
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    handleStartSessionForMeeting({ apptId: toast.apptId, date: `${y}-${m}-${d}` });
-  }, [handleStartSessionForMeeting]);
 
   // URL param: ?startMeeting=<recordId> — auto-load meeting context + countdown
   useEffect(() => {
@@ -197,9 +212,10 @@ export function useMeetingFlow({
   }, []);
 
   return {
-    meetingToasts, meetingHistory, deleteMeetingHistoryItem, clearAllMeetingHistory,
-    handleToastDismiss, handleToastSnooze, handleToastOpen,
-    handleTestMeetingNotification, handleStartSessionForMeeting, handleStartSessionFromToast,
+    meetingHistory, activeMeetingIds, bellForceOpen, onBellForceOpenHandled,
+    handleSnoozeActive, handleActiveItemDismiss,
+    deleteMeetingHistoryItem, clearAllMeetingHistory,
+    handleTestMeetingNotification, handleStartSessionForMeeting,
     pendingAutoStart, autoStartCountdownMs, handleAutoStartNow, handleAutoStartCancel,
     scheduleAutoStart,
   };

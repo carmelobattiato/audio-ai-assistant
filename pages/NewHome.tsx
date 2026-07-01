@@ -26,7 +26,6 @@ const NewCalendarView = lazy(() => import('../components/newcalendar/NewCalendar
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
 import { useSessionLogic } from '../hooks/useSessionLogic';
-import { MeetingNotificationToasts } from '../components/MeetingNotificationToast';
 import { MeetingNotificationBell } from '../components/MeetingNotificationBell';
 
 import {
@@ -36,7 +35,6 @@ import {
   BubbleNote,
   RecordingState,
   AudioRecorderRef,
-  LlmUsageStats,
   SavedSessionData,
   SupportedLanguage,
   PipelineStep,
@@ -288,10 +286,10 @@ export const NewHome: React.FC = () => {
     } catch { setCoherenceStatus(CoherenceAssessmentStatus.ERROR); }
   }, [activeSourceText, appSettings.llm, addLlmUsageStat]);
 
-  const handleLlmProcessingComplete = useCallback((text: string, type: string, usage?: Pick<LlmUsageStats, 'inputTokens' | 'outputTokens' | 'timestamp'>) => {
+  const handleLlmProcessingComplete = useCallback((text: string, type: string, usage?: { inputTokens: number; outputTokens: number }) => {
     setLlmProcessedText(text); setLlmProcessingType(type);
     setLlmResultsHistory(prev => [...prev, { id: Date.now().toString(), type, contentHtml: text, timestamp: Date.now() }]);
-    if (usage) addLlmUsageStat({ ...usage, functionName: type, model: appSettings.llm.model, provider: appSettings.llm.provider });
+    if (usage) addLlmUsageStat({ inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, functionName: type, model: appSettings.llm.model, provider: appSettings.llm.provider });
   }, [appSettings.llm, addLlmUsageStat]);
 
   const handleLlmProcessingError = useCallback((err: string) => {
@@ -705,9 +703,10 @@ export const NewHome: React.FC = () => {
   ], [bubbleNotes.length, transLogic.transcriptionQueue, llmProcessedText, meetingChatHistory.length]);
   // ── Meeting notifications + auto-start ───────────────────────────────────
   const {
-    meetingToasts, meetingHistory, deleteMeetingHistoryItem, clearAllMeetingHistory,
-    handleToastDismiss, handleToastSnooze, handleToastOpen,
-    handleTestMeetingNotification, handleStartSessionForMeeting, handleStartSessionFromToast,
+    meetingHistory, activeMeetingIds, bellForceOpen, onBellForceOpenHandled,
+    handleSnoozeActive, handleActiveItemDismiss,
+    deleteMeetingHistoryItem, clearAllMeetingHistory,
+    handleTestMeetingNotification, handleStartSessionForMeeting,
     pendingAutoStart, autoStartCountdownMs, handleAutoStartNow, handleAutoStartCancel,
     scheduleAutoStart,
   } = useMeetingFlow({ calAppointments, appSettings, audioRecorderRef, setIsNewCalendarOpen, handleOutlookImport });
@@ -814,6 +813,11 @@ export const NewHome: React.FC = () => {
             onStartSessionForMeeting={handleStartSessionForMeeting}
             onDelete={(id) => { void deleteMeetingHistoryItem(id); }}
             onClearAll={() => { void clearAllMeetingHistory(); }}
+            activeMeetingIds={activeMeetingIds}
+            forceOpen={bellForceOpen}
+            onForceOpenHandled={onBellForceOpenHandled}
+            onSnooze={handleSnoozeActive}
+            onActiveItemDismiss={handleActiveItemDismiss}
           />
         }
       />
@@ -1060,14 +1064,6 @@ export const NewHome: React.FC = () => {
           <li><strong className="text-red-400">New session</strong>: discards current data and creates an empty session.</li>
         </ul>
       </Modal>
-
-      <MeetingNotificationToasts
-        toasts={meetingToasts}
-        onDismiss={handleToastDismiss}
-        onSnooze={handleToastSnooze}
-        onOpen={handleToastOpen}
-        onStartSession={handleStartSessionFromToast}
-      />
 
       {/* Modals (reused unchanged) */}
       <AppModals
