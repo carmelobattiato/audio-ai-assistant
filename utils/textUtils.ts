@@ -1,6 +1,7 @@
 
 // utils/textUtils.ts
 import { Part } from "@google/genai";
+import { BubbleNote } from '../types';
 
 /**
  * Counts the number of words in a given string.
@@ -186,6 +187,17 @@ export function htmlToPlainText(html: string): string {
 
   const raw = tempDiv.textContent || tempDiv.innerText || "";
   return raw.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export function bubbleNotesToText(notes: BubbleNote[]): string {
+  return notes
+    .filter(n => n.type !== 'historical-event')
+    .map((n, i) => {
+      const text = htmlToPlainText(n.contentHtml).trim();
+      return text ? `Note ${i + 1} [${formatTime(n.recordingElapsedTime)}]: ${text}` : null;
+    })
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export const parseHtmlForGeminiParts = (htmlString: string): Part[] => {

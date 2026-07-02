@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Button } from './common/Button';
 import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote, CustomInstruction } from '../types';
 import { llmService } from '../services/geminiService';
-import { htmlToPlainText, markdownToHtmlSimple, formatTime } from '../utils/textUtils';
+import { htmlToPlainText, markdownToHtmlSimple, formatTime, bubbleNotesToText } from '../utils/textUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import type { Part } from '@google/genai';
 
@@ -112,15 +112,6 @@ function renderMessageContent(content: string): string {
 
 // ── BubbleNote helpers ─────────────────────────────────────────────────────
 
-function bubbleNotesToText(notes: BubbleNote[]): string {
-  return notes
-    .map((n, i) => {
-      const text = htmlToPlainText(n.contentHtml).trim();
-      return text ? `Nota ${i + 1} [${formatTime(n.recordingElapsedTime)}]: ${text}` : null;
-    })
-    .filter(Boolean)
-    .join('\n\n');
-}
 
 function extractNoteImages(notes: BubbleNote[]): Array<{ mimeType: string; data: string }> {
   const result: Array<{ mimeType: string; data: string }> = [];
