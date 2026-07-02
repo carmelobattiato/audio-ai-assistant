@@ -6,6 +6,10 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+---
+
+## [1.141] — 2026-07-02
+
 - Session correlation: multi-select eventi nel calendario per correlare sessioni passate a quella corrente
 - Historical Event bubbles: sessioni correlate appaiono come note amber con icona libro+orologio nella timeline BubbleNotes, ordinate cronologicamente
 - `buildCorrelatedSessionsContext`: inietta blocco `[HISTORICAL CONTEXT]` nel system prompt di Chat e AI Analysis, separato dalla sessione corrente
