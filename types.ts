@@ -188,7 +188,8 @@ export interface BubbleNote {
   recordingElapsedTime: number;
   isEditing: boolean;
   isProcessing: boolean;
-  type?: 'text' | 'screenshot' | 'auto-screenshot' | 'video' | 'audio';
+  type?: 'text' | 'screenshot' | 'auto-screenshot' | 'video' | 'audio' | 'historical-event';
+  historicalSessionId?: string;
   inlineDataParts?: Array<{ mimeType: string; data: string }>;
   documentMode?: DocumentProcessingMode;
 }
@@ -397,6 +398,8 @@ export interface SavedSessionData {
   meetingChatHistory?: MeetingChatMessage[];
   linkedCalendarEventId?: string;
   linkedCalendarEventSubject?: string;
+  correlatedSessionIds?: string[];
+  useHistoricalContext?: boolean;
 }
 
 export interface SavedSession {
