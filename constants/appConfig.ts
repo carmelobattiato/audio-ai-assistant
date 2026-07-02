@@ -3,7 +3,7 @@ import { ModelInfo } from '../types';
 
 export const APP_TITLE = "Audio AI Assistant";
 export const APP_CREATOR = "Carmelo Battiato";
-export const APP_VERSION = "1.140";
+export const APP_VERSION = "1.141";
 export const APP_BUILD_TIMESTAMP = "2025-06-28_00-00-00";
 
 export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl?: boolean; docsUrl?: string, isCustom?: boolean } } = {

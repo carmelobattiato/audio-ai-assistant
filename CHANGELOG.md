@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.141] — 2026-07-02
+
+- Fix caricamento sessione: chunk già trascritti mostrano badge corretto (N/N), filename verde barrato e bottone T verde
+
+---
+
 ## [1.140] — 2026-07-01
 
 - `vitest` aggiornato da ^2.1.9 a ^4.1.9: risolte 5 vulnerabilità npm (1 critical, 1 high, 3 moderate) in vitest/vite/esbuild/vite-node/@vitest/mocker

@@ -413,7 +413,10 @@ export const NewHome: React.FC = () => {
             const ext = blob.type.split('/')[1]?.split(';')[0] || 'webm';
             return new File([blob], `${session.name}_segment_${i + 1}.${ext}`, { type: blob.type });
           });
-          await transLogic.handleFilesSelected(files);
+          const queueItems = await transLogic.handleFilesSelected(files);
+          if (data.transcribedText) {
+            transLogic.setTranscriptionQueue(queueItems.map(q => ({ ...q, transcribed: true })));
+          }
         }
         const parts = session.name.split('_');
         if (parts.length >= 2) {
