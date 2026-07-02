@@ -32,6 +32,7 @@ interface BubbleNotesProps {
   displayStream?: MediaStream | null;
   onPlayAudio?: (filename: string) => void;
   currentlyPlayingAudioFilename?: string | null;
+  onRemoveHistoricalSession?: (sessionId: string) => void;
 }
 
 const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
@@ -244,6 +245,7 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
         })}
         onPlayAudio={props.onPlayAudio}
         currentlyPlayingAudioFilename={props.currentlyPlayingAudioFilename}
+        onRemoveHistoricalSession={props.onRemoveHistoricalSession}
       />
 
       {/* Editor */}

@@ -26,6 +26,7 @@ interface NoteTimelineProps {
   onToggleSelectNote?: (id: string) => void;
   onPlayAudio?: (filename: string) => void;
   currentlyPlayingAudioFilename?: string | null;
+  onRemoveHistoricalSession?: (sessionId: string) => void;
 }
 
 const NODES_PER_ROW = 4;
@@ -67,7 +68,7 @@ function buildPath(i: number): string {
   return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
 }
 
-export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, onDeleteNote, isSelectMode, selectedNoteIds, onToggleSelectNote, onPlayAudio, currentlyPlayingAudioFilename }) => {
+export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, onDeleteNote, isSelectMode, selectedNoteIds, onToggleSelectNote, onPlayAudio, currentlyPlayingAudioFilename, onRemoveHistoricalSession }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(notes.length);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -274,6 +275,7 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
                 onToggleSelect={onToggleSelectNote}
                 onPlayAudio={onPlayAudio}
                 currentlyPlayingAudioFilename={currentlyPlayingAudioFilename}
+                onRemoveHistoricalSession={onRemoveHistoricalSession}
               />
             </div>
           );

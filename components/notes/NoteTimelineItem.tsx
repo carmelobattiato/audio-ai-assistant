@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Camera, FileText, FileImage, File, Film, Mic, CheckCircle, Trash2, ExternalLink, Check, Play, Square } from 'lucide-react';
 import { BubbleNote } from '@/types';
+import { HistoricalEventIcon } from '@/components/HistoricalEventIcon';
 
 interface NoteTimelineItemProps {
   note: BubbleNote;
@@ -13,6 +14,7 @@ interface NoteTimelineItemProps {
   onToggleSelect?: (id: string) => void;
   onPlayAudio?: (filename: string) => void;
   currentlyPlayingAudioFilename?: string | null;
+  onRemoveHistoricalSession?: (sessionId: string) => void;
 }
 
 function extractFirstImageSrc(html: string): string | null {
@@ -65,8 +67,129 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
   onToggleSelect,
   onPlayAudio,
   currentlyPlayingAudioFilename,
+  onRemoveHistoricalSession,
 }) => {
   const [hovered, setHovered] = useState(false);
+
+  // Early return for historical-event notes
+  if (note.type === 'historical-event') {
+    const sessionId = note.historicalSessionId ?? note.id.replace(/^hist_/, '');
+    const textPreview = stripHtml(note.contentHtml).slice(0, 100);
+    return (
+      <div
+        className="relative note-timeline-item"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {/* Amber node dot */}
+        <div
+          style={{
+            width: 120,
+            height: 120,
+            borderRadius: '50%',
+            background: 'rgba(245,158,11,0.15)',
+            border: '2px solid rgba(245,158,11,0.35)',
+            color: '#FCD34D',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+            cursor: 'default',
+          }}
+        >
+          <HistoricalEventIcon className="w-7 h-7" />
+          <span style={{ fontSize: 9, fontFamily: 'monospace', opacity: 0.8 }}>{elapsedLabel}</span>
+        </div>
+
+        {/* Hover popup */}
+        {hovered && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 50,
+              ...(popupLeft ? { right: 132 } : { left: 132 }),
+              width: 220,
+              borderRadius: 12,
+              padding: '10px 12px',
+              background: 'rgba(120,53,15,0.25)',
+              border: '1px solid rgba(245,158,11,0.3)',
+              backdropFilter: 'blur(8px)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            }}
+          >
+            {/* Chip */}
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '2px 8px',
+                borderRadius: 9999,
+                fontSize: 10,
+                fontWeight: 600,
+                background: 'rgba(245,158,11,0.2)',
+                color: '#FCD34D',
+                marginBottom: 6,
+              }}
+            >
+              📅 Historical Event
+            </span>
+
+            {/* Title */}
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#FDE68A', marginBottom: 4, lineHeight: 1.3 }}>
+              {note.historicalSessionId ?? 'Historical Session'}
+            </p>
+
+            {/* Date */}
+            {note.timestamp > 0 && (
+              <p style={{ fontSize: 10, color: '#FCD34D', opacity: 0.7, marginBottom: 4, fontFamily: 'monospace' }}>
+                {new Date(note.timestamp).toLocaleString()}
+              </p>
+            )}
+
+            {/* Preview text */}
+            {textPreview && (
+              <p style={{ fontSize: 11, color: '#FDE68A', opacity: 0.8, lineHeight: 1.4, marginBottom: 8 }}>
+                {textPreview}{textPreview.length >= 100 ? '…' : ''}
+              </p>
+            )}
+
+            {/* X button */}
+            {onRemoveHistoricalSession && (
+              <button
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  color: '#FCD34D',
+                  background: 'rgba(245,158,11,0.1)',
+                  border: '1px solid rgba(245,158,11,0.25)',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.25)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.1)')}
+                onClick={(e) => { e.stopPropagation(); onRemoveHistoricalSession(sessionId); }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                  <path d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Remove
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const isScreenshot = note.type === 'screenshot' || note.type === 'auto-screenshot';
   const isVideo = note.type === 'video';
