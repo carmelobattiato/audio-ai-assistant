@@ -61,6 +61,9 @@ interface NewCalMonthViewProps {
   sessions: SavedSession[];
   onEventClick: (event: CalendarEventRecord) => void;
   onDayClick: (date: Date) => void;
+  isSelectionMode?: boolean;
+  selectedEventIds?: string[];
+  onToggleEventSelection?: (eventId: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -70,6 +73,9 @@ export const NewCalMonthView: React.FC<NewCalMonthViewProps> = ({
   sessions: _sessions,
   onEventClick,
   onDayClick,
+  isSelectionMode = false,
+  selectedEventIds = [],
+  onToggleEventSelection,
 }) => {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const now   = new Date();
@@ -134,16 +140,49 @@ export const NewCalMonthView: React.FC<NewCalMonthViewProps> = ({
               <div className="space-y-0.5 min-w-0">
                 {(isExpanded ? dayEvents : dayEvents.slice(0, MAX_VISIBLE)).map(ev => {
                   const c = eventPillColor(ev, now);
+                  const isSelected = selectedEventIds.includes(ev.id);
                   return (
                     <button
                       key={ev.id}
-                      onClick={e => { e.stopPropagation(); onEventClick(ev); }}
-                      className="w-full text-left truncate text-[10px] px-1.5 py-0.5 rounded font-medium transition-all hover:opacity-80"
-                      style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}` }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (isSelectionMode) {
+                          onToggleEventSelection?.(ev.id);
+                        } else {
+                          onEventClick(ev);
+                        }
+                      }}
+                      className="w-full text-left truncate text-[10px] px-1.5 py-0.5 rounded font-medium transition-all hover:opacity-80 relative"
+                      style={{
+                        background: isSelected ? 'rgba(245,158,11,0.25)' : c.bg,
+                        color: isSelected ? '#FCD34D' : c.text,
+                        border: `1px solid ${isSelected ? 'rgba(245,158,11,0.6)' : c.border}`,
+                      }}
                       title={ev.subject}
                     >
-                      {ev.linkedSessionId && <span className="mr-0.5">🎙</span>}
+                      {isSelectionMode && (
+                        <span
+                          className="inline-flex items-center justify-center mr-1 flex-shrink-0"
+                          style={{
+                            width: 10, height: 10,
+                            border: `1px solid ${isSelected ? '#F59E0B' : '#6B7280'}`,
+                            borderRadius: 2,
+                            background: isSelected ? '#F59E0B' : 'transparent',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          {isSelected && (
+                            <svg className="w-2 h-2" viewBox="0 0 16 16" fill="white">
+                              <path fillRule="evenodd" d="M13.707 4.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L6 10.586l6.293-6.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </span>
+                      )}
+                      {!isSelectionMode && ev.linkedSessionId && <span className="mr-0.5">🎙</span>}
                       {ev.subject}
+                      {isSelectionMode && isSelected && !ev.linkedSessionId && (
+                        <span className="ml-1 text-[8px] text-amber-400">⚠</span>
+                      )}
                     </button>
                   );
                 })}

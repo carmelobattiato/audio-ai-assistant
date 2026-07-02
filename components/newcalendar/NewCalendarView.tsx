@@ -15,6 +15,8 @@ interface NewCalendarViewProps {
   onLinkSession: (eventId: string, sessionId: string) => void;
   onUnlinkSession: (eventId: string) => void;
   onOpenSession: (sessionId: string) => void;
+  currentSessionId?: string;
+  onCorrelateEvents?: (sessionIds: string[]) => void;
   onLoadInfo?: (eventId: string, title: string, noteHtml: string, attendees: Array<{ name: string; email: string; type?: 'required' | 'optional' }>) => void;
   onLoadAndSchedule?: (eventId: string, title: string, noteHtml: string, attendees: Array<{ name: string; email: string; type?: 'required' | 'optional' }>, startIso: string, subject: string) => void;
   onOpenTeamsAndRecord?: (eventId: string, title: string, noteHtml: string, teamsUrl: string, attendees: Array<{ name: string; email: string; type?: 'required' | 'optional' }>) => void;
@@ -253,14 +255,18 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
   calExtensionConnected = false,
   calOutlookState = 'unknown',
   lastSyncAt,
+  currentSessionId,
+  onCorrelateEvents,
 }) => {
-  const [viewMode,       setViewMode]       = useState<ViewMode>('day');
-  const [now,            setNow]            = useState(new Date());
-  const [currentDate,    setCurrentDate]    = useState(new Date());
-  const [selectedEvent,  setSelectedEvent]  = useState<CalendarEventRecord | null>(null);
-  const [searchQuery,    setSearchQuery]    = useState('');
-  const [syncState,      setSyncState]      = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [showSyncInfo,   setShowSyncInfo]   = useState(false);
+  const [viewMode,           setViewMode]           = useState<ViewMode>('day');
+  const [now,                setNow]                = useState(new Date());
+  const [currentDate,        setCurrentDate]        = useState(new Date());
+  const [selectedEvent,      setSelectedEvent]      = useState<CalendarEventRecord | null>(null);
+  const [searchQuery,        setSearchQuery]        = useState('');
+  const [syncState,          setSyncState]          = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [showSyncInfo,       setShowSyncInfo]       = useState(false);
+  const [isSelectionMode,    setIsSelectionMode]    = useState(false);
+  const [selectedEventIds,   setSelectedEventIds]   = useState<string[]>([]);
   const syncTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncInfoRef  = useRef<HTMLDivElement>(null);
 
@@ -275,6 +281,26 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
 
   const extensionOffline = calSource === 'extension' && !calExtensionConnected;
   const outlookOffline   = calSource === 'extension' && calExtensionConnected && calOutlookState === 'error';
+
+  const toggleEventSelection = (eventId: string) => {
+    setSelectedEventIds(prev =>
+      prev.includes(eventId) ? prev.filter(id => id !== eventId) : [...prev, eventId]
+    );
+  };
+
+  const cancelSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedEventIds([]);
+  };
+
+  const handleCorrelate = () => {
+    if (!onCorrelateEvents) return;
+    const linkedIds = selectedEventIds
+      .map(eid => events.find(e => e.id === eid)?.linkedSessionId)
+      .filter((id): id is string => !!id);
+    onCorrelateEvents(linkedIds);
+    cancelSelection();
+  };
 
   // Keep selectedEvent in sync with updated events (e.g. after link/unlink)
   useEffect(() => {
@@ -418,6 +444,20 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
           >
             Oggi
           </button>
+
+          {/* Select toggle — only when correlation is available */}
+          {currentSessionId && onCorrelateEvents && (
+            <button
+              onClick={() => { setIsSelectionMode(v => { if (v) setSelectedEventIds([]); return !v; }); }}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all"
+              style={isSelectionMode
+                ? { border: '1px solid rgba(245,158,11,0.6)', background: 'rgba(245,158,11,0.15)', color: '#FCD34D' }
+                : { border: '1px solid rgba(124,58,237,0.4)', background: 'rgba(124,58,237,0.1)', color: '#C4B5FD' }
+              }
+            >
+              {isSelectionMode ? 'Cancel' : 'Select'}
+            </button>
+          )}
         </div>
 
         {/* Right cluster: source pill + clock + sync */}
@@ -597,41 +637,89 @@ export const NewCalendarView: React.FC<NewCalendarViewProps> = ({
         </div>
 
         {/* Calendar view area */}
-        <div className="flex-1 overflow-hidden">
-          {viewMode === 'month' && (
-            <NewCalMonthView
-              currentDate={currentDate}
-              events={filteredEvents}
-              sessions={sessions}
-              onEventClick={setSelectedEvent}
-              onDayClick={handleDayClick}
-            />
-          )}
-          {viewMode === 'week' && (
-            <NewCalWeekView
-              currentDate={currentDate}
-              events={filteredEvents}
-              sessions={sessions}
-              onEventClick={setSelectedEvent}
-              days={7}
-            />
-          )}
-          {viewMode === 'workweek' && (
-            <NewCalWorkWeekView
-              currentDate={currentDate}
-              events={filteredEvents}
-              sessions={sessions}
-              onEventClick={setSelectedEvent}
-            />
-          )}
-          {viewMode === 'day' && (
-            <NewCalWeekView
-              currentDate={currentDate}
-              events={filteredEvents}
-              sessions={sessions}
-              onEventClick={setSelectedEvent}
-              days={1}
-            />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-hidden">
+            {viewMode === 'month' && (
+              <NewCalMonthView
+                currentDate={currentDate}
+                events={filteredEvents}
+                sessions={sessions}
+                onEventClick={isSelectionMode ? () => {} : setSelectedEvent}
+                onDayClick={handleDayClick}
+                isSelectionMode={isSelectionMode}
+                selectedEventIds={selectedEventIds}
+                onToggleEventSelection={toggleEventSelection}
+              />
+            )}
+            {viewMode === 'week' && (
+              <NewCalWeekView
+                currentDate={currentDate}
+                events={filteredEvents}
+                sessions={sessions}
+                onEventClick={isSelectionMode ? () => {} : setSelectedEvent}
+                days={7}
+                isSelectionMode={isSelectionMode}
+                selectedEventIds={selectedEventIds}
+                onToggleEventSelection={toggleEventSelection}
+              />
+            )}
+            {viewMode === 'workweek' && (
+              <NewCalWorkWeekView
+                currentDate={currentDate}
+                events={filteredEvents}
+                sessions={sessions}
+                onEventClick={isSelectionMode ? () => {} : setSelectedEvent}
+                isSelectionMode={isSelectionMode}
+                selectedEventIds={selectedEventIds}
+                onToggleEventSelection={toggleEventSelection}
+              />
+            )}
+            {viewMode === 'day' && (
+              <NewCalWeekView
+                currentDate={currentDate}
+                events={filteredEvents}
+                sessions={sessions}
+                onEventClick={isSelectionMode ? () => {} : setSelectedEvent}
+                days={1}
+                isSelectionMode={isSelectionMode}
+                selectedEventIds={selectedEventIds}
+                onToggleEventSelection={toggleEventSelection}
+              />
+            )}
+          </div>
+
+          {/* ── Selection action bar ─────────────────────────────────────────── */}
+          {isSelectionMode && (
+            <div
+              className="flex-shrink-0 flex items-center justify-between px-4 py-2.5 gap-3"
+              style={{ borderTop: '1px solid rgba(245,158,11,0.3)', background: 'rgba(17,24,39,0.95)' }}
+            >
+              <span className="text-xs text-amber-300">
+                {selectedEventIds.length === 0
+                  ? 'Click events to select them'
+                  : `${selectedEventIds.length} event${selectedEventIds.length !== 1 ? 's' : ''} selected`}
+                {selectedEventIds.length > 0 && selectedEventIds.some(eid => !events.find(e => e.id === eid)?.linkedSessionId) && (
+                  <span className="ml-2 text-amber-500">⚠ Some have no recording</span>
+                )}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={cancelSelection}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors hover:bg-gray-700"
+                  style={{ border: '1px solid #374151', color: '#9CA3AF' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCorrelate}
+                  disabled={selectedEventIds.filter(eid => !!events.find(e => e.id === eid)?.linkedSessionId).length === 0}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ border: '1px solid rgba(245,158,11,0.5)', background: 'rgba(245,158,11,0.2)', color: '#FCD34D' }}
+                >
+                  Correlate with current session ▶
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

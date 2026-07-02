@@ -128,6 +128,9 @@ export interface NewCalWeekViewProps {
   sessions: SavedSession[];
   onEventClick: (event: CalendarEventRecord) => void;
   days?: number; // default 7; pass 5 for workweek
+  isSelectionMode?: boolean;
+  selectedEventIds?: string[];
+  onToggleEventSelection?: (eventId: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -137,6 +140,9 @@ export const NewCalWeekView: React.FC<NewCalWeekViewProps> = ({
   sessions: _sessions,
   onEventClick,
   days = 7,
+  isSelectionMode = false,
+  selectedEventIds = [],
+  onToggleEventSelection,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(new Date());
@@ -271,26 +277,33 @@ export const NewCalWeekView: React.FC<NewCalWeekViewProps> = ({
 
                 {/* Event blocks */}
                 {layout.map(({ event: ev, col, span }: LayoutItem) => {
-                  const status   = getStatus(ev, now, nextId);
-                  const c        = STATUS_COLOR[status];
-                  const topPx    = toPx(toMinutes(ev.start));
-                  const heightPx = Math.max(MIN_EVENT_H, toPx(toMinutes(ev.end)) - topPx);
-                  const widthPct = 100 / span;
-                  const leftPct  = (col / span) * 100;
+                  const status     = getStatus(ev, now, nextId);
+                  const c          = STATUS_COLOR[status];
+                  const topPx      = toPx(toMinutes(ev.start));
+                  const heightPx   = Math.max(MIN_EVENT_H, toPx(toMinutes(ev.end)) - topPx);
+                  const widthPct   = 100 / span;
+                  const leftPct    = (col / span) * 100;
                   const hasSession = !!ev.linkedSessionId;
+                  const isSelected = selectedEventIds.includes(ev.id);
 
                   return (
                     <div
                       key={ev.id}
-                      onClick={() => onEventClick(ev)}
+                      onClick={() => {
+                        if (isSelectionMode) {
+                          onToggleEventSelection?.(ev.id);
+                        } else {
+                          onEventClick(ev);
+                        }
+                      }}
                       className="absolute cursor-pointer rounded overflow-hidden transition-all duration-150 hover:opacity-90 hover:shadow-lg"
                       style={{
                         top: topPx + 1,
                         height: heightPx - 2,
                         left: `calc(${leftPct}% + 2px)`,
                         width: `calc(${widthPct}% - 4px)`,
-                        background: hasSession ? 'rgba(16,185,129,0.2)' : c.bg,
-                        border: `1.5px solid ${hasSession ? '#10B981' : c.border}`,
+                        background: isSelected ? 'rgba(245,158,11,0.25)' : hasSession ? 'rgba(16,185,129,0.2)' : c.bg,
+                        border: `1.5px solid ${isSelected ? '#F59E0B' : hasSession ? '#10B981' : c.border}`,
                         boxShadow: status === 'live' ? `0 0 8px ${c.dot}44` : 'none',
                         zIndex: status === 'live' ? 10 : 5,
                         opacity: status === 'past' ? 0.5 : 1,
@@ -299,25 +312,46 @@ export const NewCalWeekView: React.FC<NewCalWeekViewProps> = ({
                       {/* Left accent bar */}
                       <div
                         className="absolute left-0 top-0 bottom-0"
-                        style={{ width: 2, background: hasSession ? '#10B981' : c.dot }}
+                        style={{ width: 2, background: isSelected ? '#F59E0B' : hasSession ? '#10B981' : c.dot }}
                       />
+                      {/* Checkbox overlay in selection mode */}
+                      {isSelectionMode && (
+                        <div
+                          className="absolute top-0.5 right-0.5 flex items-center justify-center"
+                          style={{
+                            width: 12, height: 12,
+                            border: `1px solid ${isSelected ? '#F59E0B' : '#6B7280'}`,
+                            borderRadius: 2,
+                            background: isSelected ? '#F59E0B' : 'rgba(0,0,0,0.4)',
+                          }}
+                        >
+                          {isSelected && (
+                            <svg className="w-2 h-2" viewBox="0 0 16 16" fill="white">
+                              <path fillRule="evenodd" d="M13.707 4.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L6 10.586l6.293-6.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
                       <div className="pl-2 pr-1 py-0.5 h-full flex flex-col overflow-hidden">
                         <div className="flex items-center gap-0.5 min-w-0">
-                          {status === 'live' && (
+                          {status === 'live' && !isSelectionMode && (
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
                           )}
-                          {hasSession && (
+                          {hasSession && !isSelectionMode && (
                             <span className="text-[9px] flex-shrink-0">🎙</span>
+                          )}
+                          {isSelectionMode && isSelected && !hasSession && (
+                            <span className="text-[8px] flex-shrink-0 text-amber-400">⚠</span>
                           )}
                           <p
                             className="text-[10px] font-semibold leading-tight truncate"
-                            style={{ color: hasSession ? '#6EE7B7' : c.text }}
+                            style={{ color: isSelected ? '#FCD34D' : hasSession ? '#6EE7B7' : c.text }}
                           >
                             {ev.subject}
                           </p>
                         </div>
                         {heightPx > 30 && (
-                          <p className="text-[9px] mt-0.5" style={{ color: c.text, opacity: 0.7 }}>
+                          <p className="text-[9px] mt-0.5" style={{ color: isSelected ? '#FCD34D' : c.text, opacity: 0.7 }}>
                             {fmt(ev.start)}
                           </p>
                         )}
