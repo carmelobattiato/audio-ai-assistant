@@ -42,7 +42,7 @@ import {
 
 import {
   countCharacters, countWords, estimateTokens,
-  htmlToPlainText,
+  htmlToPlainText, formatTime,
 } from '../utils/textUtils';
 import { llmService } from '../services/geminiService';
 import { loggingService } from '../services/loggingService';
@@ -151,6 +151,10 @@ export const NewHome: React.FC = () => {
 
   const { schedule: scheduleDbUpdate, flush: flushDbUpdate } = useBatchedDbUpdate(activeSessionIdRef, isInitialLoadingRef);
 
+  // ── Correlated sessions ───────────────────────────────────────────────────
+  const [correlatedSessions, setCorrelatedSessions] = useState<Array<{ id: string; data: SavedSessionData }>>([]);
+  const [useHistoricalContext, setUseHistoricalContext] = useState(true);
+
   // ── Derived ───────────────────────────────────────────────────────────────
   const finalEffectiveTitle = useMemo(() => {
     const base = recordingTitle.trim() || 'Session';
@@ -158,6 +162,34 @@ export const NewHome: React.FC = () => {
     finalEffectiveTitleRef.current = title;
     return title;
   }, [recordingTitle, recordingTimestampSuffix]);
+
+  const allBubbleNotes = useMemo((): BubbleNote[] => {
+    const historicalNotes: BubbleNote[] = correlatedSessions.map(({ id, data: s }) => ({
+      id: `historical-${id}`,
+      type: 'historical-event' as const,
+      historicalSessionId: id,
+      contentHtml: `<b>${s.audioFileName}</b><br/><span style="opacity:0.7">${
+        s.audioRecordingStartTime
+          ? new Date(s.audioRecordingStartTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+          : 'Unknown date'
+      } · ${s.audioDuration ? formatTime(s.audioDuration) : 'N/A'}</span>${
+        s.llmProcessedText
+          ? `<br/><span style="opacity:0.6;font-size:0.85em">${htmlToPlainText(s.llmProcessedText).slice(0, 120)}…</span>`
+          : ''
+      }`,
+      timestamp: s.audioRecordingStartTime
+        ? new Date(s.audioRecordingStartTime).getTime()
+        : 0,
+      recordingElapsedTime: 0,
+      isEditing: false,
+      isProcessing: false,
+    }));
+    return [...historicalNotes, ...bubbleNotes].sort((a, b) => {
+      const ta = typeof a.timestamp === 'number' ? a.timestamp : new Date(a.timestamp as string).getTime();
+      const tb = typeof b.timestamp === 'number' ? b.timestamp : new Date(b.timestamp as string).getTime();
+      return ta - tb;
+    });
+  }, [correlatedSessions, bubbleNotes]);
 
   const appStatistics = useMemo<AppStatistics>(() => ({
     audioDetails: audioBlob ? {
@@ -360,6 +392,19 @@ export const NewHome: React.FC = () => {
         setLlmUsageHistory(data.llmUsageHistory || []);
         setLlmResultsHistory(data.llmResultsHistory || []);
         setMeetingChatHistory(data.meetingChatHistory || []);
+        if (data.correlatedSessionIds?.length) {
+          const loaded = await Promise.all(
+            data.correlatedSessionIds.map(id => db.getSessionById(id))
+          );
+          setCorrelatedSessions(
+            loaded
+              .filter((s): s is SavedSession => Boolean(s))
+              .map(s => ({ id: s.id, data: s.data }))
+          );
+        } else {
+          setCorrelatedSessions([]);
+        }
+        setUseHistoricalContext(data.useHistoricalContext ?? true);
         setAppSettings(data.settings);
         if (data.chunks && data.chunks.length > 0) {
           setRecordingChunks(data.chunks);
@@ -391,6 +436,34 @@ export const NewHome: React.FC = () => {
       setTimeout(() => { isInitialLoadingRef.current = false; }, 500);
     }
   }, [resetAllDataStates, transLogic]);
+
+  const handleCorrelateEvents = useCallback(async (sessionIds: string[]) => {
+    if (!activeSessionIdRef.current) return;
+    await db.updateSessionIncremental(activeSessionIdRef.current, { correlatedSessionIds: sessionIds });
+    const loaded = await Promise.all(sessionIds.map(id => db.getSessionById(id)));
+    setCorrelatedSessions(
+      loaded
+        .filter((s): s is SavedSession => Boolean(s))
+        .map(s => ({ id: s.id, data: s.data }))
+    );
+    setAppUserMessage(`${sessionIds.length} session${sessionIds.length !== 1 ? 's' : ''} correlated.`);
+  }, []);
+
+  const handleToggleHistoricalContext = useCallback(async (enabled: boolean) => {
+    setUseHistoricalContext(enabled);
+    if (activeSessionIdRef.current) {
+      await db.updateSessionIncremental(activeSessionIdRef.current, { useHistoricalContext: enabled });
+    }
+  }, []);
+
+  const handleRemoveHistoricalSession = useCallback(async (sessionId: string) => {
+    if (!activeSessionIdRef.current) return;
+    const updated = correlatedSessions
+      .filter(s => s.id !== sessionId)
+      .map(s => s.id);
+    await db.updateSessionIncremental(activeSessionIdRef.current, { correlatedSessionIds: updated });
+    setCorrelatedSessions(prev => prev.filter(s => s.id !== sessionId));
+  }, [correlatedSessions]);
 
   const handleLoadAndRecord = useCallback(async (sessionId: string) => {
     await handleLoadSession(sessionId);
@@ -939,7 +1012,7 @@ export const NewHome: React.FC = () => {
               isScreenSharing={isScreenSharing}
               isRecordingSessionActive={recordingState !== RecordingState.IDLE}
               elapsedTime={recordingElapsedTime}
-              bubbleNotes={bubbleNotes}
+              bubbleNotes={allBubbleNotes}
               onBubbleNotesChange={setBubbleNotes}
               onOpenBubbleNote={setViewingBubbleNoteId}
               onTakeScreenshot={handleTakeScreenshot}
@@ -952,6 +1025,7 @@ export const NewHome: React.FC = () => {
               displayStream={isScreenSharing ? (audioRecorderRef.current?.getDisplayStream() ?? null) : null}
               onPlayAudio={handlePlayAudioBubble}
               currentlyPlayingAudioFilename={transLogic.playbackFile?.file?.name ?? null}
+              onRemoveHistoricalSession={handleRemoveHistoricalSession}
             />
             </Suspense>
 
@@ -990,6 +1064,25 @@ export const NewHome: React.FC = () => {
             {/* Tab 2: AI Analysis */}
             <ErrorBoundary variant="inline" label="LlmProcessor">
             <Suspense fallback={<div style={{ padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>Caricamento…</div>}>
+            {correlatedSessions.length > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1" style={{ borderBottom: '1px solid #374151' }}>
+                <span className="text-[11px] text-gray-400">🕰 Use historical context</span>
+                <button
+                  onClick={() => handleToggleHistoricalContext(!useHistoricalContext)}
+                  className="relative inline-flex h-4 w-7 rounded-full transition-colors flex-shrink-0"
+                  style={{ background: useHistoricalContext ? '#8B5CF6' : '#374151' }}
+                  aria-label="Toggle historical context"
+                >
+                  <span
+                    className="inline-block w-3 h-3 rounded-full bg-white shadow transition-transform mt-0.5"
+                    style={{ transform: useHistoricalContext ? 'translateX(14px)' : 'translateX(2px)' }}
+                  />
+                </button>
+                <span className="text-[11px]" style={{ color: '#6B7280' }}>
+                  {correlatedSessions.length} correlated session{correlatedSessions.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
             <LlmProcessor
               ref={llmProcessorRef}
               sourceText={activeSourceText}
@@ -1121,6 +1214,8 @@ export const NewHome: React.FC = () => {
                 sessions={savedSessions}
                 onLinkSession={handleLinkSessionToEvent}
                 onUnlinkSession={handleUnlinkSessionFromEvent}
+                currentSessionId={activeSessionIdRef.current ?? undefined}
+                onCorrelateEvents={handleCorrelateEvents}
                 onOpenSession={(sessionId) => {
                   setSessionToPreview(sessionId);
                   setShowLoadSessionModal(true);
