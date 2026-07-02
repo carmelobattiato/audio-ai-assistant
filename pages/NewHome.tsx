@@ -1107,6 +1107,8 @@ export const NewHome: React.FC = () => {
               onQuickProcessComplete={noop}
               onProcessingError={handleLlmProcessingError}
               resultType={llmProcessingType}
+              correlatedSessionsData={correlatedSessions.map(s => s.data)}
+              useHistoricalContext={useHistoricalContext}
             />
             </Suspense>
             </ErrorBoundary>
@@ -1129,6 +1131,8 @@ export const NewHome: React.FC = () => {
               onHistoryChange={setMeetingChatHistory}
               onLlmUsage={(stats) => setLlmUsageHistory(prev => [...prev, stats])}
               disabled={isBusy}
+              correlatedSessionsData={correlatedSessions.map(s => s.data)}
+              useHistoricalContext={useHistoricalContext}
             />
             </Suspense>
           </NeoTabs>

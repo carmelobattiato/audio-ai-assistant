@@ -5,7 +5,8 @@ import { llmService } from '../services/geminiService';
 import { Button } from './common/Button';
 import { Select } from './common/Select'; 
 import { TextArea } from './common/TextArea'; 
-import { AppSettings, CustomInstruction, SystemPrompt, GroundingChunk, SupportedLanguage, TranscriptionOutputFormat, BubbleNote } from '../types';
+import { AppSettings, CustomInstruction, SystemPrompt, GroundingChunk, SupportedLanguage, TranscriptionOutputFormat, BubbleNote, SavedSessionData } from '../types';
+import { buildCorrelatedSessionsContext } from '../utils/correlationContext';
 import { resolvePrompt, getPromptText } from '../utils/promptUtils';
 import { RichTextEditorModal } from './RichTextEditorModal';
 import { EditIcon as EditPencilIcon, SaveIcon as CopyIcon, DownloadIcon } from '../constants'; 
@@ -35,7 +36,9 @@ interface LlmProcessorProps {
   isQuickProcessActive: boolean;
   onQuickProcessComplete: () => void;
   onProcessingError?: (err: string) => void;
-  resultType?: string; // tipo del risultato caricato da sessione esistente
+  resultType?: string;
+  correlatedSessionsData?: SavedSessionData[];
+  useHistoricalContext?: boolean;
 }
 
 const DEFAULT_ACTIONS = [
@@ -82,6 +85,8 @@ const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
   systemPrompts,
   meetingTitle,
   meetingAttendees,
+  correlatedSessionsData,
+  useHistoricalContext = true,
 }, ref) => {
   const [customContext, setCustomContext] = useState<string>("");
   const [activeProcessingDisplayTitle, setActiveProcessingDisplayTitle] = useState<string | null>(null);
@@ -204,6 +209,9 @@ const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
     if (audioDuration) contextualInfo += `- Durata audio: ${formatTime(audioDuration)}\n`;
     if (audioRecordingStartTime) contextualInfo += `- Data: ${audioRecordingStartTime.toLocaleString()}\n`;
     contextualInfo += "---\n\n";
+    if (useHistoricalContext && correlatedSessionsData?.length) {
+      contextualInfo = buildCorrelatedSessionsContext(correlatedSessionsData) + '\n\n' + contextualInfo;
+    }
 
     const sysPromptTemplate = getPromptText(systemPrompts ?? [], 'llm-system');
     let systemInstruction = sysPromptTemplate

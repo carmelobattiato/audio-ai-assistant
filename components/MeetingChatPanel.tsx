@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from './common/Button';
-import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote, CustomInstruction } from '../types';
+import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote, CustomInstruction, SavedSessionData } from '../types';
+import { buildCorrelatedSessionsContext } from '../utils/correlationContext';
 import { llmService } from '../services/geminiService';
 import { htmlToPlainText, markdownToHtmlSimple, formatTime, bubbleNotesToText } from '../utils/textUtils';
 import { sanitizeHtml } from '../utils/sanitize';
@@ -160,6 +161,8 @@ interface MeetingChatPanelProps {
   onHistoryChange: (history: MeetingChatMessage[]) => void;
   onLlmUsage?: (stats: LlmUsageStats) => void;
   disabled?: boolean;
+  correlatedSessionsData?: SavedSessionData[];
+  useHistoricalContext?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -173,6 +176,8 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
   onHistoryChange,
   onLlmUsage,
   disabled = false,
+  correlatedSessionsData,
+  useHistoricalContext = true,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -223,7 +228,7 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
       ? `\n\nREGOLE PERSONALIZZATE (applicare sempre):\n${activeRules.map(r => `- ${r.text}`).join('\n')}`
       : '';
 
-    return `${baseInstructions}${rulesSection}
+    let prompt = `${baseInstructions}${rulesSection}
 
 MEETING METADATA:
 - Title: ${sessionTitle}
@@ -236,7 +241,13 @@ ${plainTranscript || '(no transcript available)'}
 ${plainAnalysis ? `AI ANALYSIS:\n${plainAnalysis}` : ''}
 
 ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${notesText}` : ''}`;
-  }, [sessionContext, chatSystemInstruction, customInstructions]);
+
+    if (useHistoricalContext && correlatedSessionsData?.length) {
+      prompt += buildCorrelatedSessionsContext(correlatedSessionsData);
+    }
+
+    return prompt;
+  }, [sessionContext, chatSystemInstruction, customInstructions, correlatedSessionsData, useHistoricalContext]);
 
   // ── Prompt builder (multi-turn) ──────────────────────────────────────────
 
