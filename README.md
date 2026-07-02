@@ -4,7 +4,7 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-1.135-6366f1?style=for-the-badge&logo=github)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.141-6366f1?style=for-the-badge&logo=github)](CHANGELOG.md)
 [![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
@@ -110,6 +110,10 @@ npm run dev
 ### 🪟 Windows (PowerShell)
 
 ```powershell
+# Clone & install
+git clone https://github.com/carmelobattiato/audio-ai-assistant
+cd audio-ai-assistant
+
 # Start (installs deps on first run + Desktop shortcut)
 .\setup_and_run.ps1 start
 
@@ -375,9 +379,9 @@ sequenceDiagram
     Note over App: Source 2 — ICS Feed (cross-platform)
     App->>App: fetch ICS URL → parse RFC5545 → filter today
 
-    Note over App: Source 3 — Browser Extension v2.11
+    Note over App: Source 3 — Browser Extension v3
     App->>Extension: BroadcastChannel listen
-    Extension->>OutlookLive: POST GetCalendarView (x-owa-canary + MSAuth1.0)
+    Extension->>OutlookLive: POST GetCalendarView (Bearer JWT + x-anchormailbox)
     OutlookLive-->>App: Body.Items[] today
 ```
 
@@ -385,12 +389,12 @@ sequenceDiagram
 |--------|----------|---------|---------------|
 | **Windows COM** | Windows only | Real-time | ★★★ Attendees, Teams URL, body |
 | **ICS Feed** | Cross-platform | 1–3 h | ★★ Title, time, location |
-| **Extension v2.11** | Chrome / Edge | ~30 s | ★★★ Full calendar data |
+| **Extension v3** | Chrome / Edge | ~30 s | ★★★ Full calendar data |
 
 <details>
-<summary>🔧 Extension Setup (v2.11)</summary>
+<summary>🔧 Extension Setup (v3)</summary>
 
-1. Settings → Integrations → Browser Extension → download `calendar-bridge-v2.zip`
+1. Settings → Integrations → Browser Extension → download `calendar-bridge-v3.zip`
 2. Extract → `chrome://extensions` → Developer mode → **Load unpacked**
 3. Open `outlook.live.com/calendar`
 4. Wait ~30 s → badge **"Outlook Live ● Connessa"** appears

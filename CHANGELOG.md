@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.142] — 2026-07-02
+
+- README: aggiunto `git clone` + `cd` nella sezione Windows (PowerShell) del Quick Start
+- README: badge versione aggiornato a 1.141; riferimenti Extension v2.11 → v3; `calendar-bridge-v2.zip` → v3
+
+
 ## [1.141] — 2026-07-02
 
 - Session correlation: multi-select eventi nel calendario per correlare sessioni passate a quella corrente
