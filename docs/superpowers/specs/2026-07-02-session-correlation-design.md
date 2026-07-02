@@ -51,17 +51,17 @@ const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
 ```
 
 ### Toolbar change
-Add toggle button **"Seleziona"** (icon: `CheckSquare`) to the existing calendar toolbar. Activates selection mode.
+Add toggle button **"Select"** (icon: `CheckSquare`) to the existing calendar toolbar. Activates selection mode.
 
 ### Event rendering in selection mode
 - All events show a checkbox overlay (top-left corner)
 - Events WITH `linkedSessionId`: checkable, normal opacity
-- Events WITHOUT `linkedSessionId`: checkable, warning badge `⚠ Nessuna registrazione` — still selectable but action bar shows warning count
+- Events WITHOUT `linkedSessionId`: checkable, warning badge `⚠ No recording` — still selectable but action bar shows warning count
 
 ### Bottom action bar (fixed, glass-morphism)
 Appears when ≥1 event selected, overlays calendar bottom:
 ```
-[🔗 3 sessioni selezionate (1 senza registrazione)]  [Annulla]  [Correla alla sessione corrente ▶]
+[🔗 3 sessions selected (1 without recording)]  [Cancel]  [Correlate with current session ▶]
 ```
 
 On confirm:
@@ -104,7 +104,7 @@ These synthetic notes are merged with real `bubbleNotes[]` → sorted by `timest
 **Card style:**
 - Border: `amber-500` / sepia tone to visually distinguish from present-day notes
 - Background: `amber-50` (light) / `amber-950` (dark mode)
-- Label chip: `📅 Evento Storico`
+- Label chip: `📅 Historical Event`
 - Content: session title, date (absolute), duration, 2-line preview of LLM analysis
 - Read-only — no edit button, no timestamp edit
 - **X button**: removes from `correlatedSessionIds` and removes synthetic note
@@ -126,8 +126,8 @@ These synthetic notes are merged with real `bubbleNotes[]` → sorted by `timest
 export function buildCorrelatedSessionsContext(sessions: SavedSessionData[]): string {
   if (!sessions.length) return '';
   
-  const header = `\n\n---\n[CONTESTO STORICO - SESSIONI CORRELATE]\n` +
-    `Le sessioni seguenti sono PASSATE. Usale per contestualizzare, NON confonderle con la sessione attuale.\n\n`;
+  const header = `\n\n---\n[HISTORICAL CONTEXT - CORRELATED SESSIONS]\n` +
+    `The following sessions are PAST events. Use them for context ONLY. Do NOT confuse them with the current session.\n\n`;
   
   const blocks = sessions.map((s, i) => {
     const date = s.audioRecordingStartTime?.toLocaleString('it-IT') ?? 'data sconosciuta';
@@ -148,7 +148,7 @@ export function buildCorrelatedSessionsContext(sessions: SavedSessionData[]): st
 
 In the session header area (near AI Analysis / Chat controls), add a small switch:
 ```
-[🕰 Usa contesto storico]  ●○
+[🕰 Use historical context]  ●○
 ```
 
 State stored in `SavedSessionData.useHistoricalContext` (default: `true`).  
