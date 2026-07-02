@@ -6,6 +6,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+- Session correlation: multi-select eventi nel calendario per correlare sessioni passate a quella corrente
+- Historical Event bubbles: sessioni correlate appaiono come note amber con icona libro+orologio nella timeline BubbleNotes, ordinate cronologicamente
+- `buildCorrelatedSessionsContext`: inietta blocco `[HISTORICAL CONTEXT]` nel system prompt di Chat e AI Analysis, separato dalla sessione corrente
+- Toggle "Use historical context": attiva/disattiva l'invio del contesto storico all'AI; visibile solo quando ci sono sessioni correlate
+- `correlatedSessionIds`, `useHistoricalContext` aggiunti a `SavedSessionData`; tipo `'historical-event'` e `historicalSessionId` aggiunti a `BubbleNote`
+- `bubbleNotesToText` spostato da `MeetingChatPanel` a `utils/textUtils` come export condiviso
+- Fix: `onBubbleNotesChange` in `BubbleNotes` filtra le note `historical-event` prima di aggiornare lo stato reale
+- `handleCorrelateEvents`: merge delle sessioni correlate (non sostituzione) per preservare correlazioni precedenti
+
 ---
 
 ## [1.140] — 2026-07-01
