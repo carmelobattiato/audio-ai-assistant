@@ -73,7 +73,7 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
 
   // Early return for historical-event notes
   if (note.type === 'historical-event') {
-    const sessionId = note.historicalSessionId ?? note.id.replace(/^hist_/, '');
+    const sessionId = note.historicalSessionId ?? note.id;
     const textPreview = stripHtml(note.contentHtml).slice(0, 100);
     return (
       <div
@@ -140,7 +140,9 @@ export const NoteTimelineItem: React.FC<NoteTimelineItemProps> = ({
 
             {/* Title */}
             <p style={{ fontSize: 12, fontWeight: 600, color: '#FDE68A', marginBottom: 4, lineHeight: 1.3 }}>
-              {note.historicalSessionId ?? 'Historical Session'}
+              {note.contentHtml
+                ? (note.contentHtml.replace(/<[^>]+>/g, '').split('·')[0] ?? '').trim() || 'Historical Session'
+                : 'Historical Session'}
             </p>
 
             {/* Date */}

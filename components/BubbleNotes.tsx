@@ -129,12 +129,12 @@ const BubbleNotesBase: React.FC<BubbleNotesProps> = (props) => {
 
   // --- Note management ---
   const handleDeleteNote = useCallback((noteId: string) => {
-    props.onBubbleNotesChange(props.bubbleNotes.filter(n => n.id !== noteId));
+    props.onBubbleNotesChange(props.bubbleNotes.filter(n => n.id !== noteId && n.type !== 'historical-event'));
   }, [props.bubbleNotes, props.onBubbleNotesChange]);
 
   const handleDeleteSelected = useCallback(() => {
     loggingService.info('BUBBLE_NOTES_DELETE', `Deleting ${selectedNoteIds.size} notes`, { ids: Array.from(selectedNoteIds) });
-    props.onBubbleNotesChange(props.bubbleNotes.filter(n => !selectedNoteIds.has(n.id)));
+    props.onBubbleNotesChange(props.bubbleNotes.filter(n => !selectedNoteIds.has(n.id) && n.type !== 'historical-event'));
     setSelectedNoteIds(new Set());
     setIsSelectMode(false);
     setShowConfirmDelete(false);

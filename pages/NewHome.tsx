@@ -439,15 +439,17 @@ export const NewHome: React.FC = () => {
 
   const handleCorrelateEvents = useCallback(async (sessionIds: string[]) => {
     if (!activeSessionIdRef.current) return;
-    await db.updateSessionIncremental(activeSessionIdRef.current, { correlatedSessionIds: sessionIds });
-    const loaded = await Promise.all(sessionIds.map(id => db.getSessionById(id)));
+    const existing = correlatedSessions.map(s => s.id);
+    const merged = [...new Set([...existing, ...sessionIds])];
+    await db.updateSessionIncremental(activeSessionIdRef.current, { correlatedSessionIds: merged });
+    const loaded = await Promise.all(merged.map(id => db.getSessionById(id)));
     setCorrelatedSessions(
       loaded
         .filter((s): s is SavedSession => Boolean(s))
         .map(s => ({ id: s.id, data: s.data }))
     );
-    setAppUserMessage(`${sessionIds.length} session${sessionIds.length !== 1 ? 's' : ''} correlated.`);
-  }, []);
+    setAppUserMessage(`${merged.length} session${merged.length !== 1 ? 's' : ''} correlated.`);
+  }, [correlatedSessions]);
 
   const handleToggleHistoricalContext = useCallback(async (enabled: boolean) => {
     setUseHistoricalContext(enabled);
