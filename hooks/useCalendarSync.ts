@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../utils/db';
-import { useCalBridgeV2, type OutlookState } from './useCalBridgeV2';
 import { loggingService } from '../services/loggingService';
+
+export type OutlookState = 'ok' | 'error' | 'fetching' | 'idle' | 'unknown';
 import type { OutlookAppointment } from '../components/OutlookCalendarModal';
 import type { CalendarEventRecord } from '../types';
 import { CAL_SYNC_PAST_HOURS, CAL_SYNC_FUTURE_DAYS, CAL_AUDIO_RETENTION_DAYS } from '../constants/appConfig';
@@ -34,33 +35,20 @@ export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): C
   const [calBridgeAvailable, setCalBridgeAvailable] = useState<boolean | null>(null);
   const [calError, setCalError] = useState<string | null>(null);
   const [calRefreshing, setCalRefreshing] = useState(false);
-  // Initialise directly from localStorage so the first render already shows correct state.
-  // The calV2 effect keeps these up to date as the extension pushes new data.
-  const [calExtensionConnected, setCalExtensionConnected] = useState<boolean>(() => {
-    const raw = localStorage.getItem('cal-bridge-v2-ext-ts') ?? localStorage.getItem('cal-bridge-v2-ts');
-    const ts = raw ? parseInt(raw, 10) : 0;
-    return !!(ts && Date.now() - ts < 5 * 60_000);
-  });
-  const [calOutlookState, setCalOutlookState] = useState<OutlookState>(() => {
-    return (localStorage.getItem('cal-bridge-v2-outlook-state') as OutlookState | null) ?? 'unknown';
-  });
-  const [lastSyncAt, setLastSyncAt] = useState<number | null>(() => {
-    const ts = localStorage.getItem('cal-bridge-v2-ts');
-    return ts ? parseInt(ts, 10) : null;
-  });
+  const [calExtensionConnected, setCalExtensionConnected] = useState<boolean>(false);
+  const [calOutlookState] = useState<OutlookState>('unknown');
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   // Ref so fetchCalendarData (stable callback) can read latest value without stale closure
   const calExtConnectedRef = useRef<boolean>(false);
   // Resolves when extension confirms sync with actual appointment data
   const pendingSyncRef = useRef<{ resolve: () => void; reject: (err: string) => void } | null>(null);
-  const calV2LastTsRef = useRef<number | null>(null);
+  const lastBcSyncTsRef = useRef<number | null>(null);
   const [calSource, setCalSource] = useState<string>(() => localStorage.getItem('calendar:source') || 'windows');
   const [calendarEventsDb, setCalendarEventsDb] = useState<CalendarEventRecord[]>([]);
 
   const calBcRef = useRef<BroadcastChannel | null>(null);
   const calInFlightRef = useRef(false);
   const calLastDetailHashRef = useRef<string>('');
-
-  const calV2 = useCalBridgeV2();
 
   // BroadcastChannel — receives appointment lists from other tabs
   useEffect(() => {
@@ -75,6 +63,7 @@ export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): C
         setCalError(null);
         const ts = Date.now();
         setLastSyncAt(ts);
+        lastBcSyncTsRef.current = ts;
         // Resolve pending sync promise if waiting
         if (pendingSyncRef.current) {
           pendingSyncRef.current.resolve();
@@ -82,8 +71,6 @@ export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): C
         }
       }
       if (msg.type === 'extension-heartbeat') {
-        // Legacy: some older builds send this via BroadcastChannel; honour it but
-        // don't rely on it — calExtensionConnected is driven by useCalBridgeV2.
         setCalExtensionConnected(true);
         calExtConnectedRef.current = true;
       }
@@ -92,7 +79,6 @@ export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): C
   }, []);
 
   // Poll calendar source changes (every 5s)
-  // NOTE: calExtensionConnected is driven exclusively by useCalBridgeV2 (localStorage cal-bridge-v2-ts)
   useEffect(() => {
     const check = () => setCalSource(localStorage.getItem('calendar:source') || 'windows');
     check();
@@ -131,11 +117,9 @@ export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): C
         localStorage.removeItem(CAL_LOCK_KEY);
         return;
       }
-      // If calV2 data is already fresh (< 2 min), resolve immediately — no need to wait.
-      // Extension writes to localStorage (not BroadcastChannel), so request-sync would
-      // time out if the extension has no new data to push.
-      const v2Age = calV2LastTsRef.current ? Date.now() - calV2LastTsRef.current : Infinity;
-      if (v2Age < 2 * 60_000) {
+      // If extension already sent fresh data via BroadcastChannel (< 2 min), resolve immediately.
+      const bcAge = lastBcSyncTsRef.current ? Date.now() - lastBcSyncTsRef.current : Infinity;
+      if (bcAge < 2 * 60_000) {
         setCalBridgeAvailable(true);
         setCalError(null);
         setCalRefreshing(false);
@@ -296,42 +280,6 @@ export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): C
     db.deleteStaleCalendarEvents().catch(console.error);
     db.deleteAudioOlderThan(CAL_AUDIO_RETENTION_DAYS).catch(console.error);
   }, [isNewCalendarOpen, calAppointments]);
-
-  // Calendar Bridge v2 — sync localStorage→DB; track extension+outlook state
-  useEffect(() => {
-    setCalExtensionConnected(calV2.extensionOnline);
-    calExtConnectedRef.current = calV2.extensionOnline;
-    setCalOutlookState(calV2.outlookState);
-    if (!calV2.extensionOnline) return;
-    if (calV2.events.length === 0) return;
-    if (calV2.lastSyncTs) { setLastSyncAt(calV2.lastSyncTs); calV2LastTsRef.current = calV2.lastSyncTs; }
-    db.upsertCalendarEvents(calV2.events).catch(console.error);
-    // Populate calAppointments so useMeetingNotifications fires for extension events
-    const asAppointments: OutlookAppointment[] = calV2.events.map(ev => ({
-      id: ev.id,
-      subject: ev.subject,
-      start: ev.start,
-      end: ev.end,
-      location: ev.location ?? '',
-      body: ev.body ?? '',
-      attendees: ev.attendees ?? [],
-      organizer: ev.organizer ?? '',
-      onlineMeetingUrl: ev.onlineMeetingUrl,
-      responseStatus: ev.responseStatus,
-    }));
-    setCalAppointments(asAppointments);
-    setCalError(null);
-    // Resolve any fetchCalendarData() waiting on request-sync:
-    // extension writes to localStorage (not BroadcastChannel), so pendingSyncRef
-    // must be resolved here when fresh events arrive.
-    if (pendingSyncRef.current) {
-      pendingSyncRef.current.resolve();
-      pendingSyncRef.current = null;
-    }
-    if (isNewCalendarOpen) {
-      db.getAllCalendarEvents().then(setCalendarEventsDb).catch(console.error);
-    }
-  }, [calV2.extensionOnline, calV2.outlookState, calV2.events, isNewCalendarOpen]);
 
   // Fetch once silently on mount
   useEffect(() => { fetchCalendarData(); }, [fetchCalendarData]);
