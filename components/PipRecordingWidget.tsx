@@ -225,6 +225,7 @@ const NoteInput: React.FC<{ onSubmit: (html: string) => void }> = ({ onSubmit })
             fontSize: 11, lineHeight: 1.45,
             padding: '6px 4px 6px 8px',
             fontFamily: 'system-ui, sans-serif',
+            userSelect: 'text',
           }}
         />
         <button

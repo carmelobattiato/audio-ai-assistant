@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.143] — 2026-07-03
+
+- Fix spazio nel Note Editor: `NoteEditor` chiamava `setContent` ad ogni tasto perdendo gli spazi; sync contenuto esterno spostato in `useNoteEditor` dove `lastOwnHtmlRef` è corretto
+
+---
+
 ## [1.142] — 2026-07-03
 
 - Rimozione artefatti dev da git: `.playwright-mcp/`, `docs/superpowers/`, `docs/DB_SCHEMA.md`, `test-outlook-api/`; aggiunti a `.gitignore`

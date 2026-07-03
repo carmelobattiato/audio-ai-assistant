@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -82,6 +82,16 @@ export const useNoteEditor = (
       editor.setEditable(isEditorEditable);
     }
   }, [editor, isEditorEditable]);
+
+  // Sync external pendingNoteHtml into editor (screenshots, file uploads, session load).
+  // Uses lastOwnHtmlRef to distinguish external changes from the user's own typing.
+  useLayoutEffect(() => {
+    if (!editor) return;
+    if (_pendingNoteHtml !== lastOwnHtmlRef.current) {
+      lastOwnHtmlRef.current = _pendingNoteHtml;
+      editor.commands.setContent(_pendingNoteHtml, { emitUpdate: false });
+    }
+  }, [_pendingNoteHtml, editor]);
 
   const activeFormats: Record<string, boolean> = editor
     ? {

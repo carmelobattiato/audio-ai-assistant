@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { EditorContent, Editor } from '@tiptap/react';
 import { NoteFloatingToolbar } from './NoteFloatingToolbar';
 import { NoteStaticToolbar } from './NoteStaticToolbar';
@@ -25,27 +25,11 @@ interface NoteEditorProps {
 
 export const NoteEditor: React.FC<NoteEditorProps> = ({
   editor,
-  pendingNoteHtml,
+  pendingNoteHtml: _pendingNoteHtml,
   ...toolbarProps
 }) => {
-  // Sync external pendingNoteHtml changes (e.g., screenshots from useScreenshotHandler)
-  // into the Tiptap editor. We track what we last set ourselves to avoid feedback loops.
-  const lastOwnHtmlRef = useRef(pendingNoteHtml);
-
-  useEffect(() => {
-    if (!editor) return;
-    // If the external HTML differs from what we last emitted, it's an external change (screenshot).
-    if (pendingNoteHtml !== lastOwnHtmlRef.current) {
-      lastOwnHtmlRef.current = pendingNoteHtml;
-      editor.commands.setContent(pendingNoteHtml, { emitUpdate: false }); // don't emit onUpdate
-    }
-  }, [pendingNoteHtml, editor]);
-
-  // When the editor updates from our own typing, record what we emitted.
-  // This is wired via onUpdate in useNoteEditor (Task 8).
-  // We expose a setter so useNoteEditor can keep lastOwnHtmlRef in sync.
-  // Simpler: NoteEditor just watches pendingNoteHtml and the editor's own HTML.
-
+  // External content sync (screenshots, file uploads) is handled in useNoteEditor
+  // via its own lastOwnHtmlRef. Do NOT sync here to avoid overwriting typed spaces.
   return (
     <div className="flex flex-col border-t border-white/8">
       <NoteFloatingToolbar editor={editor} />
