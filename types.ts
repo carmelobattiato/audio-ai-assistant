@@ -175,6 +175,8 @@ export interface TranscriptionSettings {
   chunkRecordingIntervalSeconds?: number;
   enableRealtimeTranscription?: boolean;
   enableAutoPipeline?: boolean;
+  enableAutoAIAnalysis?: boolean;
+  enableAutoDownload?: boolean;
   liveModel?: string;
   autoTranscribeChunks?: boolean;
 }

@@ -13,12 +13,28 @@ interface TranscriptionTabProps {
 export const TranscriptionTab: React.FC<TranscriptionTabProps> = ({ settings, onChange }) => (
   <div className="space-y-4">
     <div className="p-3 bg-blue-900 bg-opacity-20 rounded-lg border border-blue-800 space-y-3">
-      <Checkbox 
-        label="Enable One-Click Auto Pipeline" 
-        checked={settings.enableAutoPipeline ?? true} 
-        onChange={(e) => onChange('enableAutoPipeline', e.target.checked)} 
+      <Checkbox
+        label="Enable One-Click Auto Pipeline"
+        checked={settings.enableAutoPipeline ?? true}
+        onChange={(e) => onChange('enableAutoPipeline', e.target.checked)}
       />
-      <p className="text-[10px] text-blue-300 pl-6">When enabled, stopping a recording automatically triggers Transcription followed by AI Analysis (Write Minutes).</p>
+      <p className="text-[10px] text-blue-300 pl-6">When enabled, stopping a recording automatically triggers the steps selected below.</p>
+
+      {(settings.enableAutoPipeline ?? true) && (
+        <div className="ml-6 mt-1 space-y-2 border-l border-blue-700 pl-3">
+          <p className="text-[10px] text-blue-400 font-medium uppercase tracking-wide">Smart Pipeline Steps</p>
+          <div className="flex items-center gap-2 opacity-50 cursor-not-allowed">
+            <input type="checkbox" checked readOnly className="accent-blue-400" />
+            <span className="text-xs text-blue-300">Transcription</span>
+            <span className="text-[10px] text-blue-500">(sempre attiva)</span>
+          </div>
+          <Checkbox
+            label="AI Analysis (Write Minutes)"
+            checked={settings.enableAutoAIAnalysis ?? false}
+            onChange={(e) => onChange('enableAutoAIAnalysis', e.target.checked)}
+          />
+        </div>
+      )}
     </div>
 
     <div className="grid grid-cols-2 gap-4">

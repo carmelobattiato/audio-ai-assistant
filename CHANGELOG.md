@@ -9,6 +9,9 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 - Chatbot archivio: nuovo tool `search_calendar` — cerca nel calendario Outlook per testo/data anche senza sessioni collegate
 - Chatbot archivio: il LLM prova `search_calendar` se la ricerca sessioni non trova risultati
 - `MAX_SESSIONS`: aumentato da 15 a 50; audio conservato solo per sessioni degli ultimi 10 giorni (logica già attiva tramite `deleteAudioOlderThan`)
+- Settings → Transcription & Notes: nuova sezione "Smart Pipeline" con checkbox per Transcription (sempre attiva), AI Analysis, Download session ZIP — default off per AI Analysis e Download
+- `TranscriptionSettings`: nuovi campi `enableAutoAIAnalysis` e `enableAutoDownload`
+- `usePipelineEffects`: gate ANALYZING e DOWNLOADING sui rispettivi flag; se disabilitati, pipeline salta a COMPLETED
 
 - Calendar Bridge popup: rinomina "App AI" → "App Audio AI"; label Outlook sempre fissa (non più "Outlook Live"/"Outlook Cloud")
 - Calendar Bridge popup: bottone refresh `↻` accanto a Outlook e App Audio AI nella sezione Connessione

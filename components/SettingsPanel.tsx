@@ -1090,6 +1090,32 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                 checked={localSettings.transcription.enableAutoSave ?? true}
                 onChange={(e) => handleLocalGenericChange('transcription', 'enableAutoSave', e.target.checked)}
               />
+
+              {/* Smart Pipeline */}
+              <div className="rounded-lg border border-blue-800 bg-blue-900 bg-opacity-20 p-3 space-y-2 mt-2">
+                <p className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Smart Pipeline</p>
+                <p className="text-[10px] text-blue-400">Choose what to run automatically when the recording stops.</p>
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-2 opacity-50 cursor-not-allowed select-none">
+                    <input type="checkbox" checked readOnly className="accent-blue-400 pointer-events-none" />
+                    <span className="text-xs text-blue-300">Transcription</span>
+                    <span className="text-[10px] text-blue-500">(always on)</span>
+                  </div>
+                  <Checkbox
+                    label="AI Analysis (Write Minutes)"
+                    id="pipelineEnableAutoAIAnalysis"
+                    checked={localSettings.transcription.enableAutoAIAnalysis ?? false}
+                    onChange={(e) => handleLocalGenericChange('transcription', 'enableAutoAIAnalysis', e.target.checked)}
+                  />
+                  <Checkbox
+                    label="Download session ZIP"
+                    id="pipelineEnableAutoDownload"
+                    checked={localSettings.transcription.enableAutoDownload ?? false}
+                    onChange={(e) => handleLocalGenericChange('transcription', 'enableAutoDownload', e.target.checked)}
+                  />
+                </div>
+              </div>
+
             </div>
           </section>
         )}

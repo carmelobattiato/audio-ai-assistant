@@ -135,11 +135,16 @@ export function usePipelineEffects(
             .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Failed (transcription)', { err: String(err) }));
           setAppUserMessage(`Pipeline failed: ${transLogic.transcriptionError}`);
         } else if (transcribedText && transcribedText.trim().length > 0) {
-          loggingService.info('PIPELINE', 'Transcription OK → starting ANALYZING');
-          setLlmProcessedText('');
-          setPipelineStep(PipelineStep.ANALYZING);
-          setLlmAutoTrigger(prev => prev + 1);
-          setActiveRightTab('analysis');
+          if (appSettings.transcription.enableAutoAIAnalysis ?? false) {
+            loggingService.info('PIPELINE', 'Transcription OK → starting ANALYZING');
+            setLlmProcessedText('');
+            setPipelineStep(PipelineStep.ANALYZING);
+            setLlmAutoTrigger(prev => prev + 1);
+            setActiveRightTab('analysis');
+          } else {
+            loggingService.info('PIPELINE', 'Transcription OK → AI Analysis disabled → COMPLETED');
+            setPipelineStep(PipelineStep.COMPLETED);
+          }
         } else {
           loggingService.warn('PIPELINE', 'Transcription done but no text found → IDLE');
           setPipelineStep(PipelineStep.IDLE);
@@ -161,9 +166,14 @@ export function usePipelineEffects(
           .catch(err => loggingService.error('DB_UPDATE', 'Failed to set session status Failed (analysis)', { err: String(err) }));
         setAppUserMessage('Pipeline failed at AI Analysis step.');
       } else {
-        loggingService.info('PIPELINE', 'LLM analysis OK → DOWNLOADING');
-        setPipelineStep(PipelineStep.DOWNLOADING);
-        setAppUserMessage('AI Analysis completed. Preparing session download...');
+        if (appSettings.transcription.enableAutoDownload ?? false) {
+          loggingService.info('PIPELINE', 'LLM analysis OK → DOWNLOADING');
+          setPipelineStep(PipelineStep.DOWNLOADING);
+          setAppUserMessage('AI Analysis completed. Preparing session download...');
+        } else {
+          loggingService.info('PIPELINE', 'LLM analysis OK → Download disabled → COMPLETED');
+          setPipelineStep(PipelineStep.COMPLETED);
+        }
       }
     }
   }, [llmProcessedText, pipelineStep]); // eslint-disable-line react-hooks/exhaustive-deps
