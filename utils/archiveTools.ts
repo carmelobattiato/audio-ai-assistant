@@ -1,7 +1,7 @@
 import type { FunctionDeclaration } from '@google/genai';
 import { Type } from '@google/genai';
 import { htmlToPlainText } from '@/utils/textUtils';
-import type { SavedSession } from '@/types';
+import type { SavedSession, CalendarEventRecord } from '@/types';
 import type { ArchiveStats, SessionMeta } from '@/hooks/useArchiveIndex';
 
 // ── Tool declarations ────────────────────────────────────────────────────────
@@ -13,7 +13,7 @@ export const ARCHIVE_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        limit: { type: Type.NUMBER, description: 'Numero massimo di sessioni da ritornare (default 15, max 15)' },
+        limit: { type: Type.NUMBER, description: 'Numero massimo di sessioni da ritornare (default 15, max 50)' },
       },
     },
   },
@@ -63,6 +63,19 @@ export const ARCHIVE_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       properties: {},
     },
   },
+  {
+    name: 'search_calendar',
+    description: 'Cerca negli eventi del calendario Outlook per data, oggetto/titolo o contenuto. Usa questo tool anche quando non ci sono sessioni registrate, per trovare informazioni su meeting, appuntamenti e riunioni.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: 'Testo da cercare nel titolo, descrizione o organizzatore dell\'evento' },
+        date_from: { type: Type.STRING, description: 'Data inizio ricerca (YYYY-MM-DD, ISO 8601), opzionale' },
+        date_to: { type: Type.STRING, description: 'Data fine ricerca (YYYY-MM-DD, ISO 8601), opzionale' },
+        limit: { type: Type.NUMBER, description: 'Numero massimo di risultati (default 10)' },
+      },
+    },
+  },
 ];
 
 // ── Tool result types ────────────────────────────────────────────────────────
@@ -88,6 +101,7 @@ export function executeArchiveTool(
   sessions: SavedSession[],
   stats: ArchiveStats,
   metaIndex: SessionMeta[],
+  calendarEvents: CalendarEventRecord[] = [],
 ): unknown {
   switch (name) {
     case 'list_sessions':
@@ -104,6 +118,9 @@ export function executeArchiveTool(
 
     case 'get_session_stats':
       return toolGetStats(stats, sessions);
+
+    case 'search_calendar':
+      return toolSearchCalendar(calendarEvents, args);
 
     default:
       return { error: `Tool sconosciuto: ${name}` };
@@ -128,7 +145,7 @@ function toSessionSummary(s: SavedSession, meta: SessionMeta, matchSnippet?: str
 }
 
 function toolListSessions(sessions: SavedSession[], metaIndex: SessionMeta[], limit: number): SessionSummary[] {
-  return sessions.slice(0, Math.min(limit, 15)).map(s => {
+  return sessions.slice(0, Math.min(limit, 50)).map(s => {
     const meta = metaIndex.find(m => m.id === s.id) ?? fallbackMeta(s);
     return toSessionSummary(s, meta);
   });
@@ -233,5 +250,41 @@ function fallbackMeta(s: SavedSession): SessionMeta {
     hasTranscript: !!(s.data.transcribedText?.trim()),
     hasAnalysis: !!(s.data.llmProcessedText?.trim()),
     linkedCalendarEventSubject: s.data.linkedCalendarEventSubject,
+  };
+}
+
+function toolSearchCalendar(events: CalendarEventRecord[], args: Record<string, unknown>) {
+  const query = String(args.query ?? '').toLowerCase().trim();
+  const limit = (args.limit as number | undefined) ?? 10;
+  const fromTs = args.date_from ? new Date(String(args.date_from)).getTime() : null;
+  const toTs = args.date_to ? new Date(String(args.date_to) + 'T23:59:59').getTime() : null;
+
+  let results = events;
+
+  if (fromTs !== null) results = results.filter(e => new Date(e.start).getTime() >= fromTs);
+  if (toTs !== null) results = results.filter(e => new Date(e.start).getTime() <= toTs);
+  if (query) {
+    results = results.filter(e => {
+      const haystack = [e.subject, e.organizer, e.location, e.body].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }
+
+  results = results.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()).slice(0, limit);
+
+  if (results.length === 0) return { found: 0, events: [], message: 'Nessun evento trovato nel calendario.' };
+
+  return {
+    found: results.length,
+    events: results.map(e => ({
+      id: e.id,
+      subject: e.subject,
+      start: e.start,
+      end: e.end,
+      organizer: e.organizer,
+      location: e.location,
+      body: e.body ? e.body.slice(0, 500) : undefined,
+      linkedSessionId: e.linkedSessionId,
+    })),
   };
 }

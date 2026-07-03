@@ -47,7 +47,7 @@ const TIPS: Tip[] = [
   {
     icon: '💾',
     title: 'Sessions: Save & Restore',
-    body: 'Up to 15 sessions are stored in your browser. Open the Sessions panel to restore a previous recording — audio, transcript, notes and AI analysis all come back exactly as you left them.',
+    body: 'Up to 50 sessions are stored in your browser. Open the Sessions panel to restore a previous recording — audio, transcript, notes and AI analysis all come back exactly as you left them.',
     tag: 'Storage',
   },
   {

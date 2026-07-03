@@ -38,7 +38,8 @@ const ARCHIVE_SYSTEM_PROMPT = (sessionCount: number): string => {
     `Data di oggi: ${today} (${todayFull}).`,
     `Regole:`,
     `- Usa i tool per rispondere. Una sola chiamata tool alla volta.`,
-    `- Se search_sessions o filter_sessions restituisce 0 risultati, rispondi subito: "Nessuna sessione trovata per [termine]." Non provare altri tool.`,
+    `- Hai accesso anche al calendario Outlook tramite search_calendar: usalo per trovare meeting, appuntamenti e riunioni anche quando non ci sono sessioni registrate.`,
+    `- Se search_sessions o filter_sessions restituisce 0 risultati, prova search_calendar prima di rispondere "Nessuna sessione trovata".`,
     `- Se non conosci l'ID di una sessione specifica, chiama prima list_sessions.`,
     `- Rispondi in italiano. Usa markdown. Sii conciso.`,
   ].join('\n');
@@ -66,6 +67,7 @@ export async function runArchiveQuery(
 ): Promise<ArchiveQueryResult> {
   // Always load fresh from IDB — captures sessions recorded after component mount
   const sessions: SavedSession[] = await db.getAllSessions();
+  const calendarEvents = await db.getAllCalendarEvents();
   const stats = buildStats(sessions);
   const metaIndex: SessionMeta[] = buildMetaIndex(sessions);
 
@@ -128,7 +130,7 @@ export async function runArchiveQuery(
     const toolResponseParts: Content['parts'] = [];
 
     for (const fc of result.functionCalls) {
-      let toolResult = executeArchiveTool(fc.name, fc.args, sessions, stats, metaIndex);
+      let toolResult = executeArchiveTool(fc.name, fc.args, sessions, stats, metaIndex, calendarEvents);
 
       // Human-in-loop: if search_sessions returns many candidates, ask user to select
       if (fc.name === 'search_sessions' && Array.isArray(toolResult) && toolResult.length > CANDIDATES_THRESHOLD) {

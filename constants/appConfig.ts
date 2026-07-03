@@ -68,7 +68,7 @@ export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl
   },
 };
 
-export const MAX_SESSIONS = 15;
+export const MAX_SESSIONS = 50;
 export const MAX_SESSION_SIZE_MB = 50;
 export const DEBOUNCE_DELAY = 300;
 export const MAX_FILE_SIZE_MB = 100;

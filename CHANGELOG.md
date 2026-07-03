@@ -6,6 +6,10 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+- Chatbot archivio: nuovo tool `search_calendar` — cerca nel calendario Outlook per testo/data anche senza sessioni collegate
+- Chatbot archivio: il LLM prova `search_calendar` se la ricerca sessioni non trova risultati
+- `MAX_SESSIONS`: aumentato da 15 a 50; audio conservato solo per sessioni degli ultimi 10 giorni (logica già attiva tramite `deleteAudioOlderThan`)
+
 - Calendar Bridge popup: rinomina "App AI" → "App Audio AI"; label Outlook sempre fissa (non più "Outlook Live"/"Outlook Cloud")
 - Calendar Bridge popup: bottone refresh `↻` accanto a Outlook e App Audio AI nella sezione Connessione
 - Calendar Bridge background: log tentativi connessione (`OUTLOOK_SEARCH`, `OUTLOOK_FOUND`, `OUTLOOK_NOT_FOUND`, `APP_SEARCH`, `APP_FOUND`, `APP_NOT_FOUND`, `PING_APP`)
