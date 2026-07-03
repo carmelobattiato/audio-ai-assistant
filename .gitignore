@@ -60,3 +60,9 @@ desktop.ini
 metadata.json
 SPRINT_PLAN.html
 .claude/
+
+# ── Dev artefacts (debug sessions, planning docs, test scripts) ─
+.playwright-mcp/
+docs/superpowers/
+docs/DB_SCHEMA.md
+test-outlook-api/

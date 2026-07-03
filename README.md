@@ -375,27 +375,25 @@ sequenceDiagram
     Note over App: Source 2 — ICS Feed (cross-platform)
     App->>App: fetch ICS URL → parse RFC5545 → filter today
 
-    Note over App: Source 3 — Browser Extension v2.11
+    Note over App: Source 3 — Browser Extension v3
     App->>Extension: BroadcastChannel listen
-    Extension->>OutlookLive: POST GetCalendarView (x-owa-canary + MSAuth1.0)
-    OutlookLive-->>App: Body.Items[] today
+    Extension->>OutlookLive: REST API Bearer JWT
+    OutlookLive-->>App: CalendarView events
 ```
 
 | Source | Platform | Latency | Data richness |
 |--------|----------|---------|---------------|
 | **Windows COM** | Windows only | Real-time | ★★★ Attendees, Teams URL, body |
 | **ICS Feed** | Cross-platform | 1–3 h | ★★ Title, time, location |
-| **Extension v2.11** | Chrome / Edge | ~30 s | ★★★ Full calendar data |
+| **Extension v3** | Chrome / Edge | ~30 s | ★★★ Full calendar data |
 
 <details>
-<summary>🔧 Extension Setup (v2.11)</summary>
+<summary>🔧 Extension Setup (v3)</summary>
 
-1. Settings → Integrations → Browser Extension → download `calendar-bridge-v2.zip`
+1. Settings → Integrations → Browser Extension → download `calendar-bridge-v3.zip`
 2. Extract → `chrome://extensions` → Developer mode → **Load unpacked**
-3. Open `outlook.live.com/calendar`
-4. Wait ~30 s → badge **"Outlook Live ● Connessa"** appears
-
-The extension makes a direct `GetCalendarView` POST with `x-owa-canary` CSRF token — no passive interception, works on consumer Outlook Live.
+3. Open `outlook.live.com/calendar` or `outlook.cloud.microsoft`
+4. Wait ~30 s → badge **"Outlook ● Connessa"** appears
 
 </details>
 

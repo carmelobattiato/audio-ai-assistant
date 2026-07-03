@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.142] — 2026-07-03
+
+- Rimozione artefatti dev da git: `.playwright-mcp/`, `docs/superpowers/`, `docs/DB_SCHEMA.md`, `test-outlook-api/`; aggiunti a `.gitignore`
+- Rimossi `useCalBridgeV2.ts`, `LiteHome.tsx`, `calendar-bridge-v2.zip`, `build-extension-v2.sh`: extension v2 non più supportata
+- `useCalendarSync`: rimosso bridge localStorage v2; `OutlookState` inline; sync BroadcastChannel v3 invariato
+- Fix caricamento sessione: chunk già trascritti mostrano badge corretto (N/N), filename verde barrato e bottone T verde
+
+---
+
 ## [1.141] — 2026-07-02
 
 - Fix caricamento sessione: chunk già trascritti mostrano badge corretto (N/N), filename verde barrato e bottone T verde
