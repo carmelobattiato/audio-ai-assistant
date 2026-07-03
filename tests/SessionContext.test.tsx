@@ -73,9 +73,9 @@ describe('SessionContext', () => {
       });
 
       expect(result.current.llmUsageHistory).toHaveLength(1);
-      expect(result.current.llmUsageHistory[0].functionName).toBe('Test');
-      expect(result.current.llmUsageHistory[0].inputTokens).toBe(10);
-      expect(typeof result.current.llmUsageHistory[0].timestamp).toBe('number');
+      expect(result.current.llmUsageHistory[0]?.functionName).toBe('Test');
+      expect(result.current.llmUsageHistory[0]?.inputTokens).toBe(10);
+      expect(typeof result.current.llmUsageHistory[0]?.timestamp).toBe('number');
     });
 
     it('accumulates multiple stats', () => {
@@ -97,7 +97,7 @@ describe('SessionContext', () => {
       await act(async () => { await result.current.fetchSessions(); });
 
       expect(result.current.savedSessions).toHaveLength(1);
-      expect(result.current.savedSessions[0].id).toBe('s1');
+      expect(result.current.savedSessions[0]?.id).toBe('s1');
     });
   });
 

@@ -6,6 +6,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+- Settings → Aggiornamento App: 7 click sul label versione attiva modalità NIGHTLY (branch `test`); badge arancione `NIGHTLY · test` visibile quando attiva; un altro ciclo di 7 click la disattiva
+- Aggiornamento App: check versione e apply ora accettano branch configurabile (`&branch=` su GET, `{branch}` nel body POST) — in nightly mode punta al branch `test` invece di `main`
+- Fix TS: aggiunto tipo `TeamsMeetingState` in `types.ts` (usato da `useTeamsMeeting` ma non esportato)
+- Fix TS test: `migrateSettings.test.ts` — aggiornato mock `customPrompt` con campi `text`/`defaultText`; non-null assertion su `firstDefault`
+- Fix TS test: `SessionContext.test.tsx` — optional chaining su array access a indice fisso
+
 - Chatbot archivio: nuovo tool `search_calendar` — cerca nel calendario Outlook per testo/data anche senza sessioni collegate
 - Chatbot archivio: il LLM prova `search_calendar` se la ricerca sessioni non trova risultati
 - `MAX_SESSIONS`: aumentato da 15 a 50; audio conservato solo per sessioni degli ultimi 10 giorni (logica già attiva tramite `deleteAudioOlderThan`)

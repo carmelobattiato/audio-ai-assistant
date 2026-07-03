@@ -58,9 +58,9 @@ describe('migrateSettings', () => {
   });
 
   it('preserves existing prompts and appends new defaults not present', () => {
-    const customPrompt = { id: 'custom-1', name: 'Custom', description: '', category: 'analysis' as const, prompt: 'do thing' };
+    const customPrompt = { id: 'custom-1', name: 'Custom', description: '', category: 'analysis' as const, prompt: 'do thing', text: 'do thing', defaultText: 'do thing' };
     // Pick first default to "already have it", exclude the rest
-    const firstDefault = DEFAULT_SYSTEM_PROMPTS[0];
+    const firstDefault = DEFAULT_SYSTEM_PROMPTS[0]!;
     const result = migrateSettings({ systemPrompts: [customPrompt, firstDefault] });
     // custom prompt preserved
     expect(result.systemPrompts.find(p => p.id === 'custom-1')).toBeDefined();

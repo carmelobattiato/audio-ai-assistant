@@ -289,6 +289,18 @@ export interface SystemPrompt {
   defaultText: string;
 }
 
+export interface TeamsMeetingState {
+  participants: { name: string; email?: string }[];
+  chat: string | null;
+  callId: string | null;
+  meetingUrl: string | null;
+  isSharingScreen: boolean;
+  lastUpdated: number | null;
+  isLive: boolean;
+  variant: string | null;
+  upcomingMeetings: unknown[];
+}
+
 export interface AppSettings {
   appearance: AppearanceSettings;
   audio: AudioSettings;
