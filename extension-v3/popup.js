@@ -55,12 +55,6 @@ function isCloud(url) {
   return !url || url.indexOf('outlook.live.com') === -1;
 }
 
-function outlookHostLabel(url) {
-  if (!url || url.indexOf('outlook.cloud.microsoft') !== -1) return 'Outlook Cloud';
-  if (url.indexOf('outlook.live.com') !== -1) return 'Outlook Live';
-  return 'Outlook';
-}
-
 function setSelectedRadio(url) {
   var chosen = (url === ALT_OUTLOOK_URL) ? ALT_OUTLOOK_URL : DEFAULT_OUTLOOK_URL;
   document.querySelectorAll('input[name=outlookUrl]').forEach(function(inp) {
@@ -68,8 +62,6 @@ function setSelectedRadio(url) {
   });
   el('optCloud').classList.toggle('selected', chosen === DEFAULT_OUTLOOK_URL);
   el('optLive').classList.toggle('selected', chosen === ALT_OUTLOOK_URL);
-  // Aggiorna etichetta nella sezione connessione
-  el('outlookLabel').textContent = outlookHostLabel(chosen);
 }
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
@@ -276,6 +268,34 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  // Refresh Outlook
+  el('refreshOutlookBtn').addEventListener('click', function() {
+    var btn = el('refreshOutlookBtn');
+    btn.classList.add('spinning');
+    btn.disabled = true;
+    chrome.runtime.sendMessage({ type: 'V2_RELOAD_OUTLOOK' }, function() {
+      setTimeout(function() {
+        btn.classList.remove('spinning');
+        btn.disabled = false;
+        chrome.runtime.sendMessage({ type: 'V2_GET_STATUS' }, function(s) { if (s) render(s); });
+      }, 3000);
+    });
+  });
+
+  // Refresh App
+  el('refreshAppBtn').addEventListener('click', function() {
+    var btn = el('refreshAppBtn');
+    btn.classList.add('spinning');
+    btn.disabled = true;
+    chrome.runtime.sendMessage({ type: 'V2_PING_APP' }, function() {
+      setTimeout(function() {
+        btn.classList.remove('spinning');
+        btn.disabled = false;
+        chrome.runtime.sendMessage({ type: 'V2_GET_STATUS' }, function(s) { if (s) render(s); });
+      }, 1000);
+    });
+  });
+
   // Copia Log Debug
   el('debugBtn').addEventListener('click', function() {
     var s  = _lastStatus;
@@ -318,6 +338,17 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     var actLog = s.log || [];
+    var connEvents = ['OUTLOOK_SEARCH','OUTLOOK_FOUND','OUTLOOK_NOT_FOUND','APP_SEARCH','APP_FOUND','APP_NOT_FOUND','PING_APP','PUSH_OK','PUSH_FAIL'];
+    var connLog = actLog.filter(function(e) { return connEvents.indexOf(e.event) !== -1; });
+    lines.push('', '[TENTATIVI CONNESSIONE] ultimi ' + connLog.length + ' eventi');
+    if (connLog.length === 0) {
+      lines.push('  (nessuno)');
+    } else {
+      connLog.slice().reverse().forEach(function(entry, i) {
+        lines.push('  [' + (i+1) + '] ' + new Date(entry.ts).toISOString() + '  ' + entry.event + '  ' + entry.detail);
+      });
+    }
+
     lines.push('', '[ATTIVITA\' BACKGROUND] ultimi ' + actLog.length + ' eventi');
     if (actLog.length === 0) {
       lines.push('  (nessuna — extension appena installata/ricaricata)');

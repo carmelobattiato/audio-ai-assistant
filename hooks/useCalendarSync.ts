@@ -36,7 +36,7 @@ export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): C
   const [calError, setCalError] = useState<string | null>(null);
   const [calRefreshing, setCalRefreshing] = useState(false);
   const [calExtensionConnected, setCalExtensionConnected] = useState<boolean>(false);
-  const [calOutlookState] = useState<OutlookState>('unknown');
+  const [calOutlookState, setCalOutlookState] = useState<OutlookState>('unknown');
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   // Ref so fetchCalendarData (stable callback) can read latest value without stale closure
   const calExtConnectedRef = useRef<boolean>(false);
@@ -76,6 +76,50 @@ export function useCalendarSync({ isNewCalendarOpen }: UseCalendarSyncParams): C
       }
     };
     return () => { bc.close(); calBcRef.current = null; };
+  }, []);
+
+  // Extension localStorage bridge — reads cal-bridge-v2-* keys written by the Chrome extension
+  useEffect(() => {
+    const EXT_STALE_MS = 90_000;
+
+    function readExtState() {
+      const extTs = parseInt(localStorage.getItem('cal-bridge-v2-ext-ts') || '0', 10);
+      const fresh = extTs > 0 && (Date.now() - extTs) < EXT_STALE_MS;
+      setCalExtensionConnected(fresh);
+      calExtConnectedRef.current = fresh;
+      if (fresh) localStorage.setItem('calendar:extension-heartbeat', String(extTs));
+
+      const rawState = localStorage.getItem('cal-bridge-v2-outlook-state');
+      const stateMap: Record<string, OutlookState> = { ok: 'ok', error: 'error', fetching: 'fetching', idle: 'idle' };
+      setCalOutlookState(rawState && stateMap[rawState] ? stateMap[rawState] : 'unknown');
+    }
+
+    function onStorage(e: StorageEvent) {
+      if (e.key === 'cal-bridge-v2-ext-ts' || e.key === 'cal-bridge-v2-outlook-state') {
+        readExtState();
+      }
+      if (e.key === 'cal-bridge-v2' && e.newValue) {
+        try {
+          const events = JSON.parse(e.newValue);
+          if (Array.isArray(events) && events.length > 0) {
+            const mapped = events as import('../components/OutlookCalendarModal').OutlookAppointment[];
+            setCalAppointments(mapped);
+            setCalBridgeAvailable(true);
+            setCalError(null);
+            const ts = Date.now();
+            setLastSyncAt(ts);
+            lastBcSyncTsRef.current = ts;
+            calBcRef.current?.postMessage({ type: 'appointments', appointments: mapped });
+            if (pendingSyncRef.current) { pendingSyncRef.current.resolve(); pendingSyncRef.current = null; }
+          }
+        } catch { /* malformed JSON, ignore */ }
+      }
+    }
+
+    readExtState();
+    const poll = setInterval(readExtState, 15_000);
+    window.addEventListener('storage', onStorage);
+    return () => { clearInterval(poll); window.removeEventListener('storage', onStorage); };
   }, []);
 
   // Poll calendar source changes (every 5s)

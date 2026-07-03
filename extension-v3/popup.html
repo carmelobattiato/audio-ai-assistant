@@ -59,7 +59,7 @@
     .dot-error   { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.6); }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
 
-    .row-name { font-size: 11px; color: rgba(226,232,240,0.45); flex-shrink: 0; min-width: 80px; }
+    .row-name { font-size: 11px; color: rgba(226,232,240,0.45); flex-shrink: 0; min-width: 95px; }
     .row-val  { font-size: 11px; font-weight: 600; color: #f1f5f9; flex: 1; }
     .row-ts   { font-size: 10px; color: rgba(226,232,240,0.3); white-space: nowrap; }
     .btn-info {
@@ -71,6 +71,16 @@
     }
     .btn-info:hover { background: rgba(255,255,255,0.15); color: #e2e8f0; }
     .btn-info.active { background: rgba(14,165,233,0.3); color: #38bdf8; }
+    .btn-refresh {
+      width: 16px; height: 16px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,0.08); color: rgba(226,232,240,0.4);
+      font-size: 11px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s, transform .3s;
+    }
+    .btn-refresh:hover { background: rgba(255,255,255,0.15); color: #e2e8f0; }
+    .btn-refresh.spinning { animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .op-detail {
       display: none; margin: 4px 0 2px 15px; padding: 6px 8px; border-radius: 6px;
       background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
@@ -200,15 +210,17 @@
     <div class="sec-label">Connessione</div>
     <div class="row">
       <span id="dotOutlook" class="dot dot-off"></span>
-      <span class="row-name" id="outlookLabel">Outlook</span>
+      <span class="row-name">Outlook</span>
       <span id="statusOutlook" class="row-val">—</span>
       <span id="seenAgo" class="row-ts">—</span>
+      <button class="btn-refresh" id="refreshOutlookBtn" title="Ricarica Outlook">↻</button>
     </div>
     <div class="row">
       <span id="dotApp" class="dot dot-off"></span>
-      <span class="row-name">App AI</span>
+      <span class="row-name">App Audio AI</span>
       <span id="statusApp" class="row-val">—</span>
       <span id="appSeenAgo" class="row-ts">—</span>
+      <button class="btn-refresh" id="refreshAppBtn" title="Rileva app">↻</button>
     </div>
   </div>
 

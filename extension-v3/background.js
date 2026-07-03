@@ -86,6 +86,7 @@ function getLiveCurrentMonthUrl() {
 
 function reloadOutlookTab(cb) {
   getOutlookUrl(function(targetUrl) {
+    appendLog('OUTLOOK_SEARCH', 'cerco tab Outlook (target=' + targetUrl + ')');
     chrome.tabs.query({}, function(tabs) {
       var found = false;
       for (var i = 0; i < tabs.length; i++) {
@@ -93,6 +94,7 @@ function reloadOutlookTab(cb) {
         found = true;
         var tabId = tabs[i].id;
         var tabUrl = tabs[i].url;
+        appendLog('OUTLOOK_FOUND', tabUrl);
 
         if (isLiveConsumerTab(tabUrl)) {
           // live.com: naviga mese+1 per cache miss, poi torna al corrente
@@ -109,7 +111,7 @@ function reloadOutlookTab(cb) {
       }
       if (!found) {
         chrome.tabs.create({ url: targetUrl });
-        appendLog('RELOAD', 'nessuna tab -> aperta ' + targetUrl);
+        appendLog('OUTLOOK_NOT_FOUND', 'nessuna tab -> aperta ' + targetUrl);
       }
       if (cb) cb(found);
     });
@@ -121,12 +123,17 @@ function reloadOutlookTab(cb) {
 function pushToApp(events) {
   storeGet([K.appUrl], function(r) {
     var customUrl = r[K.appUrl] || null;
+    appendLog('APP_SEARCH', 'cerco tab app (url=' + (customUrl || 'default') + ')');
     chrome.tabs.query({}, function(tabs) {
       var now = Date.now();
       var appTabs = tabs.filter(function(tab) {
         return tab.id && tab.url && isAppTab(tab.url, customUrl);
       });
-      if (appTabs.length === 0) return;
+      if (appTabs.length === 0) {
+        appendLog('APP_NOT_FOUND', 'nessuna tab app aperta');
+        return;
+      }
+      appendLog('APP_FOUND', appTabs.length + ' tab: ' + appTabs.map(function(t){ return t.url; }).join(', '));
 
       chrome.storage.local.set({ [K.postState]: 'sending', [K.postTs]: now });
       var remaining = appTabs.length; var success = 0; var firstSuccessUrl = null;
@@ -174,18 +181,23 @@ function pushOutlookStateToApp(state) {
     var customUrl = r[K.appUrl] || null;
     chrome.tabs.query({}, function(tabs) {
       var now = Date.now();
-      tabs.filter(function(t) { return t.id && t.url && isAppTab(t.url, customUrl); })
-        .forEach(function(tab) {
-          chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: function(s, ts) {
-              localStorage.setItem('cal-bridge-v2-outlook-state', s);
-              localStorage.setItem('cal-bridge-v2-ext-ts', String(ts));
-              window.dispatchEvent(new StorageEvent('storage', { key: 'cal-bridge-v2-outlook-state', newValue: s }));
-            },
-            args: [state, now],
-          }).catch(function() {});
-        });
+      var appTabs = tabs.filter(function(t) { return t.id && t.url && isAppTab(t.url, customUrl); });
+      if (appTabs.length > 0) {
+        // Update appSeenAt: extension reached app tab successfully
+        chrome.storage.local.set({ [K.appSeenAt]: now });
+      }
+      appTabs.forEach(function(tab) {
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: function(s, ts) {
+            localStorage.setItem('cal-bridge-v2-outlook-state', s);
+            localStorage.setItem('cal-bridge-v2-ext-ts', String(ts));
+            window.dispatchEvent(new StorageEvent('storage', { key: 'cal-bridge-v2-outlook-state', newValue: s }));
+            window.dispatchEvent(new StorageEvent('storage', { key: 'cal-bridge-v2-ext-ts', newValue: String(ts) }));
+          },
+          args: [state, now],
+        }).catch(function() {});
+      });
     });
   });
 }
@@ -233,6 +245,8 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
       if (msg.events.length > 0) { update[K.getState] = 'ok'; update[K.getTs] = now; update[K.getError] = ''; }
       appendLog('EVENTS_STORED', 'raw=' + rawMerged.length + ' app=' + merged.length + ' (finestra -24h/+7d)');
       chrome.storage.local.set(update);
+      // Always signal extension alive to app tab (updates cal-bridge-v2-ext-ts)
+      pushOutlookStateToApp('ok');
       if (merged.length > 0) pushToApp(merged);
     });
     sendResponse({ ok: true });
@@ -298,16 +312,36 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
     return true;
   }
 
+  if (msg.type === 'V2_PING_APP') {
+    storeGet([K.appUrl], function(r) {
+      var customUrl = r[K.appUrl] || null;
+      appendLog('PING_APP', 'ricerca manuale tab app (url=' + (customUrl || 'default') + ')');
+      chrome.tabs.query({}, function(tabs) {
+        var appTabs = tabs.filter(function(t) { return t.id && t.url && isAppTab(t.url, customUrl); });
+        if (appTabs.length > 0) {
+          appendLog('APP_FOUND', appTabs.length + ' tab: ' + appTabs.map(function(t){ return t.url; }).join(', '));
+          chrome.storage.local.set({ [K.appSeenAt]: Date.now() });
+        } else {
+          appendLog('APP_NOT_FOUND', 'nessuna tab app trovata');
+        }
+        sendResponse({ ok: true, found: appTabs.length });
+      });
+    });
+    return true;
+  }
+
   if (msg.type === 'V2_SYNC_NOW') {
     appendLog('SYNC_NOW', 'dal popup');
     var syncTs = Date.now();
     chrome.storage.local.set({ [K.getState]: 'fetching', [K.getTs]: syncTs });
     pushOutlookStateToApp('fetching');
+    appendLog('OUTLOOK_SEARCH', 'cerco tab Outlook per sync manuale');
     chrome.tabs.query({}, function(tabs) {
       var hasOutlook = false;
       for (var i = 0; i < tabs.length; i++) {
         if (!isOutlookTab(tabs[i].url)) continue;
         hasOutlook = true;
+        appendLog('OUTLOOK_FOUND', tabs[i].url);
         chrome.scripting.executeScript({
           target: { tabId: tabs[i].id },
           func: function() { window.postMessage({ type: '__CAL_V2_DO_SYNC__' }, '*'); },
@@ -318,6 +352,7 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
         break;
       }
       if (!hasOutlook) {
+        appendLog('OUTLOOK_NOT_FOUND', 'nessuna tab Outlook per sync manuale');
         chrome.storage.local.set({ [K.getState]: 'error', [K.getTs]: Date.now() });
         pushOutlookStateToApp('error');
       }
@@ -367,6 +402,8 @@ chrome.alarms.onAlarm.addListener(function(alarm) {
 
   storeGet([K.events], function(r) {
     var events = r[K.events] || [];
+    // Always ping app to update appSeenAt and ext-ts, even with 0 events
+    pushOutlookStateToApp('ok');
     if (events.length > 0) pushToApp(events);
   });
 

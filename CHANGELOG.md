@@ -6,6 +6,16 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+- Calendar Bridge popup: rinomina "App AI" → "App Audio AI"; label Outlook sempre fissa (non più "Outlook Live"/"Outlook Cloud")
+- Calendar Bridge popup: bottone refresh `↻` accanto a Outlook e App Audio AI nella sezione Connessione
+- Calendar Bridge background: log tentativi connessione (`OUTLOOK_SEARCH`, `OUTLOOK_FOUND`, `OUTLOOK_NOT_FOUND`, `APP_SEARCH`, `APP_FOUND`, `APP_NOT_FOUND`, `PING_APP`)
+- Calendar Bridge debug log: nuova sezione `[TENTATIVI CONNESSIONE]` filtrata dal log background
+- Calendar Bridge: nuovo messaggio `V2_PING_APP` — rileva tab app e aggiorna `appSeenAt`
+- Calendar Bridge: `pushOutlookStateToApp` aggiorna `appSeenAt` quando trova tab app; dispatcha anche `cal-bridge-v2-ext-ts` StorageEvent
+- Calendar Bridge: alarm handler chiama `pushOutlookStateToApp('ok')` ad ogni ciclo anche con 0 eventi, per mantenere `appSeenAt` aggiornato
+- `useCalendarSync`: fix `calOutlookState` setter mai usato (era sempre `'unknown'`)
+- `useCalendarSync`: listener `StorageEvent` su `cal-bridge-v2-ext-ts` e `cal-bridge-v2-outlook-state`; polling ogni 15s; gestione dati `cal-bridge-v2` da localStorage → aggiorna `calExtensionConnected` e `calOutlookState` in tempo reale
+
 ---
 
 ## [1.143] — 2026-07-03
