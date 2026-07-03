@@ -7,6 +7,9 @@ import { llmService } from '../services/geminiService';
 import { htmlToPlainText, markdownToHtmlSimple, formatTime, bubbleNotesToText } from '../utils/textUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import type { Part } from '@google/genai';
+import { useArchiveIndex } from '../hooks/useArchiveIndex';
+import { runArchiveQuery } from '../utils/archiveFunctionCallFlow';
+import type { SessionSummary } from '../utils/archiveTools';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -163,6 +166,7 @@ interface MeetingChatPanelProps {
   disabled?: boolean;
   correlatedSessionsData?: SavedSessionData[];
   useHistoricalContext?: boolean;
+  userEmail?: string;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -178,9 +182,19 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
   disabled = false,
   correlatedSessionsData,
   useHistoricalContext = true,
+  userEmail,
 }) => {
   const [inputValue, setInputValue] = useState('');
+  const [chatMode, setChatMode] = useState<'session' | 'archive'>('session');
+  const [archiveChatHistory, setArchiveChatHistory] = useState<MeetingChatMessage[]>([]);
+  const [pendingCandidates, setPendingCandidates] = useState<SessionSummary[] | null>(null);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
   const [isTyping, setIsTyping] = useState(false);
+
+  const archiveIndex = useArchiveIndex(userEmail);
+  const activeHistory = chatMode === 'session' ? history : archiveChatHistory;
+  const candidatesResolveRef = useRef<((ids: string[] | null) => void) | null>(null);
+
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [imageDecision, setImageDecision] = useState<'with-images' | 'text-only' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -265,8 +279,90 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
 
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
-    if (!text || isTyping || !hasContext) return;
+    if (!text || isTyping) return;
+    if (chatMode === 'session' && !hasContext) return;
 
+    // ── Archive mode — function calling loop ────────────────────────────────
+    if (chatMode === 'archive') {
+      const userMsg: MeetingChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: text,
+        timestamp: Date.now(),
+      };
+      const newArchiveHistory = [...archiveChatHistory, userMsg];
+      setArchiveChatHistory(newArchiveHistory);
+      setInputValue('');
+      setIsTyping(true);
+      setPendingCandidates(null);
+      abortRef.current = new AbortController();
+
+      try {
+        // Resolve pending candidates from human-in-loop (returns selected IDs or null)
+        const resolveRef: { resolve: ((ids: string[] | null) => void) | null } = { resolve: null };
+        const pendingSelectionPromise = new Promise<string[] | null>(res => { resolveRef.resolve = res; });
+
+        const onCandidates = (candidates: SessionSummary[]): Promise<string[] | null> => {
+          // pendingQuery not needed — text is captured in closure
+          setPendingCandidates(candidates);
+          setSelectedCandidateIds(new Set(candidates.map(c => c.id)));
+          setArchiveChatHistory(prev => [...prev, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `🔍 Ho trovato **${candidates.length} sessioni** pertinenti. Seleziona quelle da analizzare qui sotto.`,
+            timestamp: Date.now(),
+          }]);
+          // Store resolve so handleAnalyzeCandidates can call it
+          candidatesResolveRef.current = resolveRef.resolve;
+          return pendingSelectionPromise;
+        };
+
+        const result = await runArchiveQuery(
+          text,
+          llmSettings,
+          archiveChatHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+          onCandidates,
+          abortRef.current.signal,
+        );
+
+        if (onLlmUsage) {
+          onLlmUsage({
+            functionName: 'Archive Chat',
+            inputTokens: result.usageInputTokens,
+            outputTokens: result.usageOutputTokens,
+            model: llmSettings.model,
+            provider: llmSettings.provider,
+            timestamp: Date.now(),
+          });
+        }
+
+        setArchiveChatHistory(prev => [...prev, {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: result.text,
+          timestamp: Date.now(),
+        }]);
+        setPendingCandidates(null);
+      } catch (err: unknown) {
+        const e = err as { name?: string; message?: string };
+        if (e?.name !== 'AbortError') {
+          setArchiveChatHistory(prev => [...prev, {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `⚠️ Errore archivio: ${e?.message || 'Errore sconosciuto.'}`,
+            timestamp: Date.now(),
+          }]);
+        }
+        setPendingCandidates(null);
+      } finally {
+        setIsTyping(false);
+        abortRef.current = null;
+        candidatesResolveRef.current = null;
+      }
+      return;
+    }
+
+    // ── Session mode (invariato) ──────────────────────────────────────────────
     const userMsg: MeetingChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -331,17 +427,26 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
       setIsTyping(false);
       abortRef.current = null;
     }
-  }, [inputValue, isTyping, hasContext, history, onHistoryChange, buildSystemPrompt, buildPrompt, llmSettings, onLlmUsage]);
+  }, [inputValue, isTyping, chatMode, hasContext, history, archiveChatHistory, onHistoryChange, buildSystemPrompt, buildPrompt, llmSettings, onLlmUsage, archiveIndex]);
 
   const handleStop = useCallback(() => {
+    // If waiting for candidate selection, unblock the Promise first
+    candidatesResolveRef.current?.(null);
+    candidatesResolveRef.current = null;
+    setPendingCandidates(null);
     abortRef.current?.abort();
     setIsTyping(false);
   }, []);
 
   const handleClear = useCallback(() => {
     if (isTyping) handleStop();
-    onHistoryChange([]);
-  }, [isTyping, handleStop, onHistoryChange]);
+    if (chatMode === 'archive') {
+      setArchiveChatHistory([]);
+      setPendingCandidates(null);
+    } else {
+      onHistoryChange([]);
+    }
+  }, [isTyping, handleStop, chatMode, onHistoryChange]);
 
   const handleCopyMessage = useCallback(async (msg: MeetingChatMessage) => {
     await navigator.clipboard.writeText(msg.content);
@@ -349,14 +454,24 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
 
+  const handleAnalyzeCandidates = useCallback(() => {
+    if (!pendingCandidates || selectedCandidateIds.size === 0) return;
+    const selectedIds = Array.from(selectedCandidateIds);
+    setPendingCandidates(null);
+    // Resume the runArchiveQuery loop with the selected session IDs
+    candidatesResolveRef.current?.(selectedIds);
+    candidatesResolveRef.current = null;
+  }, [pendingCandidates, selectedCandidateIds]);
+
   const handleExportMarkdown = useCallback(() => {
-    if (history.length === 0) return;
+    if (activeHistory.length === 0) return;
     const { sessionTitle } = sessionContext;
+    const title = chatMode === 'archive' ? 'Chat Archivio' : `Chat: ${sessionTitle}`;
     const lines: string[] = [
-      `# Chat: ${sessionTitle}`,
+      `# ${title}`,
       `_Esportato il ${new Date().toLocaleString()}_`,
       '',
-      ...history.flatMap(m => [
+      ...activeHistory.flatMap(m => [
         `**${m.role === 'user' ? 'Tu' : 'Assistente'}** — ${new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
         '',
         m.content,
@@ -369,10 +484,10 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${sessionTitle}_chat.md`;
+    a.download = chatMode === 'archive' ? `archivio_chat.md` : `${sessionTitle}_chat.md`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [history, sessionContext]);
+  }, [activeHistory, chatMode, sessionContext]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -392,14 +507,47 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
     <div className="flex flex-col h-full" style={{ minHeight: 0 }}>
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <span className="text-xs" style={{ color: 'var(--neo-muted)' }}>
-          {history.length > 0
-            ? `${history.length} messaggio${history.length !== 1 ? 'i' : ''}`
-            : 'Chiedi qualcosa sulla sessione'}
+      <div className="flex items-center justify-between mb-3 flex-shrink-0 gap-2">
+        {/* Mode toggle pill */}
+        <div className="flex rounded-full overflow-hidden border flex-shrink-0" style={{ borderColor: 'var(--neo-border)', fontSize: 11 }}>
+          <button
+            onClick={() => { setChatMode('session'); setPendingCandidates(null); }}
+            className="px-3 py-1 transition-colors"
+            style={{
+              background: chatMode === 'session' ? 'var(--neo-accent)' : 'transparent',
+              color: chatMode === 'session' ? '#fff' : 'var(--neo-muted)',
+              fontWeight: chatMode === 'session' ? 600 : 400,
+            }}
+          >
+            💬 Sessione
+          </button>
+          <button
+            onClick={() => { setChatMode('archive'); setPendingCandidates(null); }}
+            className="px-3 py-1 transition-colors"
+            style={{
+              background: chatMode === 'archive' ? 'var(--neo-accent)' : 'transparent',
+              color: chatMode === 'archive' ? '#fff' : 'var(--neo-muted)',
+              fontWeight: chatMode === 'archive' ? 600 : 400,
+            }}
+          >
+            🗂 Archivio
+            {archiveIndex.isReady && (
+              <span className="ml-1 opacity-70">· {archiveIndex.stats.total}</span>
+            )}
+            {archiveIndex.isIndexing && (
+              <span className="ml-1 opacity-70 animate-pulse">⏳</span>
+            )}
+          </button>
+        </div>
+
+        <span className="text-xs truncate" style={{ color: 'var(--neo-muted)' }}>
+          {chatMode === 'session'
+            ? (history.length > 0 ? `${history.length} messaggio${history.length !== 1 ? 'i' : ''}` : 'Chiedi qualcosa sulla sessione')
+            : (archiveChatHistory.length > 0 ? `${archiveChatHistory.length} messaggio${archiveChatHistory.length !== 1 ? 'i' : ''}` : 'Interroga il tuo archivio')}
         </span>
-        {history.length > 0 && (
-          <div className="flex gap-1">
+
+        {activeHistory.length > 0 && (
+          <div className="flex gap-1 flex-shrink-0">
             <Button variant="ghost" size="sm" onClick={handleExportMarkdown} leftIcon={<DownloadIcon />} title="Scarica chat come Markdown">
               Export .md
             </Button>
@@ -469,8 +617,8 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
           </div>
         )}
 
-        {/* Empty state — context available but no messages yet */}
-        {hasContext && history.length === 0 && !isTyping && (imageDecision !== null || !hasNoteImages) && (
+        {/* Empty state — context available but no messages yet (session mode) */}
+        {chatMode === 'session' && hasContext && history.length === 0 && !isTyping && (imageDecision !== null || !hasNoteImages) && (
           <div className="py-2">
             <p className="text-xs text-center mb-3" style={{ color: 'var(--neo-muted)' }}>
               Inizia con una domanda o scegli un suggerimento:
@@ -494,8 +642,41 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
           </div>
         )}
 
+        {/* Empty state — archive mode */}
+        {chatMode === 'archive' && archiveChatHistory.length === 0 && !isTyping && (
+          <div className="py-8 text-center">
+            <div className="text-4xl mb-3">🗂</div>
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--neo-text)' }}>
+              Interroga il tuo archivio storico
+            </p>
+            <p className="text-xs mb-4" style={{ color: 'var(--neo-muted)' }}>
+              {archiveIndex.isReady
+                ? `${archiveIndex.stats.total} sessioni disponibili · ${archiveIndex.stats.withTranscript} con trascritto`
+                : 'Caricamento archivio…'}
+            </p>
+            {archiveIndex.isReady && (
+              <div className="flex flex-wrap gap-2 justify-center">
+                {['Quante sessioni hai?', 'Sessioni dell\'ultima settimana', 'Riunioni mandatory questa settimana', 'Di cosa si è parlato di più?'].map(q => (
+                  <button
+                    key={q}
+                    onClick={() => { setInputValue(q); }}
+                    className="text-xs px-3 py-1.5 rounded-full transition-all hover:opacity-90 active:scale-95"
+                    style={{
+                      background: 'rgba(56,189,248,0.10)',
+                      border: '1px solid rgba(56,189,248,0.25)',
+                      color: '#38bdf8',
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Chat messages */}
-        {history.map(msg => (
+        {activeHistory.map(msg => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
               className="max-w-[88%] rounded-2xl px-4 py-3 relative group"
@@ -537,7 +718,7 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
         ))}
 
         {/* Typing indicator */}
-        {isTyping && (
+        {isTyping && !pendingCandidates && (
           <div className="flex justify-start">
             <div
               className="px-4 py-3 rounded-2xl"
@@ -552,6 +733,61 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
                   />
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Candidate selection — human-in-loop per archive mode */}
+        {pendingCandidates && (
+          <div className="mt-3 rounded-xl p-3" style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.18)' }}>
+            <p className="text-xs font-medium mb-2" style={{ color: '#38bdf8' }}>
+              Seleziona le sessioni da analizzare:
+            </p>
+            <div className="flex flex-col gap-1.5 mb-3">
+              {pendingCandidates.map(c => {
+                const checked = selectedCandidateIds.has(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    className="flex items-start gap-2 cursor-pointer rounded-lg px-2 py-1.5 transition-colors"
+                    style={{ background: checked ? 'rgba(56,189,248,0.10)' : 'transparent' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        setSelectedCandidateIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(c.id)) next.delete(c.id);
+                          else next.add(c.id);
+                          return next;
+                        });
+                      }}
+                      className="mt-0.5 flex-shrink-0"
+                    />
+                    <span className="text-xs" style={{ color: 'var(--neo-text)' }}>
+                      <strong>{c.name}</strong>
+                      <span className="ml-1.5 opacity-60">{c.date}</span>
+                      {c.matchSnippet && (
+                        <span className="ml-1.5 opacity-50">· {c.matchSnippet.slice(0, 60)}</span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleAnalyzeCandidates}
+                disabled={selectedCandidateIds.size === 0}
+              >
+                Analizza selezionate ({selectedCandidateIds.size})
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setPendingCandidates(null)}>
+                Annulla
+              </Button>
             </div>
           </div>
         )}
@@ -572,11 +808,13 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              hasContext
-                ? 'Chiedi qualcosa… (Invio per inviare, Shift+Invio per andare a capo)'
-                : 'Trascrivi prima una sessione…'
+              chatMode === 'archive'
+                ? 'Cerca nell\'archivio… (es. "AI con Mario Rossi la scorsa settimana")'
+                : hasContext
+                  ? 'Chiedi qualcosa… (Invio per inviare, Shift+Invio per andare a capo)'
+                  : 'Trascrivi prima una sessione…'
             }
-            disabled={disabled || !hasContext || isTyping}
+            disabled={disabled || (chatMode === 'session' && !hasContext) || isTyping}
             rows={4}
             className="flex-1 bg-transparent text-sm outline-none py-1 px-1"
             style={{

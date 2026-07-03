@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, GenerateContentResponse, GenerateContentParameters, Part } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, GenerateContentParameters, Part, Content, FunctionDeclaration } from "@google/genai";
 
 // Narrows a raw `Part` from the SDK to one that carries a text field
 const partText = (p: Part): string | undefined => ('text' in p ? (p as { text: string }).text : undefined);
@@ -188,6 +188,89 @@ export const llmService = {
         }
     }
     return { text: "Error: LLM failed after retries." };
+  },
+
+  /**
+   * Genera un vettore embedding per un testo via Gemini text-embedding-004.
+   * Solo provider Google. In errore ritorna null (non lancia).
+   */
+  embedContent: async (text: string, apiKey: string): Promise<number[] | null> => {
+    if (!apiKey?.trim()) return null;
+    try {
+      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const response = await ai.models.embedContent({
+        model: 'text-embedding-004',
+        contents: text,
+      });
+      return response.embeddings?.[0]?.values ?? null;
+    } catch (error: unknown) {
+      loggingService.warn('EMBED_ERROR', 'embedContent failed', { error: String(error) });
+      return null;
+    }
+  },
+
+  /**
+   * Chiama Gemini con function declarations (tool calling). Solo provider Google.
+   * Ritorna il testo finale se il modello risponde con testo, oppure i functionCalls
+   * che il chiamante deve eseguire e reinserire come functionResponse.
+   */
+  generateWithTools: async (
+    contents: Content[],
+    llmSettings: LlmSettings,
+    systemInstruction: string,
+    tools: FunctionDeclaration[],
+    signal?: AbortSignal,
+  ): Promise<{
+    text?: string;
+    functionCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+    modelContent?: Content;
+    usageMetadata?: { inputTokens: number; outputTokens: number };
+  }> => {
+    if (Date.now() < circuitBreakerTrippedUntil) {
+      const timeLeft = Math.ceil((circuitBreakerTrippedUntil - Date.now()) / 1000);
+      return { text: `Error: Circuit breaker attivo. Riprova tra ${timeLeft}s.` };
+    }
+    await waitForRateLimit(llmSettings);
+
+    const apiKey = llmSettings.googleApiKey?.trim() || process.env.API_KEY;
+    if (!apiKey) return { text: 'Error: API_KEY missing.' };
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const params: GenerateContentParameters = {
+        model: llmSettings.model,
+        contents,
+        config: {
+          systemInstruction,
+          tools: [{ functionDeclarations: tools }],
+        },
+      };
+      const response: GenerateContentResponse = await promiseWithTimeout(
+        ai.models.generateContent(params),
+        (llmSettings.timeout ?? 30) * 1000,
+        signal,
+      );
+      const usageMetadata = response.usageMetadata
+        ? { inputTokens: response.usageMetadata.promptTokenCount ?? 0, outputTokens: response.usageMetadata.candidatesTokenCount ?? 0 }
+        : undefined;
+      const fCalls = response.functionCalls;
+      if (fCalls && fCalls.length > 0) {
+        const modelContent = response.candidates?.[0]?.content;
+        return {
+          functionCalls: fCalls.map(fc => ({ name: fc.name ?? '', args: fc.args ?? {} })),
+          modelContent: modelContent as Content | undefined,
+          usageMetadata,
+        };
+      }
+      consecutiveErrors = 0;
+      return { text: response.text || '', usageMetadata };
+    } catch (error: unknown) {
+      if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) throw error;
+      consecutiveErrors++;
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS_FOR_COOLDOWN) circuitBreakerTrippedUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
+      const msg = error instanceof Error ? error.message : String(error);
+      return { text: `Error: ${msg}` };
+    }
   },
 
   /**
