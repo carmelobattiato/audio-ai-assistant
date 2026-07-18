@@ -8,6 +8,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.150] — 2026-07-18
+
+- Chat: copia messaggio preserva formattazione rich text (grassetto, liste) quando incollato in Outlook/Word
+- Fix crash LLM su sessione ripristinata: `audioRecordingStartTime` da IndexedDB è stringa ISO, wrappato con `new Date()` prima di chiamare `.toLocaleString`/`.toLocaleDateString`
+
+---
+
 ## [1.149] — 2026-07-18
 
 - Layout: Recording Studio sopra, Tips & Features sotto nella colonna sinistra

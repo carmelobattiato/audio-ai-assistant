@@ -207,7 +207,7 @@ const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
 
     let contextualInfo = `Informazioni di contesto:\n- Lingua: ${transcriptionLanguage}\n`;
     if (audioDuration) contextualInfo += `- Durata audio: ${formatTime(audioDuration)}\n`;
-    if (audioRecordingStartTime) contextualInfo += `- Data: ${audioRecordingStartTime.toLocaleString()}\n`;
+    if (audioRecordingStartTime) contextualInfo += `- Data: ${new Date(audioRecordingStartTime).toLocaleString()}\n`;
     contextualInfo += "---\n\n";
     if (useHistoricalContext && correlatedSessionsData?.length) {
       contextualInfo = buildCorrelatedSessionsContext(correlatedSessionsData) + '\n\n' + contextualInfo;
@@ -225,7 +225,7 @@ const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
     const defaultCustomContextAddition = extraCtx;
     
     const formattedDate = audioRecordingStartTime 
-      ? audioRecordingStartTime.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
+      ? new Date(audioRecordingStartTime).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
       : new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
 
     const allParts: Part[] = [];

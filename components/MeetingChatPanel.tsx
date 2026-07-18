@@ -449,7 +449,17 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
   }, [isTyping, handleStop, chatMode, onHistoryChange]);
 
   const handleCopyMessage = useCallback(async (msg: MeetingChatMessage) => {
-    await navigator.clipboard.writeText(msg.content);
+    const html = sanitizeHtml(renderMessageContent(msg.content));
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([htmlToPlainText(html)], { type: 'text/plain' }),
+        }),
+      ]);
+    } catch {
+      await navigator.clipboard.writeText(htmlToPlainText(html));
+    }
     setCopiedId(msg.id);
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
