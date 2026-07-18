@@ -34,7 +34,7 @@ function localDateKey(d: Date | string): string {
 // Outlook bridge ids are positional (re-numbered on every refresh) so they
 // can't be used to dedup across fetches. Derive a stable id from subject +
 // start time (normalized) instead.
-function meetingStableId(appt: OutlookAppointment): string {
+export function meetingStableId(appt: OutlookAppointment): string {
   const subj = (appt.subject || '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
   return `${subj}::${appt.start}`;
 }

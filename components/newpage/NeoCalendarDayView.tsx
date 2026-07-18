@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Attendee, OutlookAppointment } from '../OutlookCalendarModal';
 import { loggingService } from '@/services/loggingService';
+import { buildNoteHtml, extractTeamsUrl } from '@/utils/calendarNoteUtils';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const HOUR_PX    = 80;
@@ -142,28 +143,6 @@ function computeLayout(appointments: OutlookAppointment[]): LayoutItem[] {
 }
 
 // ─── Note HTML ────────────────────────────────────────────────────────────────
-function buildNoteHtml(appt: OutlookAppointment): string {
-  const attendeesList = appt.attendees.length > 0
-    ? appt.attendees.map(a => `<li>${a.name}${a.email ? ` &lt;${a.email}&gt;` : ''}</li>`).join('')
-    : '<li><em>Nessun invitato trovato</em></li>';
-  return `<div>
-    <h3 style="color:#38bdf8;margin:0 0 10px">📅 ${appt.subject}</h3>
-    <p style="margin:4px 0"><strong>🕐 Inizio:</strong> ${appt.start}</p>
-    <p style="margin:4px 0"><strong>🕑 Fine:</strong> ${appt.end}</p>
-    ${appt.location ? `<p style="margin:4px 0"><strong>📍 Luogo:</strong> ${appt.location}</p>` : ''}
-    ${appt.organizer ? `<p style="margin:4px 0"><strong>👤 Organizzatore:</strong> ${appt.organizer}</p>` : ''}
-    <p style="margin:10px 0 4px"><strong>👥 Invitati:</strong></p>
-    <ul style="margin:0 0 0 18px;padding:0">${attendeesList}</ul>
-    ${appt.body ? `<p style="margin:14px 0 4px"><strong>📝 Note riunione:</strong></p><p style="margin:0;white-space:pre-wrap;color:#9CA3AF">${appt.body}</p>` : ''}
-  </div>`;
-}
-
-function extractTeamsUrl(appt: OutlookAppointment): string | null {
-  if (appt.onlineMeetingUrl) return appt.onlineMeetingUrl;
-  const match = appt.body?.match(/https:\/\/teams\.microsoft\.com\/l\/[^\s<>"']+/);
-  return match?.[0] ?? null;
-}
-
 // ─── Response Status Badge ────────────────────────────────────────────────────
 const RESPONSE_CFG: Record<string, { label: string; bg: string; color: string; icon: string }> = {
   accepted:    { label: 'Accepted',  bg: 'rgba(16,185,129,0.15)',  color: '#6EE7B7', icon: '✓' },

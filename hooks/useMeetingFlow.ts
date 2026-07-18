@@ -6,13 +6,24 @@ import type { MeetingToastData } from '../utils/meetingUtils';
 import type { MeetingNotificationRecord } from '../utils/db';
 import type { AppSettings, AudioRecorderRef } from '../types';
 import type { OutlookAppointment } from '../components/OutlookCalendarModal';
+import { buildNoteHtml } from '../utils/calendarNoteUtils';
+
+function normalizeSubject(s: string): string {
+  return (s || '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
+}
+
+function splitApptId(apptId: string): { subj: string; start: string } {
+  const idx = apptId.lastIndexOf('::');
+  if (idx < 0) return { subj: normalizeSubject(apptId), start: '' };
+  return { subj: apptId.slice(0, idx), start: apptId.slice(idx + 2) };
+}
 
 interface UseMeetingFlowParams {
   calAppointments: OutlookAppointment[];
   appSettings: AppSettings;
   audioRecorderRef: React.RefObject<AudioRecorderRef | null>;
   setIsNewCalendarOpen: (v: boolean) => void;
-  handleOutlookImport: (title: string, noteHtml: string, attendees: { name: string; email: string }[]) => void;
+  handleOutlookImport: (title: string, noteHtml: string, attendees: { name: string; email: string }[], eventId?: string) => void;
 }
 
 export interface MeetingFlowState {
@@ -159,10 +170,33 @@ export function useMeetingFlow({
         console.warn('[auto-start] meeting record not found for', id);
         return;
       }
-      const bodyHtml = rec.body
-        ? `<p><strong>${rec.subject}</strong></p><p>Organizer: ${rec.organizer}</p>${rec.summary ? `<hr><p>${rec.summary}</p>` : ''}${rec.body ? `<hr><p>${rec.body.replace(/\n/g, '<br>')}</p>` : ''}`
-        : `<p><strong>${rec.subject}</strong></p><p>Organizer: ${rec.organizer}</p>`;
-      handleOutlookImport(rec.subject, bodyHtml, []);
+      // Preferisci l'evento reale del calendario (stesso builder/dati del path Calendario).
+      // rec.apptId = meetingStableId(subject, start) al momento della notifica; per il match
+      // usiamo subject normalizzato + start tollerante, non uguaglianza stretta di stringa,
+      // perché CalendarEventRecord.id è generato da una funzione diversa (EntryID/subject|start).
+      const { subj: wantedSubj, start: wantedStart } = splitApptId(rec.apptId);
+      const wantedStartMs = wantedStart ? new Date(wantedStart).getTime() : NaN;
+      const isMatch = (subject: string, start: string) =>
+        normalizeSubject(subject) === wantedSubj &&
+        (Number.isNaN(wantedStartMs) || Math.abs(new Date(start).getTime() - wantedStartMs) < 5 * 60 * 1000);
+
+      // 1) IndexedDB locale (calendarEvents), disponibile subito anche in una tab appena aperta
+      const dbEvents = await db.getAllCalendarEvents().catch(() => []);
+      let matchedEvent: { subject: string; start: string; end: string; location?: string; organizer?: string; attendees?: { name: string; email: string }[]; body?: string; onlineMeetingUrl?: string; id: string } | undefined =
+        dbEvents.find(e => isMatch(e.subject, e.start));
+
+      // 2) Fallback: calAppointments live (in caso non sia mai avvenuta una sync)
+      if (!matchedEvent) {
+        const matchedAppt = calAppointments.find(apt => isMatch(apt.subject, apt.start));
+        if (matchedAppt) matchedEvent = matchedAppt;
+      }
+
+      const noteHtml = matchedEvent
+        ? buildNoteHtml(matchedEvent)
+        : (rec.body
+          ? `<p><strong>${rec.subject}</strong></p><p>Organizer: ${rec.organizer}</p>${rec.summary ? `<hr><p>${rec.summary}</p>` : ''}${rec.body ? `<hr><p>${rec.body.replace(/\n/g, '<br>')}</p>` : ''}`
+          : `<p><strong>${rec.subject}</strong></p><p>Organizer: ${rec.organizer}</p>`);
+      handleOutlookImport(rec.subject, noteHtml, matchedEvent?.attendees ?? [], matchedEvent?.id ?? rec.apptId);
       setPendingAutoStart({ startMs: new Date(rec.startIso).getTime(), subject: rec.subject });
       console.info('[auto-start] loaded meeting "%s", auto-record at %s', rec.subject, rec.startIso);
     })();

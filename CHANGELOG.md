@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.146] — 2026-07-18
+
+- Fix bubblenote diversa tra apertura da Calendario e da notifica riunione: estratto `buildNoteHtml`/`extractTeamsUrl` in `utils/calendarNoteUtils.ts`, usato ora da `CalEventDetailPanel.tsx`, `NeoCalendarDayView.tsx` e `useMeetingFlow.ts`
+- `useMeetingFlow.ts`: il click su notifica cerca l'appuntamento reale via `meetingStableId` e genera la nota con gli invitati veri invece dell'HTML ad-hoc senza attendees
+- Fix race condition: in una nuova tab (aperta da notifica) `calAppointments` è vuoto al mount, il match falliva sempre; ora il lookup primario usa `db.getAllCalendarEvents()` (IndexedDB locale, disponibile subito) con match tollerante su subject normalizzato + start, `calAppointments` resta solo come fallback
+- `handleOutlookImport` accetta ora un `eventId` esplicito per il collegamento sessione↔evento, invece del solo match per subject
+
+---
+
 ## [1.145] — 2026-07-18
 
 - Fix eventi duplicati nel calendario: `vite.config.ts` usa `$a.EntryID` (ID nativo Outlook) invece del loop counter `$idx` come ID evento — stabile tra sync

@@ -253,7 +253,7 @@ export const NewHome: React.FC = () => {
     activeSessionIdRef.current = null;
   }, [resetSession]);
 
-  const handleOutlookImport = useCallback((title: string, noteHtml: string, attendees: Attendee[] = []) => {
+  const handleOutlookImport = useCallback((title: string, noteHtml: string, attendees: Attendee[] = [], eventId?: string) => {
     setRecordingTitle(title);
     setMeetingAttendees(attendees);
     const newNote: BubbleNote = {
@@ -265,9 +265,13 @@ export const NewHome: React.FC = () => {
     if (appUserMessageTimerRef.current) clearTimeout(appUserMessageTimerRef.current);
     appUserMessageTimerRef.current = setTimeout(() => setAppUserMessage(null), 4000);
     // Store appointment reference for auto-link when recording session starts
-    const matchedApt = calAppointments.find(apt => apt.subject === title);
-    if (matchedApt) {
-      pendingLinkAppointmentRef.current = { id: matchedApt.id, subject: matchedApt.subject };
+    if (eventId) {
+      pendingLinkAppointmentRef.current = { id: eventId, subject: title };
+    } else {
+      const matchedApt = calAppointments.find(apt => apt.subject === title);
+      if (matchedApt) {
+        pendingLinkAppointmentRef.current = { id: matchedApt.id, subject: matchedApt.subject };
+      }
     }
   }, [calAppointments]);
 

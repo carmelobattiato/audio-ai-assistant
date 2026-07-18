@@ -1,6 +1,7 @@
 import React, { useState, useId } from 'react';
 import { SavedSession } from '@/types';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { buildNoteHtml, extractTeamsUrl } from '@/utils/calendarNoteUtils';
 
 // ─── Local types (mirrors CalendarEventRecord from types.ts) ──────────────────
 export interface CalendarEventRecord {
@@ -37,28 +38,6 @@ function openTeamsLink(url: string): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-}
-
-function extractTeamsUrl(ev: CalendarEventRecord): string | null {
-  if (ev.onlineMeetingUrl) return ev.onlineMeetingUrl;
-  const match = ev.body?.match(/https:\/\/teams\.microsoft\.com\/l\/[^\s<>"']+/);
-  return match?.[0] ?? null;
-}
-
-function buildNoteHtml(ev: CalendarEventRecord): string {
-  const attendeesList = (ev.attendees && ev.attendees.length > 0)
-    ? ev.attendees.map(a => `<li>${a.name}${a.email ? ` &lt;${a.email}&gt;` : ''}</li>`).join('')
-    : '<li><em>Nessun invitato trovato</em></li>';
-  return `<div>
-    <h3 style="color:#38bdf8;margin:0 0 10px">📅 ${ev.subject}</h3>
-    <p style="margin:4px 0"><strong>🕐 Inizio:</strong> ${ev.start}</p>
-    <p style="margin:4px 0"><strong>🕑 Fine:</strong> ${ev.end}</p>
-    ${ev.location ? `<p style="margin:4px 0"><strong>📍 Luogo:</strong> ${ev.location}</p>` : ''}
-    ${ev.organizer ? `<p style="margin:4px 0"><strong>👤 Organizzatore:</strong> ${ev.organizer}</p>` : ''}
-    <p style="margin:10px 0 4px"><strong>👥 Invitati:</strong></p>
-    <ul style="margin:0 0 0 18px;padding:0">${attendeesList}</ul>
-    ${ev.body ? `<p style="margin:14px 0 4px"><strong>📝 Note riunione:</strong></p><p style="margin:0;white-space:pre-wrap;color:#9CA3AF">${ev.body}</p>` : ''}
-  </div>`;
 }
 
 function isSameDay(d1: Date, d2: Date): boolean {
