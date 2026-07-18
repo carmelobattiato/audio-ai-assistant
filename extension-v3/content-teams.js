@@ -206,6 +206,23 @@
 
     // Calendario / eventi
     if (/\/(calendar|events|meetings|schedule|calendarView)/i.test(url)) {
+      // debug: store raw payload
+      if (!window.__calRawPayloads) { window.__calRawPayloads = []; }
+      window.__calRawPayloads.push({ source: shortUrl, ts: Date.now(), raw: data });
+      if (!document.getElementById('__cal_debug_btn_teams__')) {
+        var _btn = document.createElement('button');
+        _btn.id = '__cal_debug_btn_teams__';
+        _btn.textContent = '⬇ RAW Calendar';
+        _btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;'
+          + 'padding:8px 14px;background:#6264a7;color:#fff;border:none;'
+          + 'border-radius:6px;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+        _btn.onclick = function() {
+          var blob = new Blob([JSON.stringify(window.__calRawPayloads, null, 2)], {type:'application/json'});
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = 'cal_raw_teams_' + Date.now() + '.json'; a.click();
+        };
+        document.body && document.body.appendChild(_btn);
+      }
       var evts = extractCalendarEvents(data);
       if (evts && evts.length) {
         log('intercettate ' + evts.length + ' riunioni da ' + shortUrl);
@@ -322,13 +339,21 @@
       var organizer = (org && (
         (org.emailAddress && org.emailAddress.name) || org.displayName || org.name
       )) || '';
+      var attendees = (e.attendees || []).map(function(a) {
+        return {
+          name:  (a.emailAddress && a.emailAddress.name)    || '',
+          email: (a.emailAddress && a.emailAddress.address) || '',
+          type:  a.type === 'optional' ? 'optional' : 'required'
+        };
+      });
       return {
         id:        String(e.id || subject),
         subject:   String(subject),
         start:     String(startRaw),
         end:       String(endRaw),
-        joinUrl:   joinUrl  || undefined,
+        joinUrl:   joinUrl   || undefined,
         organizer: organizer || undefined,
+        attendees: attendees,
       };
     }).filter(Boolean).slice(0, 10);
   }
@@ -413,7 +438,7 @@
     var url   = GRAPH_BASE + '/me/calendarView'
               + '?startDateTime=' + encodeURIComponent(start)
               + '&endDateTime='   + encodeURIComponent(end)
-              + '&$select=id,subject,start,end,organizer,onlineMeeting'
+              + '&$select=id,subject,start,end,organizer,onlineMeeting,attendees'
               + '&$orderby=start%2FdateTime&$top=20';
     return origFetch(url, {
       headers: { 'Authorization': graphToken, 'Accept': 'application/json' },

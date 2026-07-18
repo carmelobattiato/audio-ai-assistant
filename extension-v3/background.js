@@ -215,7 +215,16 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
       var rawCutoff  = now - 2 * 24 * 60 * 60 * 1000;
       var rawById    = {};
       rawExisting.forEach(function(e) { if (e.id) rawById[e.id] = e; });
-      msg.events.forEach(function(e)  { if (e.id) rawById[e.id] = e; });
+      msg.events.forEach(function(e) {
+        if (!e.id) return;
+        var prev = rawById[e.id];
+        rawById[e.id] = e;
+        // preserve attendees from previously cached event when new event has none
+        if (prev && prev.attendees && prev.attendees.length > 0
+            && (!e.attendees || e.attendees.length === 0)) {
+          rawById[e.id] = Object.assign({}, e, { attendees: prev.attendees });
+        }
+      });
       var rawMerged = Object.values(rawById).filter(function(e) {
         return !e.end || new Date(e.end).getTime() > rawCutoff;
       });

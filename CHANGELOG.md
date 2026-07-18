@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.155] — 2026-07-18
+
+- Fix attendees mancanti in eventi calendario: `mapOwa` e `mapRest` ora leggono `ev.Attendees` (PascalCase, Outlook REST v2.0) oltre a `RequiredAttendees`/`OptionalAttendees`; supporto struttura `EmailAddress` accanto a `Mailbox`
+- Debug: bottone "⬇ RAW Calendar" ora include anche output mappato post-`mapRest` per diagnosticare attendees
+- Fix merge background.js: preserva attendees da evento cached quando nuovo evento li ha vuoti
+- Fix isTeams/joinUrl in mapRest: ora legge `OnlineMeeting.JoinUrl` (PascalCase Outlook REST v2)
+
+---
+
 ## [1.154] — 2026-07-18
 
 - Fix anteprima registrazione nel dettaglio evento calendario: `transcriptPreview` strippava HTML grezzo — ora mostra testo plain

@@ -337,8 +337,18 @@
       end:              ev.End   || '',
       location:         loc,
       organizer:        (ev.Organizer && ev.Organizer.Mailbox && ev.Organizer.Mailbox.Name) || '',
-      attendees:        [].concat(ev.RequiredAttendees||[], ev.OptionalAttendees||[]).map(function(a){
-        return { name:(a.Mailbox&&a.Mailbox.Name)||'', email:(a.Mailbox&&a.Mailbox.EmailAddress)||'', type:'required' };
+      attendees:        [].concat(
+                          ev.RequiredAttendees || [],
+                          ev.OptionalAttendees || [],
+                          (!ev.RequiredAttendees && !ev.OptionalAttendees)
+                            ? (ev.Attendees || ev.attendees || [])
+                            : []
+                        ).map(function(a){
+        return {
+          name:  (a.Mailbox && a.Mailbox.Name)    || (a.EmailAddress && a.EmailAddress.Name)    || (a.emailAddress && a.emailAddress.name)    || '',
+          email: (a.Mailbox && a.Mailbox.EmailAddress) || (a.EmailAddress && a.EmailAddress.Address) || (a.emailAddress && a.emailAddress.address) || '',
+          type:  (a.Type === 'Optional' || a.type === 'optional') ? 'optional' : 'required'
+        };
       }),
       isAllDay:         ev.IsAllDayEvent || false,
       isMeeting:        ev.IsMeeting || false,
@@ -386,8 +396,12 @@
     var endDt   = restDt(ev.End   || ev.end,   ev.End   || ev.end   || '');
     var loc     = (ev.Location && ev.Location.DisplayName) || (ev.location && ev.location.displayName)
                 || (typeof ev.Location === 'string' ? ev.Location : '') || (typeof ev.location === 'string' ? ev.location : '') || '';
-    var isTeams = !!(ev.OnlineMeetingUrl || ev.onlineMeetingUrl || (ev.onlineMeeting && ev.onlineMeeting.joinUrl));
-    var joinUrl = ev.OnlineMeetingUrl || ev.onlineMeetingUrl || (ev.onlineMeeting && ev.onlineMeeting.joinUrl) || null;
+    var isTeams = !!(ev.OnlineMeetingUrl || ev.onlineMeetingUrl
+      || (ev.OnlineMeeting && ev.OnlineMeeting.JoinUrl)
+      || (ev.onlineMeeting && ev.onlineMeeting.joinUrl));
+    var joinUrl = ev.OnlineMeetingUrl || ev.onlineMeetingUrl
+      || (ev.OnlineMeeting && ev.OnlineMeeting.JoinUrl)
+      || (ev.onlineMeeting && ev.onlineMeeting.joinUrl) || null;
     return {
       id:               ev.Id || ev.id || ((ev.Subject||ev.subject||'') + '|' + startDt),
       subject:          ev.Subject || ev.subject || '(senza titolo)',
@@ -396,11 +410,17 @@
       location:         loc,
       organizer:        (ev.Organizer && ev.Organizer.EmailAddress && ev.Organizer.EmailAddress.Name)
                      || (ev.organizer && ev.organizer.emailAddress && ev.organizer.emailAddress.name) || '',
-      attendees:        [].concat(ev.RequiredAttendees || ev.attendees || [], ev.OptionalAttendees || []).map(function(a) {
+      attendees:        [].concat(
+                          ev.RequiredAttendees || [],
+                          ev.OptionalAttendees || [],
+                          (!ev.RequiredAttendees && !ev.OptionalAttendees)
+                            ? (ev.Attendees || ev.attendees || [])
+                            : []
+                        ).map(function(a) {
         return {
-          name:  (a.EmailAddress && a.EmailAddress.Name)    || (a.emailAddress && a.emailAddress.name)    || '',
-          email: (a.EmailAddress && a.EmailAddress.Address) || (a.emailAddress && a.emailAddress.address) || '',
-          type:  'required'
+          name:  (a.EmailAddress && a.EmailAddress.Name)    || (a.emailAddress && a.emailAddress.name)    || (a.Mailbox && a.Mailbox.Name)    || '',
+          email: (a.EmailAddress && a.EmailAddress.Address) || (a.emailAddress && a.emailAddress.address) || (a.Mailbox && a.Mailbox.EmailAddress) || '',
+          type:  (a.Type === 'Optional' || a.type === 'optional') ? 'optional' : 'required'
         };
       }),
       isAllDay:         ev.IsAllDay  || ev.isAllDay  || false,
@@ -472,8 +492,29 @@
     return null;
   }
 
+  // ── debug: accumulate raw payloads for download ───────────────────────────────
+  var _debugRawPayloads = [];
+  function _debugAddButton() {
+    if (document.getElementById('__cal_debug_btn__')) return;
+    var btn = document.createElement('button');
+    btn.id = '__cal_debug_btn__';
+    btn.textContent = '⬇ RAW Calendar';
+    btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;'
+      + 'padding:8px 14px;background:#0078d4;color:#fff;border:none;'
+      + 'border-radius:6px;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+    btn.onclick = function() {
+      var blob = new Blob([JSON.stringify(_debugRawPayloads, null, 2)], {type:'application/json'});
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'cal_raw_' + Date.now() + '.json'; a.click();
+    };
+    document.body.appendChild(btn);
+  }
+
   function dispatch(source, json) {
+    _debugRawPayloads.push({ source: source, ts: Date.now(), raw: json });
+    if (document.body) { _debugAddButton(); } else { document.addEventListener('DOMContentLoaded', _debugAddButton); }
     var r = tryExtract(json);
+    _debugRawPayloads[_debugRawPayloads.length - 1].mapped = r ? { fmt: r.fmt, events: r.events } : null;
     if (!r) { csLog('dispatch [' + source + ']: formato non riconosciuto'); return; }
     csLog('dispatch [' + source + ']: ' + r.events.length + ' eventi [' + r.fmt + ']');
     if (!r.events.length) return;
