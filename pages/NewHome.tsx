@@ -920,12 +920,7 @@ export const NewHome: React.FC = () => {
           className="flex-shrink-0 flex flex-col"
           style={{ width: `${leftWidthPct}%`, minWidth: '180px', gap: '10px', paddingRight: '8px' }}
         >
-          {/* Tips panel — top of left column */}
-          <div style={{ flexShrink: 0 }}>
-            <NeoTipsPanel />
-          </div>
-
-          {/* Recording panel — below tips */}
+          {/* Recording panel — top of left column */}
           <div className="flex-1 overflow-y-auto flex flex-col" style={{ minHeight: 0 }}>
             <div className="pb-2">
             <NeoRecordingPanel
@@ -968,6 +963,11 @@ export const NewHome: React.FC = () => {
             onRealtimeTranscriptionChange={handleRealtimeTranscriptionChange}
           />
             </div>
+          </div>
+
+          {/* Tips panel — below recording, hidden on small screens */}
+          <div className="hidden min-[1100px]:block" style={{ flexShrink: 0 }}>
+            <NeoTipsPanel />
           </div>
         </div>
 

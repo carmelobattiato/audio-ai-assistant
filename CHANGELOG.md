@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.149] — 2026-07-18
+
+- Layout: Recording Studio sopra, Tips & Features sotto nella colonna sinistra
+- Layout: Tips & Features nascosto sotto 1100px di larghezza
+- Topbar: testo stato a sinistra, campanella notifiche a destra
+
+---
+
 ## [1.148] — 2026-07-18
 
 - Re-trascrizione chunk: se chunk già trascritto, tasto T mostra modal con scelta Sostituisci (replace in-place) / Aggiungi in coda / Annulla — `handleTranscribeSingleChunk` accetta `mode: 'replace' | 'append'`
