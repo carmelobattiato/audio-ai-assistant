@@ -8,6 +8,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.153] — 2026-07-18
+
+- Fix eventi calendario duplicati: chiave dedup normalizza `start` a epoch ms e trim subject — elimina duplicati da fonti con formato timezone diverso (Windows extension vs Outlook Live)
+- Fix dedup: record con `linkedSessionId` non viene più sovrascritto da versione più recente senza link
+
+---
+
 ## [1.152] — 2026-07-18
 
 - Fix modal "Delete Session" nascosto dietro LoadSessionModal: `ConfirmModal` accetta `zIndex`, usato `z-[70]` in `LoadSessionModal`

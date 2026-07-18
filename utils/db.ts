@@ -371,9 +371,9 @@ export const db = {
       // Dedup cross-source: stesso subject+start da sorgenti diverse → tieni quello con linkedSessionId, altrimenti il più recente
       const seen = new Map<string, CalendarEventRecord>();
       for (const ev of all) {
-        const key = `${ev.subject}|${ev.start}`;
+        const key = `${ev.subject.trim()}|${new Date(ev.start).getTime()}`;
         const existing = seen.get(key);
-        if (!existing || (!existing.linkedSessionId && ev.linkedSessionId) || ev.createdAt > existing.createdAt) {
+        if (!existing || (!existing.linkedSessionId && ev.linkedSessionId) || (ev.createdAt > existing.createdAt && !existing.linkedSessionId)) {
           seen.set(key, ev);
         }
       }
