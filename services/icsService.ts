@@ -101,7 +101,7 @@ export function parseIcs(raw: string): IcsAppointment[] {
     if (line === 'END:VEVENT') {
       if (cur && cur.start && cur.end) {
         events.push({
-          id: cur.id || crypto.randomUUID(),
+          id: cur.id || `${cur.subject || ''}|${cur.start}`,
           subject: cur.subject || '(no subject)',
           start: cur.start,
           end: cur.end,

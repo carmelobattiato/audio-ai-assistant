@@ -6,6 +6,19 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+---
+
+## [1.145] — 2026-07-18
+
+- Fix eventi duplicati nel calendario: `vite.config.ts` usa `$a.EntryID` (ID nativo Outlook) invece del loop counter `$idx` come ID evento — stabile tra sync
+- Fix eventi duplicati: `extension-v3/content-outlook.js` — fallback ID da `Math.random()` a `subject|start` deterministico in `mapOwa` e `mapRest`
+- Fix eventi duplicati: `utils/db.ts` — `getAllCalendarEvents` deduplicazione in-memory per `subject|start` cross-source; preserva il record con `linkedSessionId`
+- Fix eventi duplicati: `icsService.ts` — fallback ID da `crypto.randomUUID()` a `subject|start` deterministico
+
+---
+
+## [1.144] — 2026-07-04
+
 - Settings → Aggiornamento App: 7 click sul label versione attiva modalità NIGHTLY (branch `test`); badge arancione `NIGHTLY · test` visibile quando attiva; un altro ciclo di 7 click la disattiva
 - Aggiornamento App: check versione e apply ora accettano branch configurabile (`&branch=` su GET, `{branch}` nel body POST) — in nightly mode punta al branch `test` invece di `main`
 - Fix TS: aggiunto tipo `TeamsMeetingState` in `types.ts` (usato da `useTeamsMeeting` ma non esportato)

@@ -331,7 +331,7 @@
     var loc = (ev.Location && ev.Location.DisplayName) || (typeof ev.Location === 'string' ? ev.Location : '') || '';
     var isTeams = loc === 'Microsoft Teams Meeting' || (ev.Location && ev.Location.Id === 'Microsoft Teams Meeting');
     return {
-      id:               (ev.ItemId && ev.ItemId.Id) || ev.UID || String(Math.random()),
+      id:               (ev.ItemId && ev.ItemId.Id) || ev.UID || ((ev.Subject||'') + '|' + (ev.Start||'')),
       subject:          ev.Subject || '(senza titolo)',
       start:            ev.Start || '',
       end:              ev.End   || '',
@@ -389,7 +389,7 @@
     var isTeams = !!(ev.OnlineMeetingUrl || ev.onlineMeetingUrl || (ev.onlineMeeting && ev.onlineMeeting.joinUrl));
     var joinUrl = ev.OnlineMeetingUrl || ev.onlineMeetingUrl || (ev.onlineMeeting && ev.onlineMeeting.joinUrl) || null;
     return {
-      id:               ev.Id || ev.id || String(Math.random()),
+      id:               ev.Id || ev.id || ((ev.Subject||ev.subject||'') + '|' + startDt),
       subject:          ev.Subject || ev.subject || '(senza titolo)',
       start:            startDt,
       end:              endDt,

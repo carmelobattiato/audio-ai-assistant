@@ -368,7 +368,16 @@ export const db = {
     return dbOp('getAllCalendarEvents', async () => {
       const dbInstance = await dbPromise;
       const all = await dbInstance.getAll(CALENDAR_EVENTS_STORE_NAME);
-      return all.sort((a, b) => a.start.localeCompare(b.start));
+      // Dedup cross-source: stesso subject+start da sorgenti diverse → tieni quello con linkedSessionId, altrimenti il più recente
+      const seen = new Map<string, CalendarEventRecord>();
+      for (const ev of all) {
+        const key = `${ev.subject}|${ev.start}`;
+        const existing = seen.get(key);
+        if (!existing || (!existing.linkedSessionId && ev.linkedSessionId) || ev.createdAt > existing.createdAt) {
+          seen.set(key, ev);
+        }
+      }
+      return [...seen.values()].sort((a, b) => a.start.localeCompare(b.start));
     });
   },
 

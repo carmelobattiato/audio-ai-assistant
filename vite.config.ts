@@ -110,8 +110,12 @@ try {
             $isRecurring = $false
             try { $isRecurring = [bool]$a.IsRecurring } catch {}
 
+            $entryId = ''
+            try { $entryId = [string]$a.EntryID } catch {}
+            $stableId = if ($entryId) { $entryId } else { "$subject|$startStr" }
+
             $appts.Add([pscustomobject]@{
-                id               = [string]$idx
+                id               = $stableId
                 subject          = $subject
                 start            = $startStr
                 end              = $endStr
