@@ -499,7 +499,7 @@
     var btn = document.createElement('button');
     btn.id = '__cal_debug_btn__';
     btn.textContent = '⬇ RAW Calendar';
-    btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;'
+    btn.style.cssText = 'display:none;position:fixed;bottom:16px;right:16px;z-index:99999;'
       + 'padding:8px 14px;background:#0078d4;color:#fff;border:none;'
       + 'border-radius:6px;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
     btn.onclick = function() {
@@ -509,6 +509,12 @@
     };
     document.body.appendChild(btn);
   }
+
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== '__CAL_DEBUG_MODE__') return;
+    var btn = document.getElementById('__cal_debug_btn__');
+    if (btn) btn.style.display = e.data.show ? 'block' : 'none';
+  });
 
   function dispatch(source, json) {
     _debugRawPayloads.push({ source: source, ts: Date.now(), raw: json });

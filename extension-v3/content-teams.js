@@ -213,7 +213,7 @@
         var _btn = document.createElement('button');
         _btn.id = '__cal_debug_btn_teams__';
         _btn.textContent = '⬇ RAW Calendar';
-        _btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;'
+        _btn.style.cssText = 'display:none;position:fixed;bottom:16px;right:16px;z-index:99999;'
           + 'padding:8px 14px;background:#6264a7;color:#fff;border:none;'
           + 'border-radius:6px;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);';
         _btn.onclick = function() {
@@ -673,6 +673,13 @@
     }
     attachObserver();
   })();
+
+  // Ascolta il toggle debug mode dal popup (via content-bridge)
+  window.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== '__CAL_DEBUG_MODE__') return;
+    var btn = document.getElementById('__cal_debug_btn_teams__');
+    if (btn) btn.style.display = e.data.show ? 'block' : 'none';
+  });
 
   log('init su ' + host);
 })();

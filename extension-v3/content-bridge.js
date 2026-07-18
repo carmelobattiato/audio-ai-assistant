@@ -2,6 +2,18 @@
 // Calendar Bridge v3 — content-bridge.js (ISOLATED world)
 // Relay: postMessage dalla pagina → chrome.runtime → background.js
 
+// Invia subito al MAIN world la modalità debug salvata
+chrome.storage.local.get(['v3_debugMode'], function(r) {
+  window.postMessage({ type: '__CAL_DEBUG_MODE__', show: !!r.v3_debugMode }, '*');
+});
+
+// Riceve dal background la nuova modalità debug e la relaya alla pagina
+chrome.runtime.onMessage.addListener(function(msg) {
+  if (msg.type === 'V3_DEBUG_MODE') {
+    window.postMessage({ type: '__CAL_DEBUG_MODE__', show: !!msg.show }, '*');
+  }
+});
+
 window.addEventListener('message', function(e) {
   if (e.source !== window || !e.data) return;
 

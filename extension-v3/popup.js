@@ -296,6 +296,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  // Debug RAW Calendar toggle
+  var debugToggle = el('debugModeToggle');
+  chrome.storage.local.get(['v3_debugMode'], function(r) {
+    debugToggle.checked = !!r.v3_debugMode;
+  });
+  debugToggle.addEventListener('change', function() {
+    var show = debugToggle.checked;
+    chrome.runtime.sendMessage({ type: 'V3_SET_DEBUG_MODE', show: show });
+  });
+
   // Copia Log Debug
   el('debugBtn').addEventListener('click', function() {
     var s  = _lastStatus;

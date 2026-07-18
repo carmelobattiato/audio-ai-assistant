@@ -25,6 +25,7 @@ var K = {
   postTs:     'v3_postTs',
   log:        'v3_log',
   outlookUrl: 'v3_outlookUrl',  // URL Outlook target scelto dall'utente
+  debugMode:  'v3_debugMode',  // toggle bottone RAW Calendar debug
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -399,6 +400,19 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
     chrome.storage.local.set({ [K.outlookUrl]: newUrl });
     appendLog('OUTLOOK_URL_CHANGED', newUrl);
     sendResponse({ ok: true, url: newUrl });
+    return;
+  }
+
+  if (msg.type === 'V3_SET_DEBUG_MODE') {
+    chrome.storage.local.set({ [K.debugMode]: !!msg.show });
+    chrome.tabs.query({}, function(tabs) {
+      tabs.forEach(function(tab) {
+        chrome.tabs.sendMessage(tab.id, { type: 'V3_DEBUG_MODE', show: !!msg.show }, function() {
+          void chrome.runtime.lastError;
+        });
+      });
+    });
+    sendResponse({ ok: true });
     return;
   }
 });

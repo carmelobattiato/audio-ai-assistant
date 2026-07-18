@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.156] — 2026-07-18
+
+- Calendar Bridge v3.1: toggle popup "Debug RAW Calendar" per mostrare/nascondere bottone ⬇ RAW in Outlook/Teams
+- Estensione v3.1: versione bumped in manifest e popup header
+- Debug button nascosto di default; visibile solo quando toggle attivo (persiste in `chrome.storage.local`)
+
+---
+
 ## [1.155] — 2026-07-18
 
 - Fix attendees mancanti in eventi calendario: `mapOwa` e `mapRest` ora leggono `ev.Attendees` (PascalCase, Outlook REST v2.0) oltre a `RequiredAttendees`/`OptionalAttendees`; supporto struttura `EmailAddress` accanto a `Mailbox`
