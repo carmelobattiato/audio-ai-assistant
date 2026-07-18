@@ -11,6 +11,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   confirmButtonVariant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  zIndex?: string;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -22,9 +23,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   confirmButtonVariant = 'danger',
+  zIndex,
 }) => {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} zIndex={zIndex}>
       <div className="text-gray-300">{children}</div>
       <div className="mt-6 flex justify-end gap-3">
         <Button onClick={onClose} variant="ghost">

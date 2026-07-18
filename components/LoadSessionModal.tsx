@@ -296,6 +296,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
           onConfirm={() => { onDeleteSession(sessionToDelete.id); setSessionToDelete(null); }}
           title="Delete Session"
           confirmText="Delete"
+          zIndex="z-[70]"
         >
           <p>Delete session "<strong className="text-sky-400">{sessionToDelete.name}</strong>"?</p>
         </ConfirmModal>
