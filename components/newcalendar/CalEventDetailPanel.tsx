@@ -90,7 +90,13 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
     : null;
 
   const transcriptPreview = linkedSession?.data.transcribedText
-    ? linkedSession.data.transcribedText.slice(0, 200) + (linkedSession.data.transcribedText.length > 200 ? '…' : '')
+    ? (() => {
+        const plain = linkedSession.data.transcribedText
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return plain.slice(0, 200) + (plain.length > 200 ? '…' : '');
+      })()
     : null;
 
   return (

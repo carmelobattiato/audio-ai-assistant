@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.154] — 2026-07-18
+
+- Fix anteprima registrazione nel dettaglio evento calendario: `transcriptPreview` strippava HTML grezzo — ora mostra testo plain
+
+---
+
 ## [1.153] — 2026-07-18
 
 - Fix eventi calendario duplicati: chiave dedup normalizza `start` a epoch ms e trim subject — elimina duplicati da fonti con formato timezone diverso (Windows extension vs Outlook Live)
