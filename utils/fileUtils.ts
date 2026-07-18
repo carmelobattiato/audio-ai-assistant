@@ -26,6 +26,26 @@ const u32 = (v: DataView, o: number, n: number) => v.setUint32(o, n, true);
 
 export interface ZipEntry { name: string; content: string; }
 
+export const parseStoredZip = (buffer: ArrayBuffer): { name: string; content: string }[] => {
+  const view = new DataView(buffer);
+  const dec = new TextDecoder();
+  const results: { name: string; content: string }[] = [];
+  let offset = 0;
+  while (offset + 30 <= buffer.byteLength) {
+    if (view.getUint32(offset, true) !== 0x04034B50) break;
+    const compSize = view.getUint32(offset + 18, true);
+    const nameLen = view.getUint16(offset + 26, true);
+    const extraLen = view.getUint16(offset + 28, true);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + nameLen + extraLen;
+    const name = dec.decode(new Uint8Array(buffer, nameStart, nameLen));
+    const content = dec.decode(new Uint8Array(buffer, dataStart, compSize));
+    results.push({ name, content });
+    offset = dataStart + compSize;
+  }
+  return results;
+};
+
 export const createSessionZipBlob = (entries: ZipEntry[]): Blob => {
   const enc = new TextEncoder();
   const now = new Date();

@@ -285,7 +285,7 @@ export const useTranscriptionLogic = (
     drainAutoQueue();
   }, [drainAutoQueue]);
 
-  const handleTranscribeSingleChunk = useCallback(async (index: number) => {
+  const handleTranscribeSingleChunk = useCallback(async (index: number, mode: 'replace' | 'append' = 'append') => {
     const item = latestRef.current.transcriptionQueue[index];
     if (!item || latestRef.current.isTranscribing) return;
     setIsTranscribing(true);
@@ -311,7 +311,26 @@ export const useTranscriptionLogic = (
       if (!result.startsWith("Error:")) {
         const headerHtml = `<br><hr class='my-4 border-gray-600'><br><h3>Transcription for: ${item.file.name}</h3><br>`;
         const contentHtml = result.replace(/\n/g, '<br />');
-        setTranscribedText(prev => (typeof prev === 'string' ? prev : '') + headerHtml + contentHtml);
+        const newBlock = headerHtml + contentHtml;
+        if (mode === 'replace') {
+          setTranscribedText(prev => {
+            const text = typeof prev === 'string' ? prev : '';
+            const SEP = `<br><hr class='my-4 border-gray-600'>`;
+            // Split on the HR separator, keeping delimiters via a capture group trick
+            const parts = text.split(SEP);
+            // parts[0] is content before first HR (may be empty), parts[1..] are the post-HR segments
+            // Each part (except possibly parts[0]) is "<br><h3>Transcription for: FILENAME</h3><br>CONTENT"
+            const markerPrefix = `<br><h3>Transcription for: ${item.file.name}</h3><br>`;
+            const idx = parts.findIndex((p, i) => i > 0 && p.startsWith(markerPrefix));
+            if (idx !== -1) {
+              parts[idx] = markerPrefix + contentHtml;
+              return parts.join(SEP);
+            }
+            return text + newBlock;
+          });
+        } else {
+          setTranscribedText(prev => (typeof prev === 'string' ? prev : '') + newBlock);
+        }
         setTranscriptionQueue(prev => prev.map((q, i) => i === index ? { ...q, transcribed: true } : q));
         onChunkTranscribedRef.current?.(item.file.name, result);
         setAppUserMessage(`Chunk "${item.file.name}" transcribed.`);

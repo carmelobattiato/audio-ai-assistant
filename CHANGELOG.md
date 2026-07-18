@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.148] — 2026-07-18
+
+- Re-trascrizione chunk: se chunk già trascritto, tasto T mostra modal con scelta Sostituisci (replace in-place) / Aggiungi in coda / Annulla — `handleTranscribeSingleChunk` accetta `mode: 'replace' | 'append'`
+- Fix Sostituisci: replace usa split su `<hr>` invece di regex — più robusto su testo con caratteri speciali o `$` nel contenuto
+- Sessions: tasto "Export All" esporta tutte le sessioni in un ZIP (`backup_all_sessions_DDMMYYYY.zip`)
+- Sessions: import accetta sia singola sessione `.json` che backup completo `.zip`
+
+---
+
 ## [1.147] — 2026-07-18
 
 - Fix chunk mancanti nel tab Transcript: `getAudioBlobDuration` aggiunto timeout 3s — i chunk live WebM di `MediaRecorder` non emettono `loadedmetadata`, la promise rimaneva appesa e `addChunkToQueue` non aggiungeva il chunk alla lista visuale

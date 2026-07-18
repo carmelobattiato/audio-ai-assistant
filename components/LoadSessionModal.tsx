@@ -16,6 +16,7 @@ interface LoadSessionModalProps {
   onDeleteSession: (sessionId: string) => void;
   onStartMerge: (sessionIds: [string, string]) => void;
   onExportSessionJson: (sessionId: string) => void;
+  onExportAllSessions: () => void;
   onImportSessionJson: (file: File) => void;
   initialViewSessionId?: string;
 }
@@ -43,6 +44,7 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
   onDeleteSession,
   onStartMerge,
   onExportSessionJson,
+  onExportAllSessions,
   onImportSessionJson,
   initialViewSessionId,
 }) => {
@@ -95,16 +97,21 @@ export const LoadSessionModal: React.FC<LoadSessionModalProps> = ({
         </p>
         <div className="flex gap-2">
           {!isMergeMode && (
-            <Button onClick={() => fileInputRef.current?.click()} variant="ghost" size="sm" leftIcon={<ArrowUpIcon className="w-4 h-4 rotate-180"/>}>
-              Load External Session
-            </Button>
+            <>
+              <Button onClick={() => fileInputRef.current?.click()} variant="ghost" size="sm" leftIcon={<ArrowUpIcon className="w-4 h-4 rotate-180"/>}>
+                Load External Session
+              </Button>
+              <Button onClick={onExportAllSessions} variant="ghost" size="sm">
+                Export All
+              </Button>
+            </>
           )}
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            accept=".json,application/json" 
-            className="hidden" 
-            onChange={(e) => e.target.files?.[0] && onImportSessionJson(e.target.files[0])} 
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".json,.zip,application/json,application/zip"
+            className="hidden"
+            onChange={(e) => { if (e.target.files?.[0]) { onImportSessionJson(e.target.files[0]); e.target.value = ''; } }}
           />
           {isMergeMode && (
             <Button onClick={handleProceedToMerge} variant="primary" size="sm" disabled={selectedToMerge.length !== 2}>

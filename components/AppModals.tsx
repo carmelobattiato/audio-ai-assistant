@@ -28,6 +28,7 @@ interface AppModalsProps {
   handleLoadAndRecord: (id: string) => void;
   handleDeleteSession: (id: string) => void;
   handleExportSessionJson: (id: string) => void;
+  handleExportAllSessionsZip: () => void;
   handleImportSessionJson: (file: File) => void;
   initialViewSessionId?: string;
   showLoadChunksModal: boolean;
@@ -74,6 +75,7 @@ export const AppModals: React.FC<AppModalsProps> = (props) => (
       onLoadAndRecord={props.handleLoadAndRecord}
       onDeleteSession={props.handleDeleteSession}
       onExportSessionJson={props.handleExportSessionJson}
+      onExportAllSessions={props.handleExportAllSessionsZip}
       onImportSessionJson={props.handleImportSessionJson}
       onStartMerge={() => {}}
       initialViewSessionId={props.initialViewSessionId}

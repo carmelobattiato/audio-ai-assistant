@@ -1191,6 +1191,7 @@ export const NewHome: React.FC = () => {
         handleLoadAndRecord={handleLoadAndRecord}
         handleDeleteSession={sessLogic.handleDeleteSession}
         handleExportSessionJson={sessLogic.handleExportSessionJson}
+        handleExportAllSessionsZip={sessLogic.handleExportAllSessionsZip}
         handleImportSessionJson={sessLogic.handleImportSessionJson}
         showLoadChunksModal={showLoadChunksModal} setShowLoadChunksModal={setShowLoadChunksModal}
         recordingChunksCount={recordingChunks.length}

@@ -158,7 +158,6 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
 
     {/* Status message — right */}
     <div className="flex justify-end items-center min-w-0 gap-2 px-2" style={{ flex: '1 1 0' }}>
-      {notificationBell}
       {appUserMessage && (
         <p
           className="text-xs px-3 py-1 rounded-full truncate max-w-xs"
@@ -167,6 +166,7 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
           {appUserMessage}
         </p>
       )}
+      {notificationBell}
     </div>
   </header>
 );

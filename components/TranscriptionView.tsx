@@ -40,7 +40,7 @@ interface TranscriptionViewProps {
   onSelectPlaybackFile: (item: QueuedFile | null) => void;
   currentlyPlayingFile: File | null;
   isRealtimeTranscriptAvailable: boolean;
-  onTranscribeChunk: (index: number) => void;
+  onTranscribeChunk: (index: number, mode: 'replace' | 'append') => void;
 }
 
 const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
@@ -77,6 +77,7 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
   const [uploadConfirmModalOpen, setUploadConfirmModalOpen] = useState<boolean>(false);
   const [pendingTextFile, setPendingTextFile] = useState<TextFileContent | null>(null);
   const [isRetranscribeModalOpen, setIsRetranscribeModalOpen] = useState(false);
+  const [pendingChunkRetranscribeIndex, setPendingChunkRetranscribeIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isTextModeActive) {
@@ -252,7 +253,13 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
                   <Button variant="ghost" size="sm" onClick={() => saveBlobToFile(item.file, item.file.name)} title="Download this chunk">
                     <DownloadIcon className="w-5 h-5" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => onTranscribeChunk(index)} disabled={isTranscribing} title={item.transcribed ? 'Re-transcribe this chunk (already transcribed)' : 'Transcribe this chunk'}>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    if (item.transcribed) {
+                      setPendingChunkRetranscribeIndex(index);
+                    } else {
+                      onTranscribeChunk(index, 'append');
+                    }
+                  }} disabled={isTranscribing} title={item.transcribed ? 'Re-transcribe this chunk (already transcribed)' : 'Transcribe this chunk'}>
                     <span className={`text-xs font-bold ${item.transcribed ? 'text-green-400' : 'text-sky-400'}`}>T</span>
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => onReorderQueue(index, index - 1)} disabled={index === 0} title="Move up">
@@ -353,6 +360,29 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
             {userMessageTextUpload && <span className={`block mt-2 text-sm ${userMessageTextUpload.startsWith("Error") ? 'text-red-400' : 'text-sky-300'}`}>{userMessageTextUpload}</span>}
         </p>
       )}
+
+      <Modal
+        isOpen={pendingChunkRetranscribeIndex !== null}
+        onClose={() => setPendingChunkRetranscribeIndex(null)}
+        title="Ri-trascrivi chunk"
+        footer={
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
+            <Button onClick={() => setPendingChunkRetranscribeIndex(null)} variant="ghost">Annulla</Button>
+            <Button onClick={() => {
+              if (pendingChunkRetranscribeIndex !== null) onTranscribeChunk(pendingChunkRetranscribeIndex, 'append');
+              setPendingChunkRetranscribeIndex(null);
+            }} variant="secondary">Aggiungi in coda</Button>
+            <Button onClick={() => {
+              if (pendingChunkRetranscribeIndex !== null) onTranscribeChunk(pendingChunkRetranscribeIndex, 'replace');
+              setPendingChunkRetranscribeIndex(null);
+            }} variant="primary">Sostituisci</Button>
+          </div>
+        }
+      >
+        <p className="text-gray-300">
+          Questo chunk è già stato trascritto. Vuoi <strong>sostituire</strong> la trascrizione precedente nella stessa posizione, o <strong>aggiungere</strong> la nuova trascrizione in coda?
+        </p>
+      </Modal>
 
       <Modal
         isOpen={isRetranscribeModalOpen}
