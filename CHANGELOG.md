@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.151] — 2026-07-18
+
+- Rimosso sistema chiave API da variabile d'ambiente (.env): ora solo chiave cifrata in IndexedDB
+- Settings: eliminata sezione "Chiave di sistema", radio buttons sorgente e preview chiave env
+- geminiService: rimosso fallback `process.env.API_KEY`; errore esplicito se chiave DB assente
+
+---
+
 ## [1.150] — 2026-07-18
 
 - Chat: copia messaggio preserva formattazione rich text (grassetto, liste) quando incollato in Outlook/Word

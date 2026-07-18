@@ -142,8 +142,8 @@ export const llmService = {
             
             if (provider !== 'Google') return { text: `Error: Invalid provider.` };
 
-            const apiKey = llmSettings.googleApiKey?.trim() || process.env.API_KEY;
-            if (!apiKey) return { text: `Error: API_KEY missing. Set it in LLM Configuration settings.` };
+            const apiKey = llmSettings.googleApiKey?.trim();
+            if (!apiKey) return { text: 'Error: API Key non configurata. Salvala nelle Impostazioni.' };
 
             const ai = new GoogleGenAI({
               apiKey,
@@ -232,8 +232,8 @@ export const llmService = {
     }
     await waitForRateLimit(llmSettings);
 
-    const apiKey = llmSettings.googleApiKey?.trim() || process.env.API_KEY;
-    if (!apiKey) return { text: 'Error: API_KEY missing.' };
+    const apiKey = llmSettings.googleApiKey?.trim();
+    if (!apiKey) return { text: 'Error: API Key non configurata. Salvala nelle Impostazioni.' };
 
     try {
       const ai = new GoogleGenAI({ apiKey });
@@ -288,7 +288,7 @@ export const llmService = {
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            const apiKey = llmSettings.googleApiKey?.trim() || process.env.API_KEY;
+            const apiKey = llmSettings.googleApiKey?.trim();
             const ai = new GoogleGenAI({
               apiKey,
               ...(llmSettings.apiBaseUrl?.trim() && { httpOptions: { baseUrl: llmSettings.apiBaseUrl.trim() } }),

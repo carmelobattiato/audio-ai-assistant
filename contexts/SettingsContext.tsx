@@ -46,13 +46,13 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
       return {
         ...state,
         hasCustomApiKey: true,
-        appSettings: { ...state.appSettings, llm: { ...state.appSettings.llm, googleApiKey: action.key, apiKeySource: 'custom' } },
+        appSettings: { ...state.appSettings, llm: { ...state.appSettings.llm, googleApiKey: action.key } },
       };
     case 'REMOVE_CUSTOM_KEY':
       return {
         ...state,
         hasCustomApiKey: false,
-        appSettings: { ...state.appSettings, llm: { ...state.appSettings.llm, googleApiKey: undefined, apiKeySource: 'system' } },
+        appSettings: { ...state.appSettings, llm: { ...state.appSettings.llm, googleApiKey: undefined } },
       };
     default:
       return state;
@@ -132,12 +132,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
       const encrypted = await db.getEncryptedApiKey();
       const hasKey = !!encrypted;
-      if (settings.llm?.apiKeySource === 'custom' && encrypted) {
+      if (encrypted) {
         try {
           const decrypted = await decryptString(encrypted);
           settings = { ...settings, llm: { ...settings.llm, googleApiKey: decrypted } };
         } catch {
-          loggingService.warn('API_KEY', 'Failed to decrypt custom API key — falling back to system');
+          loggingService.warn('API_KEY', 'Failed to decrypt API key from DB');
         }
       }
 
@@ -160,14 +160,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const persistSettings = useCallback(async (raw: AppSettings) => {
     let resolved = { ...raw };
-    if (raw.llm?.apiKeySource === 'custom') {
-      const encrypted = await db.getEncryptedApiKey();
-      if (encrypted) {
-        try {
-          const decrypted = await decryptString(encrypted);
-          resolved = { ...raw, llm: { ...raw.llm, googleApiKey: decrypted } };
-        } catch { /* keep googleApiKey undefined */ }
-      }
+    const encrypted = await db.getEncryptedApiKey();
+    if (encrypted) {
+      try {
+        const decrypted = await decryptString(encrypted);
+        resolved = { ...raw, llm: { ...raw.llm, googleApiKey: decrypted } };
+      } catch { /* keep googleApiKey undefined */ }
     } else {
       resolved = { ...raw, llm: { ...raw.llm, googleApiKey: undefined } };
     }
@@ -179,14 +177,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const blob = await encryptString(key);
     await db.saveEncryptedApiKey(blob);
     dispatch({ type: 'APPLY_CUSTOM_KEY', key });
-    const toSave = { ...settingsRef.current, llm: { ...settingsRef.current.llm, googleApiKey: undefined, apiKeySource: 'custom' as const } };
+    const toSave = { ...settingsRef.current, llm: { ...settingsRef.current.llm, googleApiKey: undefined } };
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(toSave));
   }, []);
 
   const deleteCustomApiKey = useCallback(async () => {
     await db.deleteEncryptedApiKey();
     dispatch({ type: 'REMOVE_CUSTOM_KEY' });
-    const toSave = { ...settingsRef.current, llm: { ...settingsRef.current.llm, googleApiKey: undefined, apiKeySource: 'system' as const } };
+    const toSave = { ...settingsRef.current, llm: { ...settingsRef.current.llm, googleApiKey: undefined } };
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(toSave));
   }, []);
 

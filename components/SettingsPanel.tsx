@@ -220,17 +220,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }, [liveApiKey, isTesting, displayedLiveModels]);
 
   // API key UI state
-  const [showSystemKey, setShowSystemKey] = useState(false);
   const [showCustomKey, setShowCustomKey] = useState(false);
   const [customKeyInput, setCustomKeyInput] = useState('');
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [keyFeedback, setKeyFeedback] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
-
-  const systemKey: string = (process.env.API_KEY as string) || '';
-  const systemKeyPresent = !!systemKey;
-  const systemKeyPreview = systemKey
-    ? `${systemKey.slice(0, 6)}${'•'.repeat(16)}${systemKey.slice(-4)}`
-    : '';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -238,10 +231,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     // If settings changed while open the user's in-progress edits must not be lost.
     const s: AppSettings = structuredClone(settings);
     setLocalSettings(s);
-    setCustomKeyInput(
-      settings.llm.apiKeySource === 'custom' ? settings.llm.googleApiKey || '' : ''
-    );
-    setShowSystemKey(false);
+    setCustomKeyInput(settings.llm.googleApiKey || '');
     setShowCustomKey(false);
     setKeyFeedback(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,11 +244,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     try {
       await onSaveCustomApiKey(customKeyInput.trim());
       setKeyFeedback({ type: 'ok', msg: 'Chiave salvata nel DB (cifrata).' });
-      // Ensure source is set to custom in localSettings
-      setLocalSettings(prev => ({
-        ...prev,
-        llm: { ...prev.llm, apiKeySource: 'custom' },
-      }));
     } catch {
       setKeyFeedback({ type: 'err', msg: 'Errore nel salvataggio.' });
     } finally {
@@ -271,11 +256,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     try {
       await onDeleteCustomApiKey();
       setCustomKeyInput('');
-      setKeyFeedback({ type: 'ok', msg: 'Chiave personalizzata eliminata.' });
-      setLocalSettings(prev => ({
-        ...prev,
-        llm: { ...prev.llm, apiKeySource: 'system' },
-      }));
+      setKeyFeedback({ type: 'ok', msg: 'Chiave eliminata dal DB.' });
     } catch {
       setKeyFeedback({ type: 'err', msg: 'Errore durante l\'eliminazione.' });
     }
@@ -590,130 +571,62 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-gray-300">Google API Key:</label>
 
-                    {/* System key row */}
-                    <div className="p-3 bg-gray-800 rounded-md border border-gray-600">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-medium text-gray-400">Chiave di sistema (.env)</span>
-                          <div className="relative group">
-                            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-gray-600 text-gray-300 text-[10px] font-bold cursor-default select-none">i</span>
-                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 hidden group-hover:block w-72 p-2.5 bg-gray-900 border border-gray-600 rounded-md shadow-xl text-left pointer-events-none">
-                              <p className="text-xs font-semibold text-gray-200 mb-1.5">Sorgente chiave di sistema</p>
-                              <p className="text-[11px] text-gray-400 mb-1">Variabile d'ambiente letta all'avvio del dev server:</p>
-                              <code className="block text-[11px] text-sky-300 bg-gray-800 px-2 py-1 rounded mb-2">GEMINI_API_KEY</code>
-                              <p className="text-[11px] text-gray-400 mb-1">File da creare/modificare nella cartella radice del progetto:</p>
-                              <code className="block text-[11px] text-emerald-300 bg-gray-800 px-2 py-1 rounded mb-2">.env</code>
-                              <p className="text-[11px] text-gray-500">Formato: <span className="text-gray-300">GEMINI_API_KEY=la_tua_chiave</span></p>
-                              <p className="text-[11px] text-gray-500 mt-1">Configurato in <span className="text-gray-300">vite.config.ts</span> via <span className="text-gray-300">loadEnv(mode, '.', '')</span>. Richiede il riavvio del server dopo ogni modifica.</p>
-                            </div>
-                          </div>
-                        </div>
-                        {systemKeyPresent
-                          ? <span className="text-xs text-emerald-400">✓ Configurata</span>
-                          : <span className="text-xs text-yellow-500">⚠ Non configurata</span>}
-                      </div>
-                      {systemKeyPresent && (
-                        <div className="flex gap-2 items-center mt-1">
-                          <code className="flex-1 text-xs font-mono text-gray-300 tracking-wider truncate">
-                            {showSystemKey ? systemKey : systemKeyPreview}
-                          </code>
+                    <div className="p-3 bg-gray-800 rounded-md border border-gray-600 space-y-3">
+                      {/* Saved key status */}
+                      <div className="flex items-center justify-between">
+                        {hasCustomApiKey
+                          ? <span className="text-xs text-emerald-400">✓ Chiave salvata nel DB (cifrata)</span>
+                          : <span className="text-xs text-yellow-500">⚠ Nessuna chiave configurata</span>}
+                        {hasCustomApiKey && (
                           <button
                             type="button"
-                            onClick={() => setShowSystemKey(v => !v)}
-                            className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 bg-gray-700 rounded border border-gray-600"
-                            title={showSystemKey ? 'Nascondi' : 'Mostra'}
+                            onClick={handleDeleteKey}
+                            className="text-xs text-red-400 hover:text-red-300 underline"
                           >
-                            {showSystemKey ? '🙈' : '👁'}
+                            Elimina dal DB
                           </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Source selector */}
-                    <div className="flex gap-6">
-                      {(['system', 'custom'] as const).map((src) => (
-                        <label key={src} className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="radio"
-                            name="apiKeySource"
-                            value={src}
-                            checked={(localSettings.llm.apiKeySource ?? 'system') === src}
-                            onChange={() => handleLocalLlmChange('apiKeySource', src)}
-                            className="accent-sky-500"
-                          />
-                          <span className="text-sm text-gray-300">
-                            {src === 'system' ? 'Usa chiave di sistema' : 'Usa chiave personalizzata (cifrata nel DB)'}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-
-                    {/* Custom key section */}
-                    {(localSettings.llm.apiKeySource ?? 'system') === 'custom' && (
-                      <div className="p-3 bg-gray-800 rounded-md border border-gray-600 space-y-3">
-                        {/* Saved key status */}
-                        <div className="flex items-center justify-between">
-                          {hasCustomApiKey
-                            ? <span className="text-xs text-emerald-400">✓ Chiave personalizzata salvata nel DB</span>
-                            : <span className="text-xs text-yellow-500">⚠ Nessuna chiave personalizzata salvata</span>}
-                          {hasCustomApiKey && (
-                            <button
-                              type="button"
-                              onClick={handleDeleteKey}
-                              className="text-xs text-red-400 hover:text-red-300 underline"
-                            >
-                              Elimina dal DB
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Input + save */}
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1">
-                            {hasCustomApiKey ? 'Aggiorna chiave:' : 'Inserisci chiave API:'}
-                          </label>
-                          <div className="flex gap-2">
-                            <input
-                              type={showCustomKey ? 'text' : 'password'}
-                              value={customKeyInput}
-                              onChange={(e) => setCustomKeyInput(e.target.value)}
-                              placeholder="Incolla la chiave API Google…"
-                              autoComplete="off"
-                              className="flex-1 bg-gray-700 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowCustomKey(v => !v)}
-                              className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-200 bg-gray-700 rounded border border-gray-600"
-                              title={showCustomKey ? 'Nascondi' : 'Mostra'}
-                            >
-                              {showCustomKey ? '🙈' : '👁'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleSaveKey}
-                              disabled={!customKeyInput.trim() || isSavingKey}
-                              className="px-3 py-1.5 text-xs font-medium text-white bg-sky-600 hover:bg-sky-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded border border-sky-700"
-                            >
-                              {isSavingKey ? '…' : 'Salva nel DB'}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Feedback */}
-                        {keyFeedback && (
-                          <p className={`text-xs ${keyFeedback.type === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {keyFeedback.type === 'ok' ? '✓' : '✗'} {keyFeedback.msg}
-                          </p>
                         )}
                       </div>
-                    )}
 
-                    {keyFeedback && (localSettings.llm.apiKeySource ?? 'system') !== 'custom' && (
-                      <p className={`text-xs ${keyFeedback.type === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {keyFeedback.type === 'ok' ? '✓' : '✗'} {keyFeedback.msg}
-                      </p>
-                    )}
+                      {/* Input + save */}
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">
+                          {hasCustomApiKey ? 'Aggiorna chiave:' : 'Inserisci chiave API:'}
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type={showCustomKey ? 'text' : 'password'}
+                            value={customKeyInput}
+                            onChange={(e) => setCustomKeyInput(e.target.value)}
+                            placeholder="Incolla la chiave API Google…"
+                            autoComplete="off"
+                            className="flex-1 bg-gray-700 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCustomKey(v => !v)}
+                            className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-200 bg-gray-700 rounded border border-gray-600"
+                            title={showCustomKey ? 'Nascondi' : 'Mostra'}
+                          >
+                            {showCustomKey ? '🙈' : '👁'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveKey}
+                            disabled={!customKeyInput.trim() || isSavingKey}
+                            className="px-3 py-1.5 text-xs font-medium text-white bg-sky-600 hover:bg-sky-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded border border-sky-700"
+                          >
+                            {isSavingKey ? '…' : 'Salva nel DB'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {keyFeedback && (
+                        <p className={`text-xs ${keyFeedback.type === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {keyFeedback.type === 'ok' ? '✓' : '✗'} {keyFeedback.msg}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Base URL */}

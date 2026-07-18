@@ -219,8 +219,6 @@ export interface LlmSettings {
   timeout?: number;
   rateLimitRequests?: number;
   rateLimitPeriodSeconds?: number;
-  /** 'system' = use process.env.API_KEY; 'custom' = use key encrypted in IndexedDB. */
-  apiKeySource?: 'system' | 'custom';
 }
 
 export enum Theme {
