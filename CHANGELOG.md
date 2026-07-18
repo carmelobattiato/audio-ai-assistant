@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.147] — 2026-07-18
+
+- Fix chunk mancanti nel tab Transcript: `getAudioBlobDuration` aggiunto timeout 3s — i chunk live WebM di `MediaRecorder` non emettono `loadedmetadata`, la promise rimaneva appesa e `addChunkToQueue` non aggiungeva il chunk alla lista visuale
+
+---
+
 ## [1.146] — 2026-07-18
 
 - Fix bubblenote diversa tra apertura da Calendario e da notifica riunione: estratto `buildNoteHtml`/`extractTeamsUrl` in `utils/calendarNoteUtils.ts`, usato ora da `CalEventDetailPanel.tsx`, `NeoCalendarDayView.tsx` e `useMeetingFlow.ts`

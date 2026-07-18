@@ -28,12 +28,21 @@ export const getAudioBlobDuration = (blob: Blob): Promise<number> => {
   return new Promise((resolve, reject) => {
       const audio = document.createElement('audio');
       const objectUrl = URL.createObjectURL(blob);
+      const cleanup = () => URL.revokeObjectURL(objectUrl);
+      // Live MediaRecorder WebM chunks may never fire loadedmetadata (no seek table).
+      // Timeout ensures addChunkToQueue doesn't hang and the chunk still appears in the queue.
+      const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error('Timeout loading audio metadata'));
+      }, 3000);
       audio.addEventListener('loadedmetadata', () => {
-          URL.revokeObjectURL(objectUrl);
+          clearTimeout(timer);
+          cleanup();
           resolve(audio.duration);
       });
       audio.addEventListener('error', (e) => {
-          URL.revokeObjectURL(objectUrl);
+          clearTimeout(timer);
+          cleanup();
           const errorMessage = (e.target as HTMLAudioElement)?.error?.message || 'Unknown error loading audio metadata';
           reject(new Error(errorMessage));
       });
