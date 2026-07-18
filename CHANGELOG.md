@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.157] — 2026-07-19
+
+- setup_and_run.ps1: collegamento desktop riscritto con `WScript.Shell` per agganciare `public\favicon.ico` come icona
+- setup_and_run.ps1: avvio verbose con progress bar e output Vite in tempo reale (`Wait-AppReadyVerbose`)
+- setup_and_run.sh: icona collegamento desktop da `public/favicon-64.png`; su macOS via osascript, su Linux via percorso assoluto in `Icon=`
+- setup_and_run.sh: avvio verbose con progress bar ASCII e output Vite in tempo reale (`wait_app_ready_verbose`)
+
+---
+
 ## [1.156] — 2026-07-18
 
 - Calendar Bridge v3.1: toggle popup "Debug RAW Calendar" per mostrare/nascondere bottone ⬇ RAW in Outlook/Teams

@@ -117,31 +117,78 @@ function Test-PortListening {
 }
 
 # =============================================================================
-# Utility - verifica HTTP con polling
+# Utility - verifica avvio con output Vite in tempo reale
 # =============================================================================
 
-function Wait-AppReady {
+function Wait-AppReadyVerbose {
     param(
         [string]$Url,
-        [int]$MaxSeconds = 40
+        [string]$LogPath,
+        [int]$MaxSeconds = 60
     )
-    Write-Host -NoNewline "   Attendo risposta su $Url "
-    $deadline = (Get-Date).AddSeconds($MaxSeconds)
+
+    $start       = Get-Date
+    $deadline    = $start.AddSeconds($MaxSeconds)
+    $phase       = "Avvio npm dev server..."
+    $pct         = 0
+    $ready       = $false
+    $lastPrinted = ""
+
     while ((Get-Date) -lt $deadline) {
-        try {
-            $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing `
-                        -TimeoutSec 2 -ErrorAction Stop
-            if ($resp.StatusCode -lt 400) {
-                Write-Host " [OK]" -ForegroundColor Green
-                return $true
+        if (Test-Path $LogPath) {
+            $tail = Get-Content $LogPath -Tail 8 -ErrorAction SilentlyContinue
+            foreach ($line in $tail) {
+                $trimmed = $line.Trim()
+                if (-not $trimmed -or $trimmed -eq $lastPrinted) { continue }
+                $lastPrinted = $trimmed
+
+                if ($trimmed -match 'ready in|Local:|➜') {
+                    $phase = "Server pronto!"; $pct = 100; $ready = $true
+                }
+                elseif ($trimmed -match 'Pre-bundling|optimiz') {
+                    $phase = "Ottimizzazione dipendenze..."; if ($pct -lt 70) { $pct = 70 }
+                }
+                elseif ($trimmed -match 'transform|chunks|modules') {
+                    $phase = "Compilazione moduli..."; if ($pct -lt 30) { $pct = 30 }
+                }
+                elseif ($trimmed -match 'vite') {
+                    $phase = "Inizializzazione Vite..."; if ($pct -lt 10) { $pct = 10 }
+                }
+
+                Write-Host "    $trimmed" -ForegroundColor DarkGray
             }
         }
-        catch { }
-        Write-Host -NoNewline "."
-        Start-Sleep -Seconds 1
+
+        $elapsed    = [int]((Get-Date) - $start).TotalSeconds
+        $timePct    = [math]::Min(95, [int]($elapsed / $MaxSeconds * 100))
+        $displayPct = [math]::Max($pct, $timePct)
+
+        Write-Progress -Activity "Avvio Audio AI Assistant" `
+                       -Status "$phase  (${elapsed}s / max ${MaxSeconds}s)" `
+                       -PercentComplete $displayPct
+
+        if ($ready) { break }
+
+        try {
+            $r = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 1 -ErrorAction Stop
+            if ($r.StatusCode -lt 400) { $ready = $true; break }
+        } catch {}
+
+        Start-Sleep -Milliseconds 800
     }
-    Write-Host " [TIMEOUT]" -ForegroundColor Yellow
-    return $false
+
+    Write-Progress -Activity "Avvio Audio AI Assistant" -Completed
+    $elapsed = [int]((Get-Date) - $start).TotalSeconds
+
+    if ($ready) {
+        Write-Host ""
+        Write-Host "  Server pronto in ${elapsed}s  →  $Url" -ForegroundColor Green
+    } else {
+        Write-Host ""
+        Write-Host "  Timeout dopo ${elapsed}s. Ultimi log:" -ForegroundColor Yellow
+        Show-ServiceLogs -Lines 20
+    }
+    return $ready
 }
 
 # =============================================================================
@@ -213,27 +260,32 @@ function Start-PersistentProcess {
 # =============================================================================
 
 function Install-Shortcuts {
-    $LnkSource = Join-Path $PSScriptRoot "Audio_AI_Assistance.lnk"
-    if (-not (Test-Path $LnkSource)) {
-        Write-Host "  File shortcut non trovato, salto." -ForegroundColor DarkGray
-        return
-    }
     $DesktopPath = [Environment]::GetFolderPath("Desktop")
     $LnkDest     = Join-Path $DesktopPath "Audio_AI_Assistance.lnk"
+
+    # Preferisce .ico; fallback a .png (meno nitido ma funziona)
+    $IconPath = Join-Path $PSScriptRoot "public\favicon.ico"
+    if (-not (Test-Path $IconPath)) {
+        $IconPath = Join-Path $PSScriptRoot "public\favicon-64.png"
+    }
+
     try {
-        Copy-Item -Path $LnkSource -Destination $LnkDest -Force
-        Write-Host "  Collegamento copiato sul Desktop." -ForegroundColor Green
+        $shell = New-Object -ComObject WScript.Shell
+        $lnk   = $shell.CreateShortcut($LnkDest)
+        $lnk.TargetPath       = "powershell.exe"
+        $lnk.Arguments        = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSScriptRoot\setup_and_run.ps1`" start"
+        $lnk.WorkingDirectory = $PSScriptRoot
+        $lnk.WindowStyle      = 1
+        $lnk.Description      = "Avvia Audio AI Assistant"
+        if (Test-Path $IconPath) {
+            $lnk.IconLocation = "$IconPath,0"
+        }
+        $lnk.Save()
+        Write-Host "  Collegamento creato con icona." -ForegroundColor Green
     }
     catch {
-        Write-Host "  Impossibile copiare il collegamento: $_" -ForegroundColor Red
+        Write-Host "  Impossibile creare collegamento: $_" -ForegroundColor Red
     }
-    try {
-        $shell  = New-Object -ComObject Shell.Application
-        $folder = $shell.Namespace($DesktopPath)
-        $item   = $folder.ParseName("Audio_AI_Assistance.lnk")
-        if ($item) { $item.InvokeVerb("taskbarpin") }
-    }
-    catch { }
 }
 
 # =============================================================================
@@ -294,7 +346,7 @@ function Start-AppService {
     Write-Host ""
     Write-Host "[4/4] Verifica disponibilita'..." -ForegroundColor Cyan
     $appUrl = "http://127.0.0.1:$Port"
-    $isReady = Wait-AppReady -Url $appUrl -MaxSeconds 40
+    $isReady = Wait-AppReadyVerbose -Url $appUrl -LogPath $LogFile -MaxSeconds 60
 
     # Salva stato
     @{
@@ -303,15 +355,8 @@ function Start-AppService {
         StartTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     } | ConvertTo-Json | Set-Content $PidFile
 
-    Write-Host ""
     if ($isReady) {
         Write-Host "Servizio avviato con successo!" -ForegroundColor Green
-        Write-Host "Accesso: $appUrl" -ForegroundColor Green
-    }
-    else {
-        Write-Host "Servizio avviato ma l'app non risponde ancora." -ForegroundColor Yellow
-        Write-Host "Potrebbe essere ancora in compilazione. Log:" -ForegroundColor Yellow
-        Show-ServiceLogs -Lines 15
     }
 }
 
