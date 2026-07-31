@@ -38,6 +38,7 @@ import {
   SavedSessionData,
   SupportedLanguage,
   PipelineStep,
+  CalendarEventRecord,
 } from '../types';
 
 import {
@@ -162,6 +163,21 @@ export const NewHome: React.FC = () => {
     finalEffectiveTitleRef.current = title;
     return title;
   }, [recordingTitle, recordingTimestampSuffix]);
+
+  // Se la sessione attiva ha un evento calendario auto-creato ('app'), tieni il subject
+  // allineato al titolo quando l'utente rinomina la registrazione.
+  useEffect(() => {
+    const sid = activeSessionIdRef.current;
+    if (!sid) return;
+    const autoEvent = calendarEventsDb.find(e => e.linkedSessionId === sid && e.source === 'app');
+    if (autoEvent && autoEvent.subject !== finalEffectiveTitle) {
+      db.upsertCalendarEvent({ ...autoEvent, subject: finalEffectiveTitle })
+        .then(() => db.getAllCalendarEvents())
+        .then(setCalendarEventsDb)
+        .catch(e => loggingService.error('RECORDING', 'Failed to sync calendar event subject on rename', { error: String(e) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finalEffectiveTitle]);
 
   const allBubbleNotes = useMemo((): BubbleNote[] => {
     const historicalNotes: BubbleNote[] = correlatedSessions.map(({ id, data: s }) => ({
@@ -624,6 +640,24 @@ export const NewHome: React.FC = () => {
       chunks: recordingChunksRef.current,
     };
 
+    // Se la sessione ha un evento calendario auto-creato ('app'), allinea l'orario di fine alla durata reale.
+    const sidForCalendar = activeSessionIdRef.current;
+    if (sidForCalendar && audioRecordingStartTime && audioDuration > 0) {
+      (async () => {
+        try {
+          const events = await db.getAllCalendarEvents();
+          const autoEvent = events.find(e => e.linkedSessionId === sidForCalendar && e.source === 'app');
+          if (autoEvent) {
+            const realEnd = new Date(audioRecordingStartTime.getTime() + audioDuration * 1000);
+            await db.upsertCalendarEvent({ ...autoEvent, end: realEnd.toISOString() });
+            setCalendarEventsDb(await db.getAllCalendarEvents());
+          }
+        } catch (e) {
+          loggingService.error('RECORDING', 'Failed to update auto calendar event end time', { error: String(e) });
+        }
+      })();
+    }
+
     if (wasChunked) {
       setRecordingChunks([]);
       recordingChunksRef.current = [];
@@ -732,6 +766,30 @@ export const NewHome: React.FC = () => {
       const { id: aptId, subject: aptSubject } = pendingLinkAppointmentRef.current;
       db.linkSessionToEvent(aptId, newSessionId, aptSubject).catch(console.error);
       pendingLinkAppointmentRef.current = null;
+    } else {
+      // Sessione ad-hoc (non avviata da calendario): crea un evento calendario collegato,
+      // così ogni registrazione ha sempre una controparte in Calendar come un meeting.
+      const startDate = initialSession.data.audioRecordingStartTime ?? new Date();
+      const defaultEndDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+      const autoEvent: CalendarEventRecord = {
+        id: `evt_app_${newSessionId}`,
+        subject: finalEffectiveTitle,
+        start: startDate.toISOString(),
+        end: defaultEndDate.toISOString(),
+        source: 'app',
+        linkedSessionId: newSessionId,
+        createdAt: Date.now(),
+      };
+      (async () => {
+        try {
+          await db.upsertCalendarEvent(autoEvent);
+          await db.linkSessionToEvent(autoEvent.id, newSessionId, finalEffectiveTitle);
+          const updated = await db.getAllCalendarEvents();
+          setCalendarEventsDb(updated);
+        } catch (e) {
+          loggingService.error('RECORDING', 'Failed to auto-create calendar event for ad-hoc session', { error: String(e) });
+        }
+      })();
     }
     if (pendingNoteHtml.trim()) {
       setBubbleNotes(initialSession.data.bubbleNotes);
@@ -1189,7 +1247,10 @@ export const NewHome: React.FC = () => {
         initialViewSessionId={sessionToPreview}
         handleLoadSession={handleLoadSession}
         handleLoadAndRecord={handleLoadAndRecord}
-        handleDeleteSession={sessLogic.handleDeleteSession}
+        handleDeleteSession={async (sessionId: string) => {
+          await sessLogic.handleDeleteSession(sessionId);
+          setCalendarEventsDb(await db.getAllCalendarEvents());
+        }}
         handleExportSessionJson={sessLogic.handleExportSessionJson}
         handleExportAllSessionsZip={sessLogic.handleExportAllSessionsZip}
         handleImportSessionJson={sessLogic.handleImportSessionJson}

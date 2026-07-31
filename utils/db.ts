@@ -209,6 +209,21 @@ export const db = {
   async deleteSession(sessionId: string): Promise<void> {
     return dbOp('deleteSession', async () => {
       const dbInstance = await dbPromise;
+      const session = await dbInstance.get(SESSIONS_STORE_NAME, sessionId);
+      const linkedEventId = session?.data.linkedCalendarEventId;
+      if (linkedEventId) {
+        const event = await dbInstance.get(CALENDAR_EVENTS_STORE_NAME, linkedEventId);
+        if (event) {
+          if (event.source === 'app') {
+            // Evento esistente solo per rappresentare questa sessione: eliminalo insieme ad essa.
+            await dbInstance.delete(CALENDAR_EVENTS_STORE_NAME, linkedEventId);
+          } else {
+            // Evento importato da fonte esterna: mantienilo nel calendario, rimuovi solo il collegamento.
+            delete event.linkedSessionId;
+            await dbInstance.put(CALENDAR_EVENTS_STORE_NAME, event);
+          }
+        }
+      }
       await dbInstance.delete(SESSIONS_STORE_NAME, sessionId);
     });
   },

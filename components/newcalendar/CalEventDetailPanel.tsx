@@ -15,7 +15,7 @@ export interface CalendarEventRecord {
   onlineMeetingUrl?: string;
   body?: string;
   responseStatus?: string;
-  source: 'windows' | 'ics' | 'extension';
+  source: 'windows' | 'ics' | 'extension' | 'app';
   linkedSessionId?: string;
   createdAt: number;
 }
@@ -382,16 +382,18 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                   ? { background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#6EE7B7' }
                   : event.source === 'ics'
                   ? { background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', color: '#FCD34D' }
+                  : event.source === 'app'
+                  ? { background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', color: '#7DD3FC' }
                   : { background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#C4B5FD' }
               }
             >
               <span
                 style={{
                   width: 5, height: 5, borderRadius: '50%', display: 'inline-block',
-                  background: event.source === 'extension' ? '#10B981' : event.source === 'ics' ? '#F59E0B' : '#8B5CF6',
+                  background: event.source === 'extension' ? '#10B981' : event.source === 'ics' ? '#F59E0B' : event.source === 'app' ? '#38BDF8' : '#8B5CF6',
                 }}
               />
-              {event.source === 'extension' ? 'Outlook Live' : event.source === 'ics' ? 'ICS Feed' : 'Outlook COM'}
+              {event.source === 'extension' ? 'Outlook Live' : event.source === 'ics' ? 'ICS Feed' : event.source === 'app' ? 'Registrazione' : 'Outlook COM'}
             </span>
           </div>
 

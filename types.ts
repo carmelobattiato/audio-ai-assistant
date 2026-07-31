@@ -472,7 +472,7 @@ export interface CalendarEventRecord {
   onlineMeetingUrl?: string;
   body?: string;
   responseStatus?: string;
-  source: 'windows' | 'ics' | 'extension';
+  source: 'windows' | 'ics' | 'extension' | 'app';
   linkedSessionId?: string;      // FK → sessions.id
   createdAt: number;             // epoch ms (per cleanup)
 }

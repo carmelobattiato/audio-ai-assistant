@@ -343,101 +343,103 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start gap-3 flex-wrap">
-        <Button
-            onClick={handleTranscribeClick}
-            disabled={disabled || (!isTranscribing && !canTranscribe)}
-            variant={isTranscribing ? "danger" : "primary"}
-            leftIcon={isTranscribing ? <StopIcon className="w-5 h-5"/> : null}
-            className="transition-transform transform hover:scale-105 w-full xs:w-auto"
-            title={transcribeButtonTitle}
-        >
-            {isTranscribing ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
-                  <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                Stop Transcription
-              </span>
-            ) : transcribeButtonText}
-        </Button>
-
-        <Button
-            onClick={handleTextFileUploadClick}
-            variant="primary"
-            leftIcon={<UploadIcon className="w-5 h-5" />}
-            isLoading={isLoadingTextFile}
-            disabled={disabled || isTranscribing}
-            className="transition-transform transform hover:scale-105 w-full xs:w-auto"
-            title="Upload a text document"
-        >
-            {isLoadingTextFile ? "Processing File..." : "Upload Text Document"}
-        </Button>
-         <input
-          type="file"
-          ref={textFileInputRef}
-          onChange={handleTextFileChange}
-          accept=".txt,.csv,.html,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv,text/html,application/pdf"
-          className="hidden"
-          aria-hidden="true"
-        />
-      </div>
-
       {transcriptionError && <p className="text-red-400 text-sm">Audio Transcription Error: {transcriptionError}</p>}
-      
-      {showTranscriptionArea ? (
-        <>
-          <div className="sticky top-0 z-10 bg-gray-800 border border-b-0 border-gray-700 rounded-t-lg flex flex-wrap items-center justify-between gap-2 p-1.5">
-            <div className="simple-editor-toolbar flex items-center gap-0.5">
-              {TOOLBAR_BUTTONS.map(btn => (
-                <button
-                  key={btn.command}
-                  onClick={() => applyFormat(btn.command)}
-                  title={btn.title}
-                  type="button"
-                  disabled={disabled || isTranscribing || !isEditing}
-                  className={`p-1.5 ${activeFormats[btn.command] ? 'active' : ''}`}
-                  aria-pressed={!!activeFormats[btn.command]}
-                >
-                  {btn.icon}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              {activeSourceText && !isTranscribing && (
-                <Button
-                    onClick={handleSaveTranscription}
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<SaveIcon className="w-4 h-4"/>}
-                    disabled={disabled}
-                >
-                    Save Transcription as {settings.outputFormat.toUpperCase()}
-                </Button>
-              )}
-              <Button
-                onClick={handleToggleEditMode}
-                variant="primary"
-                size="sm"
-                leftIcon={isEditing ? <SaveIcon className="w-4 h-4"/> : <EditIcon className="w-4 h-4"/>}
-                disabled={disabled || isTranscribing}
-              >
-                {isEditing ? 'Save Changes' : 'Edit Mode'}
-              </Button>
-            </div>
-          </div>
-          <div
-            id="transcriptionDisplay"
-            ref={editorRef}
-            contentEditable={isEditing && !disabled && !isTranscribing}
-            suppressContentEditableWarning={true}
-            aria-live="polite"
-            aria-label="Transcription Result"
-            className={`llm-result-display-prose simple-editor-content border border-t-0 border-gray-700 rounded-b-lg focus:ring-blue-500 focus:border-blue-500 ${isTranscribing || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            style={{ minHeight: '60vh', maxHeight: '70vh', overflowY: 'auto' }}
+
+      <div className={`sticky top-0 z-10 bg-gray-800 border border-gray-700 flex flex-wrap items-center justify-between gap-2 p-1.5 ${showTranscriptionArea ? 'rounded-t-lg border-b-0' : 'rounded-lg'}`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+              onClick={handleTranscribeClick}
+              disabled={disabled || (!isTranscribing && !canTranscribe)}
+              variant={isTranscribing ? "danger" : "primary"}
+              size="sm"
+              leftIcon={isTranscribing ? <StopIcon className="w-4 h-4"/> : null}
+              title={transcribeButtonTitle}
+          >
+              {isTranscribing ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                    <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Stop Transcription
+                </span>
+              ) : transcribeButtonText}
+          </Button>
+
+          <Button
+              onClick={handleTextFileUploadClick}
+              variant="primary"
+              size="sm"
+              leftIcon={<UploadIcon className="w-4 h-4" />}
+              isLoading={isLoadingTextFile}
+              disabled={disabled || isTranscribing}
+              title="Upload a text document"
+          >
+              {isLoadingTextFile ? "Processing File..." : "Upload Text Document"}
+          </Button>
+          <input
+            type="file"
+            ref={textFileInputRef}
+            onChange={handleTextFileChange}
+            accept=".txt,.csv,.html,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv,text/html,application/pdf"
+            className="hidden"
+            aria-hidden="true"
           />
-        </>
+
+        </div>
+        {showTranscriptionArea && (
+          <div className="flex items-center gap-2">
+            {isEditing && (
+              <div className="simple-editor-toolbar flex items-center gap-0.5">
+                {TOOLBAR_BUTTONS.map(btn => (
+                  <button
+                    key={btn.command}
+                    onClick={() => applyFormat(btn.command)}
+                    title={btn.title}
+                    type="button"
+                    disabled={disabled || isTranscribing}
+                    className={`p-1.5 ${activeFormats[btn.command] ? 'active' : ''}`}
+                    aria-pressed={!!activeFormats[btn.command]}
+                  >
+                    {btn.icon}
+                  </button>
+                ))}
+              </div>
+            )}
+            {activeSourceText && !isTranscribing && (
+              <Button
+                  onClick={handleSaveTranscription}
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<SaveIcon className="w-4 h-4"/>}
+                  disabled={disabled}
+              >
+                  Download Transcription as {settings.outputFormat.toUpperCase()}
+              </Button>
+            )}
+            <Button
+              onClick={handleToggleEditMode}
+              variant="primary"
+              size="sm"
+              leftIcon={isEditing ? <SaveIcon className="w-4 h-4"/> : <EditIcon className="w-4 h-4"/>}
+              disabled={disabled || isTranscribing}
+            >
+              {isEditing ? 'Save Changes' : 'Edit Mode'}
+            </Button>
+          </div>
+        )}
+      </div>
+      {showTranscriptionArea ? (
+        <div
+          id="transcriptionDisplay"
+          ref={editorRef}
+          contentEditable={isEditing && !disabled && !isTranscribing}
+          suppressContentEditableWarning={true}
+          aria-live="polite"
+          aria-label="Transcription Result"
+          className={`llm-result-display-prose simple-editor-content border border-t-0 border-gray-700 rounded-b-lg focus:ring-blue-500 focus:border-blue-500 ${isTranscribing || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          style={{ minHeight: '60vh', maxHeight: '70vh', overflowY: 'auto' }}
+        />
       ) : (
         <p className="text-gray-500 text-center py-10">
             Please record audio, upload an audio file, or upload a text document to begin.

@@ -8,12 +8,24 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.159] — 2026-07-31
+
+- Creazione automatica di un evento Calendar per ogni sessione registrata ad-hoc (non avviata da un evento esistente)
+- CalendarEventRecord.source: aggiunto valore 'app' per gli eventi auto-generati dall'app
+- Orario di fine evento auto-generato aggiornato con la durata reale a fine registrazione
+- Fix: rinominare la registrazione ora aggiorna anche il subject dell'evento calendario collegato (prima restava fisso al nome generato all'avvio)
+- Eliminando una sessione, l'evento calendario auto-creato ('app') viene eliminato con essa; se collegata a un evento esterno (Outlook/ICS) viene solo scollegata, l'evento resta
+
+---
+
 ## [1.158] — 2026-07-31
 
 - TranscriptionView: editor trascrizione inline al posto del modal "Edit Content" separato
 - Toolbar formattazione, "Save Transcription as TXT" e toggle Edit/Save su un'unica riga sticky sopra l'area editabile
 - Bottone toggle: "Edit Mode" per abilitare la modifica, diventa "Save Changes" mentre si è in editing
 - Rimossa la sezione "Reprocess Selected Text" (istruzione + chiamata LLM) dal tab Transcript
+- Transcribe, Upload Text Document, toolbar formattazione, Save Transcription e Edit Mode/Save uniti su un'unica riga
+- Toolbar formattazione spostata a destra, visibile solo in Edit Mode
 - RichTextEditorModal invariato, resta usato solo da LlmProcessor per "Edit Result"
 
 ---
