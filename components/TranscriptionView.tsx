@@ -1,12 +1,22 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from './common/Button';
-import { Modal } from './common/Modal'; 
-import { SaveIcon, EditIcon, UploadIcon, StopIcon, ArrowUpIcon, ArrowDownIcon, PlayIcon, TrashIcon, DownloadIcon } from '../constants';
+import { Modal } from './common/Modal';
+import {
+  SaveIcon, EditIcon, UploadIcon, StopIcon, ArrowUpIcon, ArrowDownIcon, PlayIcon, TrashIcon, DownloadIcon,
+  FormatBoldIcon, FormatItalicIcon, FormatUnderlinedIcon, FormatListBulletedIcon, FormatListNumberedIcon,
+} from '../constants';
 import { saveTextToFile, parseTextFile, generateStandardMetadataHeader, saveBlobToFile } from '../utils/fileUtils';
-import { TranscriptionSettings, SupportedLanguage, TextFileContent, AppSettings } from '../types';
-import { RichTextEditorModal } from './RichTextEditorModal';
-import { sanitizeHtml } from '../utils/sanitize';
+import { TranscriptionSettings, TextFileContent, AppSettings } from '../types';
+
+const TOOLBAR_COMMANDS = ['bold', 'italic', 'underline', 'insertUnorderedList', 'insertOrderedList'];
+const TOOLBAR_BUTTONS = [
+  { icon: <FormatBoldIcon className="w-5 h-5"/>, command: 'bold', title: 'Bold' },
+  { icon: <FormatItalicIcon className="w-5 h-5"/>, command: 'italic', title: 'Italic' },
+  { icon: <FormatUnderlinedIcon className="w-5 h-5"/>, command: 'underline', title: 'Underline' },
+  { icon: <FormatListBulletedIcon className="w-5 h-5"/>, command: 'insertUnorderedList', title: 'Bulleted List' },
+  { icon: <FormatListNumberedIcon className="w-5 h-5"/>, command: 'insertOrderedList', title: 'Numbered List' },
+];
 
 interface QueuedFile {
     file: File;
@@ -48,7 +58,6 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
   audioFileName,
   recordingTitle,
   settings,
-  llmSettings,
   disabled,
   audioRecordingStartTime,
   onTextFileProcessed,
@@ -70,7 +79,9 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
   isRealtimeTranscriptAvailable,
   onTranscribeChunk,
 }) => {
-  const [isEditorModalOpen, setIsEditorModalOpen] = useState<boolean>(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({});
+  const [isEditing, setIsEditing] = useState<boolean>(false);
   const textFileInputRef = useRef<HTMLInputElement>(null);
   const [isLoadingTextFile, setIsLoadingTextFile] = useState<boolean>(false);
   const [userMessageTextUpload, setUserMessageTextUpload] = useState<string | null>(null);
@@ -101,13 +112,67 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
     }
   };
 
-  const handleOpenEditor = () => {
-    setIsEditorModalOpen(true);
+  const updateActiveFormats = useCallback(() => {
+    const newActiveFormats: Record<string, boolean> = {};
+    if (document.activeElement === editorRef.current) {
+      TOOLBAR_COMMANDS.forEach(command => {
+        try {
+          newActiveFormats[command] = document.queryCommandState(command);
+        } catch (e) {
+          console.warn(`Error querying command state for ${command}:`, e);
+          newActiveFormats[command] = false;
+        }
+      });
+    }
+    setActiveFormats(newActiveFormats);
+  }, []);
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== activeSourceText) {
+      editorRef.current.innerHTML = activeSourceText || '';
+    }
+  }, [activeSourceText]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return undefined;
+    const handleSelectionChange = () => updateActiveFormats();
+    document.addEventListener('selectionchange', handleSelectionChange);
+    editor.addEventListener('focus', updateActiveFormats);
+    editor.addEventListener('keyup', updateActiveFormats);
+    editor.addEventListener('mouseup', updateActiveFormats);
+    editor.addEventListener('click', updateActiveFormats);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      editor.removeEventListener('focus', updateActiveFormats);
+      editor.removeEventListener('keyup', updateActiveFormats);
+      editor.removeEventListener('mouseup', updateActiveFormats);
+      editor.removeEventListener('click', updateActiveFormats);
+    };
+  }, [updateActiveFormats]);
+
+  const applyFormat = (command: string, value?: string) => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+      document.execCommand(command, false, value);
+      updateActiveFormats();
+    }
   };
 
-  const handleSaveEditedTranscription = (newHtmlContent: string) => {
-    onTranscriptionChange(newHtmlContent);
-    setIsEditorModalOpen(false);
+  const handleSaveEditedTranscription = () => {
+    if (editorRef.current) {
+      onTranscriptionChange(editorRef.current.innerHTML);
+    }
+    setIsEditing(false);
+  };
+
+  const handleToggleEditMode = () => {
+    if (isEditing) {
+      handleSaveEditedTranscription();
+    } else {
+      setIsEditing(true);
+      requestAnimationFrame(() => editorRef.current?.focus());
+    }
   };
 
   const handleTextFileUploadClick = () => {
@@ -323,35 +388,54 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
       
       {showTranscriptionArea ? (
         <>
-          {activeSourceText && !isTranscribing && (
-            <div className="flex justify-end items-center gap-2 mb-2">
+          <div className="sticky top-0 z-10 bg-gray-800 border border-b-0 border-gray-700 rounded-t-lg flex flex-wrap items-center justify-between gap-2 p-1.5">
+            <div className="simple-editor-toolbar flex items-center gap-0.5">
+              {TOOLBAR_BUTTONS.map(btn => (
+                <button
+                  key={btn.command}
+                  onClick={() => applyFormat(btn.command)}
+                  title={btn.title}
+                  type="button"
+                  disabled={disabled || isTranscribing || !isEditing}
+                  className={`p-1.5 ${activeFormats[btn.command] ? 'active' : ''}`}
+                  aria-pressed={!!activeFormats[btn.command]}
+                >
+                  {btn.icon}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              {activeSourceText && !isTranscribing && (
                 <Button
                     onClick={handleSaveTranscription}
                     variant="secondary"
                     size="sm"
                     leftIcon={<SaveIcon className="w-4 h-4"/>}
                     disabled={disabled}
-                    className="transition-transform transform hover:scale-105"
                 >
                     Save Transcription as {settings.outputFormat.toUpperCase()}
                 </Button>
-                <Button
-                    onClick={handleOpenEditor}
-                    variant="ghost"
-                    size="sm"
-                    leftIcon={<EditIcon className="w-4 h-4"/>}
-                    disabled={disabled || isTranscribing}
-                >
-                    Edit Transcription
-                </Button>
+              )}
+              <Button
+                onClick={handleToggleEditMode}
+                variant="primary"
+                size="sm"
+                leftIcon={isEditing ? <SaveIcon className="w-4 h-4"/> : <EditIcon className="w-4 h-4"/>}
+                disabled={disabled || isTranscribing}
+              >
+                {isEditing ? 'Save Changes' : 'Edit Mode'}
+              </Button>
             </div>
-          )}
+          </div>
           <div
             id="transcriptionDisplay"
+            ref={editorRef}
+            contentEditable={isEditing && !disabled && !isTranscribing}
+            suppressContentEditableWarning={true}
             aria-live="polite"
             aria-label="Transcription Result"
-            className={`llm-result-display-prose min-h-[200px] ${isTranscribing || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            dangerouslySetInnerHTML={{ __html: activeSourceText ? sanitizeHtml(activeSourceText) : "<p class='text-gray-500'>Audio transcription will appear here...</p>" }}
+            className={`llm-result-display-prose simple-editor-content border border-t-0 border-gray-700 rounded-b-lg focus:ring-blue-500 focus:border-blue-500 ${isTranscribing || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            style={{ minHeight: '60vh', maxHeight: '70vh', overflowY: 'auto' }}
           />
         </>
       ) : (
@@ -419,17 +503,6 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
             <strong className="text-sky-400"> "{pendingTextFile.name}"</strong>?
           </p>
         </Modal>
-      )}
-
-      {isEditorModalOpen && (
-        <RichTextEditorModal
-            isOpen={isEditorModalOpen}
-            onClose={() => setIsEditorModalOpen(false)}
-            initialContent={activeSourceText}
-            onSave={handleSaveEditedTranscription}
-            currentLanguage={settings.language as SupportedLanguage}
-            llmSettings={llmSettings}
-        />
       )}
     </div>
   );

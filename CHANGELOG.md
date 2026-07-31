@@ -8,6 +8,16 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.158] — 2026-07-31
+
+- TranscriptionView: editor trascrizione inline al posto del modal "Edit Content" separato
+- Toolbar formattazione, "Save Transcription as TXT" e toggle Edit/Save su un'unica riga sticky sopra l'area editabile
+- Bottone toggle: "Edit Mode" per abilitare la modifica, diventa "Save Changes" mentre si è in editing
+- Rimossa la sezione "Reprocess Selected Text" (istruzione + chiamata LLM) dal tab Transcript
+- RichTextEditorModal invariato, resta usato solo da LlmProcessor per "Edit Result"
+
+---
+
 ## [1.157] — 2026-07-19
 
 - setup_and_run.ps1: collegamento desktop riscritto con `WScript.Shell` per agganciare `public\favicon.ico` come icona
