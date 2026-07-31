@@ -15,6 +15,8 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 - Orario di fine evento auto-generato aggiornato con la durata reale a fine registrazione
 - Fix: rinominare la registrazione ora aggiorna anche il subject dell'evento calendario collegato (prima restava fisso al nome generato all'avvio)
 - Eliminando una sessione, l'evento calendario auto-creato ('app') viene eliminato con essa; se collegata a un evento esterno (Outlook/ICS) viene solo scollegata, l'evento resta
+- Icona audio di sistema in registrazione: diventa un monitor mentre è attivo, click chiede conferma prima di interrompere lo share (il microfono continua a registrare)
+- Aggiunto `stopAppAudio` in `useAudioRecorder` per fermare solo il track di sistema senza toccare la registrazione microfono
 
 ---
 

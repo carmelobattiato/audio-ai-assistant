@@ -46,6 +46,12 @@ const HeadphonesIcon = () => (
       d="M3 18v-6a9 9 0 0118 0v6M3 18a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3v5zm16 0a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3v5z" />
   </svg>
 );
+const MonitorIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth={2} />
+    <path strokeLinecap="round" strokeWidth={2} d="M8 21h8M12 17v4" />
+  </svg>
+);
 const StopSquareIcon = () => (
   <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
     <rect x="5" y="5" width="14" height="14" rx="2" />
@@ -211,11 +217,63 @@ const NeoAudioGuideModal: React.FC<{
   </div>
 );
 
+// ─── Stop System Audio Confirm Modal (2026 design) ────────────────────────────
+const NeoStopAppAudioModal: React.FC<{
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({ onConfirm, onCancel }) => (
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(16px)' }}
+    onClick={onCancel}
+  >
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Interrompi audio di sistema"
+      className="relative w-full max-w-sm rounded-2xl overflow-hidden"
+      style={{
+        background: 'var(--neo-surface-solid)',
+        border: '1px solid rgba(139,92,246,0.3)',
+        boxShadow: '0 32px 64px rgba(0,0,0,0.6), 0 0 32px rgba(124,58,237,0.15)',
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      <div style={{ height: 2, background: 'linear-gradient(90deg, #7C3AED, #C026D3)' }} />
+      <div className="px-5 pt-5 pb-4">
+        <p className="text-base font-bold" style={{ color: 'var(--neo-text)' }}>
+          Interrompere l'audio di sistema?
+        </p>
+        <p className="text-xs mt-1" style={{ color: 'var(--neo-muted)' }}>
+          Lo screen/audio share verrà fermato. La registrazione con il microfono continuerà.
+        </p>
+      </div>
+      <div className="px-5 pb-5 flex gap-2.5">
+        <button
+          onClick={onCancel}
+          className="flex-1 py-2.5 text-sm rounded-xl font-medium transition-all hover:opacity-80"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--neo-muted)' }}
+        >
+          Annulla
+        </button>
+        <button
+          onClick={onConfirm}
+          className="flex-[2] py-2.5 text-sm font-semibold text-white rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+          style={{ background: 'linear-gradient(135deg, #DC2626, #B91C1C)', boxShadow: '0 0 16px rgba(220,38,38,0.4)' }}
+        >
+          Interrompi audio di sistema
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // ─── Main component ───────────────────────────────────────────────────────────
 const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPanelProps>(
   (props, ref) => {
     const [showAutoStopNotification, setShowAutoStopNotification] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
+    const [showStopAppAudioConfirm, setShowStopAppAudioConfirm] = useState(false);
     const [guideKey, setGuideKey] = useState(0);
 
     const { headphonesDetected, detectedDeviceName } = useHeadphoneDetection(
@@ -233,7 +291,7 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
       isAutoPaused, autoPauseState, autoPauseCountdown,
       autoStopCountdown, isAutoStopWarning, isAutoStopNotified,
       realtimeTranscription,
-      addAppAudio, isAppAudioActive, isMicEnabled, toggleMic,
+      addAppAudio, stopAppAudio, isAppAudioActive, isMicEnabled, toggleMic,
       forceNewChunk, chunkStartElapsedTime,
     } = useAudioRecorder({
       settings: props.audioSettings,
@@ -426,6 +484,13 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
             onConfirm={handleConfirmGuide}
             onCancel={() => setShowGuide(false)}
             onStartWithoutHeadphones={handleStartWithoutHeadphones}
+          />
+        )}
+
+        {showStopAppAudioConfirm && (
+          <NeoStopAppAudioModal
+            onConfirm={() => { stopAppAudio(); setShowStopAppAudioConfirm(false); }}
+            onCancel={() => setShowStopAppAudioConfirm(false)}
           />
         )}
 
@@ -696,8 +761,8 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
 
                 {/* App audio / headphones toggle */}
                 <button
-                  onClick={isAppAudioActive ? undefined : addAppAudio}
-                  disabled={!!props.disabled || isAppAudioActive}
+                  onClick={isAppAudioActive ? () => setShowStopAppAudioConfirm(true) : addAppAudio}
+                  disabled={!!props.disabled}
                   className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 disabled:cursor-default"
                   style={{
                     background: isAppAudioActive ? 'rgba(16,185,129,0.2)' : 'rgba(139,92,246,0.15)',
@@ -705,9 +770,9 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
                     color: isAppAudioActive ? '#6EE7B7' : '#A78BFA',
                     boxShadow: isAppAudioActive ? '0 0 12px rgba(16,185,129,0.3)' : 'none',
                   }}
-                  title={isAppAudioActive ? 'System audio active' : 'Add system audio mid-recording'}
+                  title={isAppAudioActive ? 'Stop system audio sharing' : 'Add system audio mid-recording'}
                 >
-                  <HeadphonesIcon />
+                  {isAppAudioActive ? <MonitorIcon /> : <HeadphonesIcon />}
                 </button>
 
                 {/* PiP toggle — visible during recording */}

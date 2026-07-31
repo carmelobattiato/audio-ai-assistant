@@ -121,6 +121,7 @@ export interface UseAudioRecorderResult {
   isAutoStopNotified: boolean;
   realtimeTranscription: string;
   addAppAudio: () => Promise<void>;
+  stopAppAudio: () => void;
   isAppAudioActive: boolean;
   isMicEnabled: boolean;
   toggleMic: () => void;

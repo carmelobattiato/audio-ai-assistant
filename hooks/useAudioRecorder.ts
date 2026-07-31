@@ -296,6 +296,18 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     }
   }, [streams]);
 
+  const stopAppAudio = useCallback(() => {
+    if (!streams.isAppAudioActive) return;
+    streams.displayStream?.getTracks().forEach(track => {
+      track.onended = null;
+      track.stop();
+    });
+    streams.setDisplayStream(null);
+    streams.appAudioAnalyserNodeRef.current = null;
+    streams.setIsAppAudioActive(false);
+    streams.updateMicEchoCancellation(false);
+  }, [streams]);
+
   return {
     recordingState, startRecording, stopRecording,
     pauseRecording: handlePauseAction, resumeRecording: handleResumeAction,
@@ -311,7 +323,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     isAutoStopWarning: autoPause.isAutoStopWarning,
     isAutoStopNotified: autoPause.isAutoStopNotified,
     realtimeTranscription: liveTrans.realtimeTranscription,
-    addAppAudio,
+    addAppAudio, stopAppAudio,
     isAppAudioActive: streams.isAppAudioActive, isMicEnabled, toggleMic,
     forceNewChunk, chunkStartElapsedTime,
   };
