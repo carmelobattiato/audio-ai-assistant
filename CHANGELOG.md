@@ -17,6 +17,8 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 - Eliminando una sessione, l'evento calendario auto-creato ('app') viene eliminato con essa; se collegata a un evento esterno (Outlook/ICS) viene solo scollegata, l'evento resta
 - Icona audio di sistema in registrazione: diventa un monitor mentre è attivo, click chiede conferma prima di interrompere lo share (il microfono continua a registrare)
 - Aggiunto `stopAppAudio` in `useAudioRecorder` per fermare solo il track di sistema senza toccare la registrazione microfono
+- Log diagnostici SYSTEM_AUDIO: warning se getDisplayMedia non restituisce un track audio, info con settings/label quando presente
+- Settings > Logs: chip di filtro rapido (SYSTEM_AUDIO/RECORDING/PIPELINE), export ora scarica i soli log filtrati con info device/OS, buffer log aumentato da 500 a 3000 voci
 
 ---
 

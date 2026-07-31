@@ -5,7 +5,7 @@ import { APP_VERSION } from '../constants';
 const SESSION_ID: string = crypto.randomUUID();
 let currentCorrelationId: string = crypto.randomUUID();
 
-const MAX_LOCAL_LOGS = 500;
+const MAX_LOCAL_LOGS = 3000;
 const BATCH_SIZE = 10;
 const BATCH_INTERVAL_MS = 5000;
 

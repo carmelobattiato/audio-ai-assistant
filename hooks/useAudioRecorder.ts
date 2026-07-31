@@ -1,6 +1,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { RecordingState, UseAudioRecorderOptions, UseAudioRecorderResult } from '../types';
+import { loggingService } from '../services/loggingService';
 import { useRecorderTimer } from './recorder/useRecorderTimer';
 import { useMediaStreams } from './recorder/useMediaStreams';
 import { useAutoPauseLogic, AutoPauseState } from './recorder/useAutoPauseLogic';
@@ -204,14 +205,18 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
         } as DisplayMediaStreamOptions);
         streams.allStreamsRef.current.push(appStream);
         streams.setDisplayStream(appStream);
-        if (appStream.getAudioTracks().length > 0) {
-          const appSrc = context.createMediaStreamSource(new MediaStream(appStream.getAudioTracks()));
+        const appAudioTracks = appStream.getAudioTracks();
+        if (appAudioTracks.length > 0) {
+          loggingService.info('SYSTEM_AUDIO', 'Display audio track acquired (start)', { settings: appAudioTracks[0]!.getSettings(), label: appAudioTracks[0]!.label });
+          const appSrc = context.createMediaStreamSource(new MediaStream(appAudioTracks));
           streams.appAudioAnalyserNodeRef.current = context.createAnalyser();
           appSrc.connect(streams.appAudioAnalyserNodeRef.current);
           appSrc.connect(destination);
           streams.setIsAppAudioActive(true);
+        } else {
+          loggingService.warn('SYSTEM_AUDIO', 'getDisplayMedia returned no audio track (start) — system audio will NOT be recorded. On Windows this happens if a specific window (not "Entire screen") was shared, or if "Share system audio" was left unchecked.');
         }
-        
+
         appStream.getTracks().forEach(track => {
             track.onended = () => {
                 streams.setIsAppAudioActive(false);
@@ -272,17 +277,19 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
       streams.allStreamsRef.current.push(appStream);
       streams.setDisplayStream(appStream);
 
-      if (appStream.getAudioTracks().length > 0) {
+      const appAudioTracks = appStream.getAudioTracks();
+      if (appAudioTracks.length > 0) {
         const context = streams.audioContextRef.current;
         const destination = streams.destinationNodeRef.current;
         if (context && destination) {
-          const appSrc = context.createMediaStreamSource(new MediaStream(appStream.getAudioTracks()));
+          loggingService.info('SYSTEM_AUDIO', 'Display audio track acquired (mid-recording)', { settings: appAudioTracks[0]!.getSettings(), label: appAudioTracks[0]!.label });
+          const appSrc = context.createMediaStreamSource(new MediaStream(appAudioTracks));
           streams.appAudioAnalyserNodeRef.current = context.createAnalyser();
           appSrc.connect(streams.appAudioAnalyserNodeRef.current);
           appSrc.connect(destination);
           streams.setIsAppAudioActive(true);
           streams.updateMicEchoCancellation(true);
-          
+
           appStream.getTracks().forEach(track => {
             track.onended = () => {
                 streams.setIsAppAudioActive(false);
@@ -290,6 +297,8 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
             };
           });
         }
+      } else {
+        loggingService.warn('SYSTEM_AUDIO', 'getDisplayMedia returned no audio track (mid-recording) — system audio will NOT be recorded. On Windows this happens if a specific window (not "Entire screen") was shared, or if "Share system audio" was left unchecked.');
       }
     } catch (err) {
       console.error("Failed to add app audio:", err);

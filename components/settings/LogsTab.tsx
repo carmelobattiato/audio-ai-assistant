@@ -5,8 +5,10 @@ import { LogEntry, LogLevel } from '../../types';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
+import { saveBlobToFile } from '../../utils/fileUtils';
 
 const LOG_LEVEL_KEY = 'neo_log_min_level';
+const QUICK_FILTERS = ['SYSTEM_AUDIO', 'RECORDING', 'PIPELINE'];
 
 export const LogsTab: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>(loggingService.getLogs());
@@ -69,13 +71,16 @@ export const LogsTab: React.FC = () => {
   }, [filteredLogs]);
 
   const downloadLogs = () => {
-    const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `app-logs-${new Date().toISOString()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const device = logs[0]?.device;
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      device: device ?? null,
+      filter: { text: filter || null, minLevel },
+      count: filteredLogs.length,
+      logs: filteredLogs,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    saveBlobToFile(blob, `app-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   };
 
   return (
@@ -89,6 +94,22 @@ export const LogsTab: React.FC = () => {
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search message, event, or ID..."
           />
+          <div className="flex gap-1.5 mt-1.5">
+            {QUICK_FILTERS.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setFilter(filter === cat ? '' : cat)}
+                className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                  filter === cat
+                    ? 'bg-purple-600/30 border-purple-500 text-purple-200'
+                    : 'bg-gray-700/50 border-gray-600 text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="w-40">
           <Select
@@ -159,6 +180,7 @@ export const LogsTab: React.FC = () => {
       
       <div className="flex justify-between text-[10px] text-gray-500 uppercase tracking-widest px-1">
         <span>Session: {loggingService.getSessionId()}</span>
+        {logs[0]?.device && <span>{logs[0].device.os} · {logs[0].device.browser}</span>}
         <span>Correlation: {loggingService.getCorrelationId()}</span>
       </div>
     </div>
