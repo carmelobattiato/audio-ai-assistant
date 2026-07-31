@@ -12,13 +12,12 @@ interface Props {
   activeMeetingIds?: Set<string>;
   forceOpen?: boolean;
   onForceOpenHandled?: () => void;
-  onSnooze?: (id: string, minutes: number) => void;
   onActiveItemDismiss?: (id: string) => void;
 }
 
 export const MeetingNotificationBell: React.FC<Props> = ({
   records, onOpenCalendar, onStartSessionForMeeting, onDelete, onClearAll,
-  activeMeetingIds, forceOpen, onForceOpenHandled, onSnooze, onActiveItemDismiss,
+  activeMeetingIds, forceOpen, onForceOpenHandled, onActiveItemDismiss,
 }) => {
   const [open, setOpen] = useState(false);
   const [shaking, setShaking] = useState(false);
@@ -213,6 +212,7 @@ export const MeetingNotificationBell: React.FC<Props> = ({
                       isPast={isPast}
                       isNewest={isNewest}
                       isActive={isActive}
+                      isOverrun={r.kind === 'overrun'}
                       minutesToStart={minutesToStart}
                       onDismiss={() => {
                         if (isActive && onActiveItemDismiss) {
@@ -222,33 +222,16 @@ export const MeetingNotificationBell: React.FC<Props> = ({
                         }
                       }}
                       actions={
+                        r.kind === 'overrun' ? null :
                         isActive ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => { onStartSessionForMeeting(r); setOpen(false); }}
-                              className="text-[10px] px-2 py-1 rounded font-medium"
-                              style={{ background: 'rgba(16,185,129,0.25)', border: '1px solid rgba(16,185,129,0.5)', color: '#a7f3d0' }}
-                            >
-                              Start session
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onSnooze?.(r.id, 2)}
-                              className="text-[10px] px-2 py-1 rounded opacity-80 hover:opacity-100"
-                              style={{ background: 'rgba(75,85,99,0.5)', color: '#e5e7eb' }}
-                            >
-                              Snooze 2m
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onSnooze?.(r.id, 5)}
-                              className="text-[10px] px-2 py-1 rounded opacity-80 hover:opacity-100"
-                              style={{ background: 'rgba(75,85,99,0.5)', color: '#e5e7eb' }}
-                            >
-                              5m
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => { onStartSessionForMeeting(r); setOpen(false); }}
+                            className="text-[10px] px-2 py-1 rounded font-medium"
+                            style={{ background: 'rgba(16,185,129,0.25)', border: '1px solid rgba(16,185,129,0.5)', color: '#a7f3d0' }}
+                          >
+                            Start session
+                          </button>
                         ) : !isPast ? (
                           <button
                             type="button"

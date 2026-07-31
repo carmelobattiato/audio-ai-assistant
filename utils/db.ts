@@ -52,6 +52,7 @@ export interface MeetingNotificationRecord {
   body?: string;               // truncated meeting body, for "Avvia sessione" context
   onlineMeetingUrl?: string;
   location?: string;
+  kind?: 'meeting' | 'overrun';  // 'overrun' = alert: meeting ended but recording is still active
 }
 
 interface AppDB extends DBSchema {

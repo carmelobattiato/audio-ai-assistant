@@ -43,23 +43,24 @@ export interface MeetingNotificationCardProps {
   isPast?: boolean;
   isNewest?: boolean;             // shows "Recente" badge in the panel variant
   isActive?: boolean;             // panel item just fired — shows pulse + minutesToStart
+  isOverrun?: boolean;            // meeting ended but recording is still active — distinct styling
   onDismiss: () => void;
   actions: React.ReactNode;       // buttons row at the bottom
 }
 
 export const MeetingNotificationCard: React.FC<MeetingNotificationCardProps> = ({
   subject, organizer, startIso, endIso, role, summary,
-  minutesToStart, variant, isPast, isNewest, isActive,
+  minutesToStart, variant, isPast, isNewest, isActive, isOverrun,
   onDismiss, actions,
 }) => {
   const isToast = variant === 'toast';
-  const showLive = isActive && !isToast;
+  const showLive = isActive && !isToast && !isOverrun;
   const timeHeader = `${fmtTime(startIso)}${endIso ? `–${fmtTime(endIso)}` : ''}`;
   const headerLine = (isToast || showLive)
     ? `📅 In ${minutesToStart ?? 0}m · ${timeHeader}`
     : `📅 ${timeHeader}`;
   const roleLabel = cardRoleLabel(role);
-  const accent = cardRoleColor(role);
+  const accent = isOverrun ? '#f97316' : cardRoleColor(role);
 
   return (
     <>
@@ -73,15 +74,17 @@ export const MeetingNotificationCard: React.FC<MeetingNotificationCardProps> = (
       className="relative rounded-xl overflow-hidden"
       style={{
         width: isToast ? '380px' : '100%',
-        background: isPast
+        background: isOverrun
+          ? 'linear-gradient(135deg, rgba(80,45,15,0.98), rgba(55,25,10,0.98))'
+          : isPast
           ? 'linear-gradient(135deg, rgba(55,65,81,0.6), rgba(31,41,55,0.6))'
           : showLive
             ? 'linear-gradient(135deg, rgba(30,58,80,0.98), rgba(15,30,55,0.98))'
             : 'linear-gradient(135deg, rgba(30,41,59,0.98), rgba(15,23,42,0.98))',
-        border: `1px solid ${isPast ? 'rgba(107,114,128,0.4)' : showLive ? 'rgba(56,189,248,0.55)' : 'rgba(124,58,237,0.45)'}`,
+        border: `1px solid ${isOverrun ? 'rgba(249,115,22,0.6)' : isPast ? 'rgba(107,114,128,0.4)' : showLive ? 'rgba(56,189,248,0.55)' : 'rgba(124,58,237,0.45)'}`,
         color: '#f1f5f9',
         opacity: isPast ? 0.7 : 1,
-        boxShadow: isToast ? '0 10px 30px rgba(0,0,0,0.4)' : showLive ? '0 0 16px rgba(56,189,248,0.2)' : 'none',
+        boxShadow: isOverrun ? '0 0 16px rgba(249,115,22,0.25)' : isToast ? '0 10px 30px rgba(0,0,0,0.4)' : showLive ? '0 0 16px rgba(56,189,248,0.2)' : 'none',
         animation: isToast ? 'meeting-toast-slide-in 0.35s ease-out' : undefined,
       }}
     >
@@ -112,7 +115,12 @@ export const MeetingNotificationCard: React.FC<MeetingNotificationCardProps> = (
                 </span>
               )}
               <span className="text-[11px] uppercase tracking-wider opacity-70">{headerLine}</span>
-              {isPast && (
+              {isOverrun && (
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: 'rgba(249,115,22,0.3)', color: '#fdba74', letterSpacing: '0.05em' }}>
+                  ⏰ Overrun
+                </span>
+              )}
+              {isPast && !isOverrun && (
                 <span className="text-[9px] uppercase px-1 py-0.5 rounded" style={{ background: 'rgba(107,114,128,0.5)', color: '#e5e7eb', letterSpacing: '0.05em' }}>
                   Ended
                 </span>

@@ -33,10 +33,14 @@ function localDateKey(d: Date | string): string {
 
 // Outlook bridge ids are positional (re-numbered on every refresh) so they
 // can't be used to dedup across fetches. Derive a stable id from subject +
-// start time (normalized) instead.
+// start time (normalized) instead. Start is rounded to the minute so that
+// two fetches returning the same meeting with a slightly different ISO
+// string (precision/timezone formatting) still collapse to the same id —
+// otherwise each variant gets its own DB claim and its own LLM summary.
 export function meetingStableId(appt: OutlookAppointment): string {
   const subj = (appt.subject || '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
-  return `${subj}::${appt.start}`;
+  const startMinute = Math.floor(new Date(appt.start).getTime() / 60_000) * 60_000;
+  return `${subj}::${startMinute}`;
 }
 
 function buildPrompt(appt: OutlookAppointment, role: string): string {
@@ -122,7 +126,13 @@ export function useMeetingNotifications({
     const now = Date.now();
     let scheduled = 0;
 
-    for (const appt of appointments) {
+    // Difendiamoci anche da doppioni già presenti nell'array in ingresso (es. due fonti
+    // calendario che restituiscono lo stesso meeting): teniamo una sola occorrenza per stableId.
+    const dedupedAppointments = Array.from(
+      new Map(appointments.map(appt => [meetingStableId(appt), appt])).values()
+    );
+
+    for (const appt of dedupedAppointments) {
       if (appt.isCanceled) continue;
       const startMs = new Date(appt.start).getTime();
       if (!Number.isFinite(startMs)) continue;

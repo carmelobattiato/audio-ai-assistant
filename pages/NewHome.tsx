@@ -844,7 +844,7 @@ export const NewHome: React.FC = () => {
   // ── Meeting notifications + auto-start ───────────────────────────────────
   const {
     meetingHistory, activeMeetingIds, bellForceOpen, onBellForceOpenHandled,
-    handleSnoozeActive, handleActiveItemDismiss,
+    handleActiveItemDismiss,
     deleteMeetingHistoryItem, clearAllMeetingHistory,
     handleTestMeetingNotification, handleStartSessionForMeeting,
     pendingAutoStart, autoStartCountdownMs, handleAutoStartNow, handleAutoStartCancel,
@@ -956,7 +956,6 @@ export const NewHome: React.FC = () => {
             activeMeetingIds={activeMeetingIds}
             forceOpen={bellForceOpen}
             onForceOpenHandled={onBellForceOpenHandled}
-            onSnooze={handleSnoozeActive}
             onActiveItemDismiss={handleActiveItemDismiss}
           />
         }

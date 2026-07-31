@@ -13,6 +13,9 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 - Fix (Windows): rilevato che cambiare il device audio di default a metà registrazione (es. staccare le cuffie) interrompe silenziosamente il loopback dell'audio di sistema, lasciando solo il microfono attivo
 - Rilevamento automatico del device-change durante la cattura audio di sistema, con banner "Dispositivo audio cambiato" e pulsante "Ripristina" per riavviare la condivisione (richiede un click perché getDisplayMedia va riattivato da un gesto utente)
 - addAppAudio ora accetta un parametro `force` per bypassare il vecchio stato "attivo" quando si sta effettivamente ripristinando una cattura interrotta
+- Fix: notifiche riunioni duplicate — meetingStableId ora arrotonda l'orario al minuto, evitando doppie generazioni del riassunto AI per lo stesso meeting
+- Rimossi i bottoni "Snooze 2m"/"5m" dalle notifiche riunioni (non più utili con la deduplica)
+- Nuovo alert "riunione terminata da oltre 5 minuti ma registrazione ancora attiva", con suono distinto e card arancione dedicata in campanella
 
 ---
 

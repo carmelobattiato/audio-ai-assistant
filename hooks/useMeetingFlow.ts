@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../utils/db';
-import { useMeetingNotifications } from './useMeetingNotifications';
+import { useMeetingNotifications, meetingStableId } from './useMeetingNotifications';
 import { useMeetingNotificationHistory } from './useMeetingNotificationHistory';
 import type { MeetingToastData } from '../utils/meetingUtils';
 import type { MeetingNotificationRecord } from '../utils/db';
@@ -31,7 +31,6 @@ export interface MeetingFlowState {
   activeMeetingIds: Set<string>;
   bellForceOpen: boolean;
   onBellForceOpenHandled: () => void;
-  handleSnoozeActive: (id: string, minutes: number) => void;
   handleActiveItemDismiss: (id: string) => void;
   deleteMeetingHistoryItem: (id: string) => Promise<void>;
   clearAllMeetingHistory: () => Promise<void>;
@@ -74,6 +73,74 @@ export function useMeetingFlow({
     } catch { /* audio not available */ }
   }, []);
 
+  // Suono distinto (due toni bassi ripetuti, tipo allarme) per l'alert
+  // "riunione finita ma registrazione ancora attiva" — riconoscibile dal chime normale.
+  const playOverrunAlert = useCallback(() => {
+    try {
+      const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      [0, 0.35].forEach(offset => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.setValueAtTime(330, ctx.currentTime + offset);
+        g.gain.setValueAtTime(0.0001, ctx.currentTime + offset);
+        g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + offset + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offset + 0.25);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(ctx.currentTime + offset);
+        o.stop(ctx.currentTime + offset + 0.3);
+      });
+    } catch { /* audio not available */ }
+  }, []);
+
+  // Ogni 30s: se una riunione a calendario ha superato l'orario di fine di oltre 5 minuti
+  // e la registrazione è ancora attiva, avvisa una sola volta per riunione con un suono diverso.
+  const overrunAlertedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const OVERRUN_THRESHOLD_MS = 5 * 60_000;
+    const check = () => {
+      const sessionId = audioRecorderRef.current?.getRecordingSessionId();
+      if (!sessionId) return;
+      const now = Date.now();
+      for (const appt of calAppointments) {
+        if (appt.isCanceled || !appt.end) continue;
+        const endMs = new Date(appt.end).getTime();
+        if (!Number.isFinite(endMs) || now - endMs < OVERRUN_THRESHOLD_MS) continue;
+        const key = meetingStableId(appt);
+        if (overrunAlertedRef.current.has(key)) continue;
+        overrunAlertedRef.current.add(key);
+
+        const overdueMinutes = Math.round((now - endMs) / 60_000);
+        const date = new Date(appt.start).toISOString().slice(0, 10);
+        const record: MeetingNotificationRecord = {
+          id: `overrun::${key}::${date}`,
+          apptId: `${normalizeSubject(appt.subject)}::${appt.start}`,
+          date,
+          subject: appt.subject,
+          organizer: appt.organizer || 'unknown',
+          role: 'unknown',
+          startIso: appt.start,
+          endIso: appt.end,
+          generatedAt: now,
+          expiresAt: now + 24 * 60 * 60_000,
+          summary: `Questa riunione doveva terminare alle ${new Date(appt.end).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} — sono passati ${overdueMinutes} minuti e la registrazione è ancora attiva.`,
+          kind: 'overrun',
+        };
+        db.tryClaimMeetingNotification(record).then((claimed) => {
+          if (!claimed) return;
+          setActiveMeetingIds(prev => new Set(prev).add(record.id));
+          setBellForceOpen(true);
+          playOverrunAlert();
+        }).catch(() => { /* best-effort */ });
+      }
+    };
+    const interval = window.setInterval(check, 30_000);
+    check();
+    return () => window.clearInterval(interval);
+  }, [calAppointments, audioRecorderRef, playOverrunAlert]);
+
   const handleMeetingTrigger = useCallback((data: MeetingToastData) => {
     setActiveMeetingIds(prev => {
       if (prev.has(data.id)) return prev;
@@ -88,23 +155,6 @@ export function useMeetingFlow({
   const onBellForceOpenHandled = useCallback(() => {
     setBellForceOpen(false);
   }, []);
-
-  const handleSnoozeActive = useCallback((id: string, minutes: number) => {
-    setActiveMeetingIds(prev => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    window.setTimeout(() => {
-      setActiveMeetingIds(cur => {
-        const next = new Set(cur);
-        next.add(id);
-        return next;
-      });
-      setBellForceOpen(true);
-      playMeetingChime();
-    }, minutes * 60_000);
-  }, [playMeetingChime]);
 
   const { records: meetingHistory, deleteOne: deleteMeetingHistoryItem, clearAll: clearAllMeetingHistory } = useMeetingNotificationHistory();
 
@@ -247,7 +297,7 @@ export function useMeetingFlow({
 
   return {
     meetingHistory, activeMeetingIds, bellForceOpen, onBellForceOpenHandled,
-    handleSnoozeActive, handleActiveItemDismiss,
+    handleActiveItemDismiss,
     deleteMeetingHistoryItem, clearAllMeetingHistory,
     handleTestMeetingNotification, handleStartSessionForMeeting,
     pendingAutoStart, autoStartCountdownMs, handleAutoStartNow, handleAutoStartCancel,
