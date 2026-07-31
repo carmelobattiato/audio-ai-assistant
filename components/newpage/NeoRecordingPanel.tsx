@@ -291,7 +291,7 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
       isAutoPaused, autoPauseState, autoPauseCountdown,
       autoStopCountdown, isAutoStopWarning, isAutoStopNotified,
       realtimeTranscription,
-      addAppAudio, stopAppAudio, isAppAudioActive, isMicEnabled, toggleMic,
+      addAppAudio, stopAppAudio, isAppAudioActive, systemAudioNeedsRefresh, isMicEnabled, toggleMic,
       forceNewChunk, chunkStartElapsedTime,
     } = useAudioRecorder({
       settings: props.audioSettings,
@@ -761,7 +761,7 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
 
                 {/* App audio / headphones toggle */}
                 <button
-                  onClick={isAppAudioActive ? () => setShowStopAppAudioConfirm(true) : addAppAudio}
+                  onClick={isAppAudioActive ? () => setShowStopAppAudioConfirm(true) : () => addAppAudio()}
                   disabled={!!props.disabled}
                   className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 disabled:cursor-default"
                   style={{
@@ -869,6 +869,20 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
                 style={{ color: '#FED7AA' }}
                 title="Chiudi"
               >✕</button>
+            </div>
+          )}
+
+          {/* ── SYSTEM AUDIO STALE (device change while active) ──────────── */}
+          {isRecording && isAppAudioActive && systemAudioNeedsRefresh && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.5)' }}>
+              <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ background: '#EF4444' }} />
+              <span className="flex-1" style={{ color: '#FCA5A5' }}>Dispositivo audio cambiato — l'audio di sistema potrebbe essersi interrotto</span>
+              <button
+                onClick={() => addAppAudio(true)}
+                className="px-2 py-0.5 rounded-lg text-[11px] font-semibold transition-all hover:opacity-80 flex-shrink-0"
+                style={{ background: 'rgba(239,68,68,0.25)', border: '1px solid rgba(239,68,68,0.5)', color: '#FCA5A5' }}
+              >Ripristina</button>
             </div>
           )}
 

@@ -44,6 +44,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [systemAudioNeedsRefresh, setSystemAudioNeedsRefresh] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -64,7 +65,24 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
   const { elapsedTime, setElapsedTime, startTimer, stopTimer, resetTimer } = useRecorderTimer();
   useEffect(() => { elapsedTimeRef.current = elapsedTime; }, [elapsedTime]);
   const streams = useMediaStreams(settings);
-  
+
+  // Su Windows, cambiare il dispositivo audio di output di default (es. staccare le cuffie)
+  // mentre l'audio di sistema è in cattura può interrompere silenziosamente il loopback WASAPI
+  // (il track resta "live" ma non riceve più dati) senza che nessun evento onended/onerror scatti.
+  // Il microfono, essendo un device separato, continua a registrare normalmente.
+  // Non possiamo ripristinare la cattura in automatico: getDisplayMedia richiede un user-gesture,
+  // quindi ci limitiamo a rilevare il cambio e segnalarlo, offrendo un pulsante di refresh manuale.
+  useEffect(() => {
+    if (!streams.isAppAudioActive) return undefined;
+    const handleDeviceChange = () => {
+      loggingService.warn('SYSTEM_AUDIO', 'Audio device change detected while system audio capture is active — on Windows this can silently break WASAPI loopback capture (mic keeps recording, system audio goes silent)');
+      setSystemAudioNeedsRefresh(true);
+    };
+    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
+  }, [streams.isAppAudioActive]);
+
+
   const handlePauseAction = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.pause();
@@ -266,8 +284,11 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     }
   }, [streams]);
 
-  const addAppAudio = useCallback(async () => {
-    if (streams.isAppAudioActive) return;
+  const addAppAudio = useCallback(async (force = false) => {
+    if (streams.isAppAudioActive && !force) return;
+    if (force) {
+      streams.displayStream?.getTracks().forEach(track => { track.onended = null; track.stop(); });
+    }
     try {
       const appStream = await navigator.mediaDevices.getDisplayMedia({
         video: { displaySurface: 'monitor' },
@@ -289,6 +310,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
           appSrc.connect(destination);
           streams.setIsAppAudioActive(true);
           streams.updateMicEchoCancellation(true);
+          setSystemAudioNeedsRefresh(false);
 
           appStream.getTracks().forEach(track => {
             track.onended = () => {
@@ -315,6 +337,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     streams.appAudioAnalyserNodeRef.current = null;
     streams.setIsAppAudioActive(false);
     streams.updateMicEchoCancellation(false);
+    setSystemAudioNeedsRefresh(false);
   }, [streams]);
 
   return {
@@ -332,7 +355,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     isAutoStopWarning: autoPause.isAutoStopWarning,
     isAutoStopNotified: autoPause.isAutoStopNotified,
     realtimeTranscription: liveTrans.realtimeTranscription,
-    addAppAudio, stopAppAudio,
+    addAppAudio, stopAppAudio, systemAudioNeedsRefresh,
     isAppAudioActive: streams.isAppAudioActive, isMicEnabled, toggleMic,
     forceNewChunk, chunkStartElapsedTime,
   };

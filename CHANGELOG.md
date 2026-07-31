@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.160] — 2026-07-31
+
+- Fix (Windows): rilevato che cambiare il device audio di default a metà registrazione (es. staccare le cuffie) interrompe silenziosamente il loopback dell'audio di sistema, lasciando solo il microfono attivo
+- Rilevamento automatico del device-change durante la cattura audio di sistema, con banner "Dispositivo audio cambiato" e pulsante "Ripristina" per riavviare la condivisione (richiede un click perché getDisplayMedia va riattivato da un gesto utente)
+- addAppAudio ora accetta un parametro `force` per bypassare il vecchio stato "attivo" quando si sta effettivamente ripristinando una cattura interrotta
+
+---
+
 ## [1.159] — 2026-07-31
 
 - Creazione automatica di un evento Calendar per ogni sessione registrata ad-hoc (non avviata da un evento esistente)

@@ -120,8 +120,9 @@ export interface UseAudioRecorderResult {
   isAutoStopWarning: boolean;
   isAutoStopNotified: boolean;
   realtimeTranscription: string;
-  addAppAudio: () => Promise<void>;
+  addAppAudio: (force?: boolean) => Promise<void>;
   stopAppAudio: () => void;
+  systemAudioNeedsRefresh: boolean;
   isAppAudioActive: boolean;
   isMicEnabled: boolean;
   toggleMic: () => void;
