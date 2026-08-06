@@ -49,7 +49,6 @@ interface TranscriptionViewProps {
   transcriptionProgress: { current: number; total: number; filename: string };
   onSelectPlaybackFile: (item: QueuedFile | null) => void;
   currentlyPlayingFile: File | null;
-  isRealtimeTranscriptAvailable: boolean;
   onTranscribeChunk: (index: number, mode: 'replace' | 'append') => void;
 }
 
@@ -76,7 +75,6 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
   transcriptionProgress,
   onSelectPlaybackFile,
   currentlyPlayingFile,
-  isRealtimeTranscriptAvailable,
   onTranscribeChunk,
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -256,7 +254,7 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
     onTranscribe(mode);
   };
 
-  const canTranscribe = !isRealtimeTranscriptAvailable && (audioBlob !== null || transcriptionQueue.length > 0);
+  const canTranscribe = audioBlob !== null || transcriptionQueue.length > 0;
   let transcribeButtonText = "Transcribe Audio";
   let transcribeButtonTitle = "No audio recorded or files queued for transcription.";
 
@@ -268,9 +266,6 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
       transcribeButtonText = `Transcribing...`;
       transcribeButtonTitle = `Transcription in progress for ${audioFileName}`;
     }
-  } else if (isRealtimeTranscriptAvailable) {
-    transcribeButtonText = "Live Transcript Generated";
-    transcribeButtonTitle = "The transcription was generated in real-time during recording.";
   } else if (transcriptionQueue.length > 0) {
     transcribeButtonText = `Transcribe ${transcriptionQueue.length} File(s)`;
     transcribeButtonTitle = `Start transcribing all ${transcriptionQueue.length} files in the queue.`;

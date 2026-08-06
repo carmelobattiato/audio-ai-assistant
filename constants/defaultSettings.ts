@@ -31,19 +31,15 @@ export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
   autoScreenshotIntervalSeconds: 60,
   enableChunkedRecording: true,
   chunkRecordingIntervalSeconds: 300, // 5 minutes
-  enableRealtimeTranscription: false,
   enableAutoPipeline: true,
   enableAutoAIAnalysis: false,
   enableAutoDownload: false,
-  liveModel: 'gemini-2.5-flash-native-audio-latest',
   autoTranscribeChunks: true,
 };
 
 export const DEFAULT_LLM_SETTINGS: AppSettings['llm'] = {
   provider: 'Google',
   model: 'gemini-2.5-flash-lite',
-  transcriptionModel: 'gemini-2.5-flash-lite',
-  chatModel: 'gemini-2.5-flash-lite',
   apiBaseUrl: '',
   customApiKey: '',
   customPromptInstruction: "Follow the user's custom instructions precisely.",

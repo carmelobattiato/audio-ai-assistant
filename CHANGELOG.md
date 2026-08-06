@@ -8,6 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.162] — 2026-08-06
+
+- Unificare selezione modello LLM: un solo modello per analisi, trascrizione e chatbot
+- Rimuovere i selettori per-funzione "AI Analysis Model", "Transcription Model", "Chatbot Model" dalle impostazioni; ora un unico dropdown "Modello LLM"
+- Rimuovere campi `transcriptionModel` e `chatModel` da `LlmSettings`
+- Rimuovere la trascrizione live real-time (feature, impostazioni `enableRealtimeTranscription`/`liveModel`, selettore "Live Transcription Model" con fetch/test, hook `useLiveTranscriptionLogic`)
+- Aggiungere `gemini-3.6-flash` tra i modelli Google supportati
+- Fix logging: `geminiService.generateText` ora logga `LLM_CALL_ERROR` (warn ad ogni retry, error alla resa) con modello, provider, apiBaseUrl, attempt — prima un errore di rete tipo "Failed to fetch" sul provider Custom OpenAI-compatible non compariva nei log
+
+---
+
 ## [1.161] — 2026-08-06
 
 - Fix logging trascrizione: `geminiService.transcribeAudio` ora logga `TRANSCRIPTION_GEMINI_ERROR` con modello, provider, attempt, dimensione audio, mimeType ad ogni errore di retry

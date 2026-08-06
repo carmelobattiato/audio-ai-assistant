@@ -23,7 +23,6 @@ interface NeoRecordingPanelProps extends AudioRecorderProps {
   recordingTimestampSuffix: string;
   onRecordingTimestampSuffixChange: (t: string) => void;
   onElapsedTimeChange?: (t: number) => void;
-  onRealtimeTranscriptionChange?: (text: string) => void;
 }
 
 // ─── Inline SVG icons ────────────────────────────────────────────────────────
@@ -282,7 +281,6 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
     const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const elapsedTimeRef = useRef(0);
-    const liveScrollRef = useRef<HTMLDivElement>(null);
 
     const {
       recordingState, startRecording, stopRecording, pauseRecording, resumeRecording,
@@ -290,7 +288,6 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
       resetRecording, error, elapsedTime, displayStream, getAudioSnapshot, getRecordingSessionId,
       isAutoPaused, autoPauseState, autoPauseCountdown,
       autoStopCountdown, isAutoStopWarning, isAutoStopNotified,
-      realtimeTranscription,
       addAppAudio, stopAppAudio, isAppAudioActive, systemAudioNeedsRefresh, isMicEnabled, toggleMic,
       forceNewChunk, chunkStartElapsedTime,
     } = useAudioRecorder({
@@ -300,8 +297,6 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
       onRecordingStop: props.onRecordingStop,
       enableChunkedRecording: props.transcriptionSettings.enableChunkedRecording,
       chunkIntervalSeconds: props.transcriptionSettings.chunkRecordingIntervalSeconds,
-      enableRealtimeTranscription: props.transcriptionSettings.enableRealtimeTranscription,
-      liveModel: props.transcriptionSettings.liveModel,
       onLlmUsage: props.onLlmUsage,
       onAutoStopNotify: () => setShowAutoStopNotification(true),
     });
@@ -322,16 +317,6 @@ const NeoRecordingPanelBase = React.forwardRef<AudioRecorderRef, NeoRecordingPan
       elapsedTimeRef.current = elapsedTime;
       props.onElapsedTimeChange?.(elapsedTime);
     }, [elapsedTime]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
-      props.onRealtimeTranscriptionChange?.(realtimeTranscription);
-    }, [realtimeTranscription]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
-      if (liveScrollRef.current) {
-        liveScrollRef.current.scrollTop = liveScrollRef.current.scrollHeight;
-      }
-    }, [realtimeTranscription]);
 
     const finalAudioUrl = props.externalAudioUrl || localAudioUrl;
     const player = useRecorderPlayer({

@@ -76,7 +76,7 @@ export const transcriptionService = {
       if (transcription.startsWith('Error:')) {
         loggingService.error('TRANSCRIPTION_ERROR', transcription, {
           file: fileName,
-          model: llmSettings.transcriptionModel ?? llmSettings.model,
+          model: llmSettings.model,
           provider: llmSettings.provider,
           mimeType: mimeTypeForApi,
         });

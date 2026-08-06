@@ -90,8 +90,6 @@ export interface UseAudioRecorderOptions {
   onAutoStopNotify?: () => void;
   enableChunkedRecording?: boolean;
   chunkIntervalSeconds?: number;
-  enableRealtimeTranscription?: boolean;
-  liveModel?: string;
   onLlmUsage?: (stats: LlmUsageStats) => void;
   onAutoSave?: (recorderState: Readonly<UseAudioRecorderResult>, componentState: { includeAppAudio: boolean }) => void;
   initialState?: Partial<UseAudioRecorderResult>;
@@ -119,7 +117,6 @@ export interface UseAudioRecorderResult {
   autoStopCountdown: number;
   isAutoStopWarning: boolean;
   isAutoStopNotified: boolean;
-  realtimeTranscription: string;
   addAppAudio: (force?: boolean) => Promise<void>;
   stopAppAudio: () => void;
   systemAudioNeedsRefresh: boolean;
@@ -175,11 +172,9 @@ export interface TranscriptionSettings {
   autoScreenshotIntervalSeconds?: number;
   enableChunkedRecording?: boolean;
   chunkRecordingIntervalSeconds?: number;
-  enableRealtimeTranscription?: boolean;
   enableAutoPipeline?: boolean;
   enableAutoAIAnalysis?: boolean;
   enableAutoDownload?: boolean;
-  liveModel?: string;
   autoTranscribeChunks?: boolean;
 }
 
@@ -209,8 +204,6 @@ export interface ModelInfo {
 export interface LlmSettings {
   provider: string;
   model: string;
-  transcriptionModel?: string;
-  chatModel?: string;
   apiBaseUrl: string;
   customApiKey?: string;
   /** Resolved in-memory only — never persisted to localStorage. */

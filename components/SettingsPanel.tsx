@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from './common/Modal';
 import { Button } from './common/Button';
 import { Select } from './common/Select';
@@ -7,15 +7,6 @@ import { Input } from './common/Input';
 import { Checkbox } from './common/Checkbox';
 import { AppSettings, CustomInstruction, SupportedLanguage, TranscriptionOutputFormat, ModelInfo, Theme } from '../types';
 import { DEFAULT_SETTINGS, LLM_PROVIDERS } from '../constants';
-import { loggingService } from '../services/loggingService';
-
-
-const GEMINI_LIVE_MODELS = [
-  { id: 'gemini-2.5-flash-native-audio-latest',        label: 'Gemini 2.5 Flash Native Audio (latest)' },
-  { id: 'gemini-2.5-flash-native-audio-preview-12-2025', label: 'Gemini 2.5 Flash Native Audio Preview Dec' },
-  { id: 'gemini-2.5-flash-native-audio-preview-09-2025', label: 'Gemini 2.5 Flash Native Audio Preview Sep' },
-  { id: 'gemini-3.1-flash-live-preview',               label: 'Gemini 3.1 Flash Live Preview' },
-];
 
 import { LogsTab } from './settings/LogsTab';
 import { CustomInstructionsTab } from './settings/CustomInstructionsTab';
@@ -46,16 +37,13 @@ const TABS = [
   { id: 'logs', label: 'Logs & Monitoring' },
 ];
 
-type ModelFunction = 'analysis' | 'transcription' | 'chat';
-
 const ModelCombobox: React.FC<{
   label: string;
   hint: string;
   value: string;
   models: ModelInfo[];
-  fn: ModelFunction;
   onChange: (modelName: string) => void;
-}> = ({ label, hint, value, models, fn, onChange }) => {
+}> = ({ label, hint, value, models, onChange }) => {
   const selected = models.find(m => m.name === value);
   const isCustom = !selected;
 
@@ -70,14 +58,11 @@ const ModelCombobox: React.FC<{
         onChange={(e) => onChange(e.target.value)}
         className="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-sky-500"
       >
-        {models.map((m) => {
-          const isRec = m.recommendedFor?.includes(fn);
-          return (
-            <option key={m.name} value={m.name}>
-              {isRec ? '★ ' : ''}{m.name} — {m.cost}
-            </option>
-          );
-        })}
+        {models.map((m) => (
+          <option key={m.name} value={m.name}>
+            {m.name} — {m.cost}
+          </option>
+        ))}
         {isCustom && (
           <option value={value}>{value} (custom)</option>
         )}
@@ -107,14 +92,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   hasCustomApiKey, onSaveCustomApiKey, onDeleteCustomApiKey,
   initialTab, onTestMeetingNotification,
 }) => {
-  const [localSettings, setLocalSettings] = useState<AppSettings>(() => {
-    const validLiveIds = GEMINI_LIVE_MODELS.map(m => m.id);
-    const savedModel = settings.transcription.liveModel;
-    const liveModel = savedModel && validLiveIds.includes(savedModel)
-      ? savedModel
-      : (GEMINI_LIVE_MODELS[0]?.id ?? '');
-    return { ...settings, transcription: { ...settings.transcription, liveModel } };
-  });
+  const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
   const [activeTab, setActiveTab] = useState(initialTab ?? TABS[0]?.id ?? '');
 
   useEffect(() => {
@@ -127,97 +105,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
   const [updateInfo, setUpdateInfo] = useState<{ localVersion: string; remoteVersion: string; hasUpdate: boolean; releaseUrl: string } | null>(null);
   const [updateLog, setUpdateLog] = useState<string[]>([]);
-
-  // Live model fetch + test state
-  const [fetchedLiveModels, setFetchedLiveModels] = useState<{ id: string; label: string }[]>([]);
-  const [fetchStatus, setFetchStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
-  const [testResults, setTestResults] = useState<Record<string, 'testing' | 'ok' | 'fail' | 'timeout'>>({});
-  const [isTesting, setIsTesting] = useState(false);
-
-  const liveApiKey = localSettings.llm.googleApiKey?.trim() || process.env.API_KEY || '';
-  const displayedLiveModels = fetchedLiveModels.length > 0 ? fetchedLiveModels : GEMINI_LIVE_MODELS;
-
-  const fetchLiveModels = useCallback(async () => {
-    if (!liveApiKey) { loggingService.warn('LIVE_MODELS_FETCH', 'No API key'); return; }
-    setFetchStatus('loading');
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${liveApiKey}&pageSize=200`);
-      const data = await res.json();
-      interface GeminiApiModel { name: string; displayName?: string; supportedGenerationMethods?: string[] }
-      const all: GeminiApiModel[] = data.models ?? [];
-
-      // Log all models + their methods for debugging
-      loggingService.debug('LIVE_MODELS_FETCH', `Total models from API: ${all.length}`);
-      all.forEach(m => loggingService.debug('LIVE_MODELS_FETCH', `  ${m.name}`, { methods: m.supportedGenerationMethods }));
-
-      // Filter: name contains 'live' OR any method contains 'bidi'/'bidirectional'
-      const models: { id: string; label: string }[] = all
-        .filter((m) => {
-          const name: string = (m.name ?? '').toLowerCase();
-          const methods: string[] = m.supportedGenerationMethods ?? [];
-          return name.includes('live') || methods.some((mt: string) => mt.toLowerCase().includes('bidi'));
-        })
-        .map((m) => ({ id: m.name.replace('models/', ''), label: m.displayName ?? m.name }));
-
-      loggingService.debug('LIVE_MODELS_FETCH', `Live-compatible models: ${models.length}`, { ids: models.map(m => m.id) });
-      setFetchedLiveModels(models);
-      setFetchStatus('done');
-      if (models.length > 0 && !models.find(m => m.id === localSettings.transcription.liveModel)) {
-        setLocalSettings(prev => ({ ...prev, transcription: { ...prev.transcription, liveModel: models[0]!.id } }));
-      }
-    } catch (err) {
-      loggingService.warn('LIVE_MODELS_FETCH', `Error: ${err}`);
-      setFetchStatus('error');
-    }
-  }, [liveApiKey, localSettings.transcription.liveModel]);
-
-  const testSingleModel = (modelId: string, apiKey: string): Promise<'ok' | 'fail' | 'timeout'> =>
-    new Promise((resolve) => {
-      const WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
-      let settled = false;
-      const settle = (r: 'ok' | 'fail' | 'timeout') => { if (!settled) { settled = true; resolve(r); } };
-      const timer = window.setTimeout(() => { try { ws.close(); } catch {} settle('timeout'); }, 4000);
-      const ws = new WebSocket(WS_URL);
-      ws.onopen = () => {
-        loggingService.debug('LIVE_MODEL_TEST', `${modelId}: connected, sending setup`);
-        ws.send(JSON.stringify({ setup: { model: `models/${modelId}`, generation_config: { response_modalities: ['audio', 'text'] } } }));
-      };
-      ws.onmessage = async (e) => {
-        try {
-          const txt = e.data instanceof Blob ? await e.data.text() : e.data;
-          const parsed = JSON.parse(txt);
-          loggingService.debug('LIVE_MODEL_TEST', `${modelId}: message received`, { keys: Object.keys(parsed) });
-          if (parsed?.setupComplete) { clearTimeout(timer); try { ws.close(); } catch {} settle('ok'); }
-        } catch {}
-      };
-      ws.onclose = (e) => {
-        clearTimeout(timer);
-        loggingService.debug('LIVE_MODEL_TEST', `${modelId}: closed code=${e.code} reason="${e.reason}"`);
-        settle(e.code === 1000 || e.code === 1001 ? 'ok' : 'fail');
-      };
-      ws.onerror = (_e) => {
-        clearTimeout(timer);
-        loggingService.warn('LIVE_MODEL_TEST', `${modelId}: onerror`);
-        settle('fail');
-      };
-    });
-
-  const testAllLiveModels = useCallback(async () => {
-    if (!liveApiKey || isTesting) return;
-    const models = displayedLiveModels;
-    setIsTesting(true);
-    setTestResults({});
-    loggingService.debug('LIVE_MODEL_TEST', `Testing ${models.length} models...`);
-    for (const m of models) {
-      setTestResults(prev => ({ ...prev, [m.id]: 'testing' }));
-      loggingService.debug('LIVE_MODEL_TEST', `Testing ${m.id}...`);
-      const result = await testSingleModel(m.id, liveApiKey);
-      setTestResults(prev => ({ ...prev, [m.id]: result }));
-      loggingService.debug('LIVE_MODEL_TEST', `${m.id} → ${result}`);
-    }
-    setIsTesting(false);
-    loggingService.debug('LIVE_MODEL_TEST', 'Test complete', { results: Object.fromEntries(models.map(m => [m.id, '?'])) });
-  }, [liveApiKey, isTesting, displayedLiveModels]);
 
   // API key UI state
   const [showCustomKey, setShowCustomKey] = useState(false);
@@ -639,31 +526,14 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                     placeholder="https://generativelanguage.googleapis.com"
                   />
 
-                  {/* Per-function model selectors */}
+                  {/* Modello LLM unico per tutte le funzioni */}
                   <div className="space-y-4 border-t border-gray-600 pt-4">
                     <ModelCombobox
-                      label="AI Analysis Model"
-                      hint="Write Minutes, Summary, Bullet Points, Coherence — operazioni di analisi LLM"
+                      label="Modello LLM"
+                      hint="Modello unico per analisi, trascrizione e chatbot"
                       value={localSettings.llm.model}
                       models={currentProviderInfo?.models || []}
-                      fn="analysis"
                       onChange={(v) => handleLocalLlmChange('model', v)}
-                    />
-                    <ModelCombobox
-                      label="Transcription Model"
-                      hint="Audio-to-text dei chunk registrati — trascrizione audio"
-                      value={localSettings.llm.transcriptionModel ?? localSettings.llm.model}
-                      models={currentProviderInfo?.models || []}
-                      fn="transcription"
-                      onChange={(v) => handleLocalLlmChange('transcriptionModel', v)}
-                    />
-                    <ModelCombobox
-                      label="Chatbot Model"
-                      hint="Meeting chat assistant — conversazione contestuale sulla sessione"
-                      value={localSettings.llm.chatModel ?? localSettings.llm.model}
-                      models={currentProviderInfo?.models || []}
-                      fn="chat"
-                      onChange={(v) => handleLocalLlmChange('chatModel', v)}
                     />
                   </div>
                 </>
@@ -912,63 +782,6 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
         {activeTab === 'transcription' && (
           <section>
             <div className="space-y-4 p-3 bg-gray-700 rounded-md">
-
-              <Checkbox
-                label="Enable Real-time Transcription (Live, Gemini)"
-                id="transcriptionEnableRealtime"
-                checked={localSettings.transcription.enableRealtimeTranscription ?? false}
-                onChange={(e) => handleLocalGenericChange('transcription', 'enableRealtimeTranscription', e.target.checked)}
-              />
-
-              {/* Live model selector */}
-              {(localSettings.transcription.enableRealtimeTranscription ?? false) && (
-                <div className="space-y-2">
-                  <Select
-                    label="Live Transcription Model:"
-                    id="liveModel"
-                    options={displayedLiveModels.map(m => ({
-                      value: m.id,
-                      label: m.id + (testResults[m.id] === 'ok' ? ' ✓' : testResults[m.id] === 'fail' ? ' ✗' : testResults[m.id] === 'testing' ? ' …' : testResults[m.id] === 'timeout' ? ' ?' : ''),
-                    }))}
-                    value={localSettings.transcription.liveModel ?? displayedLiveModels[0]?.id ?? ''}
-                    onChange={(e) => handleLocalGenericChange('transcription', 'liveModel', e.target.value)}
-                  />
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={fetchLiveModels}
-                      disabled={!liveApiKey || fetchStatus === 'loading'}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                      style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.4)', color: '#C4B5FD' }}
-                    >
-                      {fetchStatus === 'loading' ? 'Fetching…' : fetchStatus === 'done' ? `✓ ${fetchedLiveModels.length} models found` : fetchStatus === 'error' ? '✗ Fetch error' : 'Fetch models from API'}
-                    </button>
-                    <button
-                      onClick={testAllLiveModels}
-                      disabled={!liveApiKey || isTesting}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                      style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)', color: '#6EE7B7' }}
-                    >
-                      {isTesting ? 'Testing…' : 'Test all models'}
-                    </button>
-                  </div>
-                  {Object.keys(testResults).length > 0 && (
-                    <div className="rounded-lg p-2 text-xs space-y-1" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--neo-border)' }}>
-                      {displayedLiveModels.map(m => {
-                        const r = testResults[m.id];
-                        if (!r) return null;
-                        const color = r === 'ok' ? '#6EE7B7' : r === 'fail' ? '#F87171' : r === 'testing' ? '#FCD34D' : '#94A3B8';
-                        const icon = r === 'ok' ? '✓' : r === 'fail' ? '✗' : r === 'testing' ? '…' : '?';
-                        return (
-                          <div key={m.id} className="flex justify-between items-center">
-                            <span style={{ color: 'var(--neo-muted)' }} className="truncate mr-2">{m.id}</span>
-                            <span style={{ color, flexShrink: 0 }}>{icon} {r}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
 
               <Select
                 label="Language:"

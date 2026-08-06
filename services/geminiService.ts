@@ -177,12 +177,19 @@ export const llmService = {
             const errorMsg = error instanceof Error ? error.message : String(error);
             const isQuotaError = errorMsg.toLowerCase().includes('quota') || errorMsg.includes('429');
 
+            loggingService.warn('LLM_CALL_ERROR', `LLM call to ${provider} failed: ${errorMsg}`, {
+                model, provider, apiBaseUrl: apiBaseUrl || undefined, attempt, maxRetries, isQuotaError,
+            });
+
             if (attempt === maxRetries || isQuotaError) {
                 consecutiveErrors++;
                 if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS_FOR_COOLDOWN) circuitBreakerTrippedUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
+                loggingService.error('LLM_CALL_ERROR', `LLM call to ${provider} giving up: ${errorMsg}`, {
+                    model, provider, apiBaseUrl: apiBaseUrl || undefined, attempt, isQuotaError, consecutiveErrors,
+                });
                 return { text: `Error from ${provider} API: ${errorMsg}` };
             }
-            
+
             const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
             await new Promise(resolve => setTimeout(resolve, delay));
         }
@@ -282,7 +289,7 @@ export const llmService = {
   transcribeAudio: async (audioBase64: string, mimeType: string, language: string, llmSettings: LlmSettings, customInstruction?: string, attemptDiarization?: boolean, approximateSpeakerCount?: number, signal?: AbortSignal, promptTemplate?: string): Promise<{ transcription: string, usageMetadata?: UsageMetadata }> => {
     if (Date.now() < circuitBreakerTrippedUntil) return { transcription: "Error: Circuit breaker active." };
     const { provider, maxRetries = 3, timeout = 600 } = llmSettings;
-    const model = llmSettings.transcriptionModel ?? llmSettings.model;
+    const model = llmSettings.model;
     await waitForRateLimit(llmSettings);
     if (provider !== 'Google') return { transcription: "Error: Google required for audio." };
 

@@ -3,12 +3,19 @@ import { ModelInfo } from '../types';
 
 export const APP_TITLE = "Audio AI Assistant";
 export const APP_CREATOR = "Carmelo Battiato";
-export const APP_VERSION = "1.161";
+export const APP_VERSION = "1.162";
 export const APP_BUILD_TIMESTAMP = "2025-06-28_00-00-00";
 
 export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl?: boolean; docsUrl?: string, isCustom?: boolean } } = {
   'Google': {
     models: [
+      {
+        name: 'gemini-3.6-flash',
+        specialization: 'Ultima generazione Flash — thinking integrato, multimodale, ottimo per analisi, trascrizione e chat.',
+        cost: 'In: $1.50 | Out: $9.00',
+        releaseDate: '2026',
+        recommendedFor: ['analysis', 'transcription', 'chat'],
+      },
       {
         name: 'gemini-3.5-flash',
         specialization: 'Nuova generazione stabile — Flagship 2026, agentic, coding, multimodale. Migliore intelligenza su tutta la gamma Flash.',

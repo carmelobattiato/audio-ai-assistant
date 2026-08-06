@@ -5,7 +5,6 @@ import { loggingService } from '../services/loggingService';
 import { useRecorderTimer } from './recorder/useRecorderTimer';
 import { useMediaStreams } from './recorder/useMediaStreams';
 import { useAutoPauseLogic, AutoPauseState } from './recorder/useAutoPauseLogic';
-import { useLiveTranscriptionLogic } from './recorder/useLiveTranscriptionLogic';
 
 export type { AutoPauseState };
 
@@ -21,17 +20,16 @@ function selectSupportedMimeType(): string {
 /**
  * Hook orchestratore della registrazione audio.
  * Coordina i sotto-hook di `hooks/recorder/` (media streams, timer, auto-pause,
- * live transcription) e il `MediaRecorder`. Gestisce: registrazione mic + audio
+ * ) e il `MediaRecorder`. Gestisce: registrazione mic + audio
  * di sistema, chunked recording (default 15 min), pause/resume, auto-stop, e
- * cleanup completo su stop e su unmount del component (stream, interval, live session).
- * @param options Settings, callback (`onChunkComplete`, `onRecordingStop`, …), flag chunk/realtime.
+ * cleanup completo su stop e su unmount del component (stream, interval).
+ * @param options Settings, callback (`onChunkComplete`, `onRecordingStop`, …), flag chunk.
  * @returns Stato + comandi (`startRecording`, `stopRecording`, `pause/resume`, `forceNewChunk`, …) e i ref agli analyser per la visualizzazione.
  */
 export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioRecorderResult => {
   const {
-    settings, llmSettings,
-    enableChunkedRecording, chunkIntervalSeconds, enableRealtimeTranscription,
-    liveModel,
+    settings,
+    enableChunkedRecording, chunkIntervalSeconds,
   } = options;
 
   const optionsRef = useRef(options);
@@ -116,15 +114,11 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     handleAutoStopNotify, handleAutoStop,
   );
 
-  const geminiApiKey = llmSettings?.googleApiKey?.trim() || process.env.API_KEY;
-  const liveTrans = useLiveTranscriptionLogic((_text) => {}, { liveModel, apiKey: geminiApiKey });
-
   const cleanupAll = useCallback(() => {
     stopTimer();
     if (chunkIntervalTimerRef.current) clearInterval(chunkIntervalTimerRef.current);
     streams.cleanupStreams();
-    liveTrans.cleanupLiveSession();
-  }, [stopTimer, streams, liveTrans]);
+  }, [stopTimer, streams]);
 
   // Unmount cleanup: stop streams/interval/live session if component unmounts mid-recording.
   // Via ref so identity changes of cleanupAll don't tear down an active recording.
@@ -180,7 +174,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
           currentOptions.onRecordingStop(
             recordingSessionIdRef.current,
             !!currentOptions.enableChunkedRecording,
-            liveTrans.realtimeTranscriptAccumulatorRef.current,
+            null,
           );
         }
       } else if (currentOptions.enableChunkedRecording) {
@@ -191,7 +185,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     };
     recorder.start();
     mediaRecorderRef.current = recorder;
-  }, [settings.bitrate, cleanupAll, liveTrans]);
+  }, [settings.bitrate, cleanupAll]);
 
   useEffect(() => {
     chunkIntervalSecondsRef.current = chunkIntervalSeconds ?? 60;
@@ -210,11 +204,9 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     setError(null);
     isStoppingRef.current = false;
     try {
-      const { context, destination } = streams.setupAudioContext(enableRealtimeTranscription ? 16000 : undefined);
-      const { micStream } = await streams.getMicStream(context, destination, includeAppAudio);
-      
-      if (enableRealtimeTranscription) await liveTrans.connectLiveSession(context, micStream, isPausedRef);
-      
+      const { context, destination } = streams.setupAudioContext();
+      await streams.getMicStream(context, destination, includeAppAudio);
+
       if (includeAppAudio) {
         const appStream = await navigator.mediaDevices.getDisplayMedia({
           video: { displaySurface: 'monitor' },
@@ -262,7 +254,7 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
       setError(`Start failed: ${err}`);
       cleanupAll();
     }
-  }, [streams, liveTrans, settings, enableRealtimeTranscription, enableChunkedRecording, chunkIntervalSeconds, startTimer, createNewRecorder, cleanupAll, setElapsedTime, restartChunkTimer]);
+  }, [streams, settings, enableChunkedRecording, chunkIntervalSeconds, startTimer, createNewRecorder, cleanupAll, setElapsedTime, restartChunkTimer]);
 
   const stopRecording = useCallback(() => {
     isStoppingRef.current = true;
@@ -354,7 +346,6 @@ export const useAudioRecorder = (options: UseAudioRecorderOptions): UseAudioReco
     autoStopCountdown: autoPause.autoStopCountdown,
     isAutoStopWarning: autoPause.isAutoStopWarning,
     isAutoStopNotified: autoPause.isAutoStopNotified,
-    realtimeTranscription: liveTrans.realtimeTranscription,
     addAppAudio, stopAppAudio, systemAudioNeedsRefresh,
     isAppAudioActive: streams.isAppAudioActive, isMicEnabled, toggleMic,
     forceNewChunk, chunkStartElapsedTime,

@@ -121,7 +121,6 @@ export const NewHome: React.FC = () => {
   const audioRecorderRef = useRef<AudioRecorderRef>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const llmProcessorRef = useRef<LlmProcessorRef>(null);
-  const hasLiveTranscriptRef = useRef(false);
   const clearTranscriptionQueueRef = useRef<() => void>(() => {});
   const pendingLinkAppointmentRef = useRef<{ id: string; subject: string } | null>(null);
   const liveAudioBubbleIdRef = useRef<string | null>(null);
@@ -242,15 +241,6 @@ export const NewHome: React.FC = () => {
       const jobId = crypto.randomUUID();
       loggingService.setCorrelationId(jobId);
       loggingService.info('PIPELINE_START', 'Recording started', { jobId });
-    }
-  }, []);
-
-  const handleRealtimeTranscriptionChange = useCallback((text: string) => {
-    if (!text) return;
-    setTranscribedText(text.replace(/\n/g, '<br />'));
-    if (!hasLiveTranscriptRef.current) {
-      hasLiveTranscriptRef.current = true;
-      setActiveRightTab('transcript');
     }
   }, []);
 
@@ -557,12 +547,9 @@ export const NewHome: React.FC = () => {
     flushDbUpdate();
     loggingService.info('PIPELINE', 'handleRecordingComplete', {
       name, autoPipeline: appSettings.transcription.enableAutoPipeline,
-      chunked: appSettings.transcription.enableChunkedRecording, realtime: appSettings.transcription.enableRealtimeTranscription,
+      chunked: appSettings.transcription.enableChunkedRecording,
     });
-    if (appSettings.transcription.enableRealtimeTranscription) {
-      loggingService.info('PIPELINE', 'Realtime mode → skipping transcription, IDLE');
-      setPipelineStep(PipelineStep.IDLE);
-    } else if (appSettings.transcription.enableAutoPipeline && !appSettings.transcription.enableChunkedRecording) {
+    if (appSettings.transcription.enableAutoPipeline && !appSettings.transcription.enableChunkedRecording) {
       loggingService.info('PIPELINE', 'Non-chunked + autoPipeline → TRANSCRIBING');
       setTranscribedText(''); setLlmProcessedText('');
       setPipelineStep(PipelineStep.TRANSCRIBING);
@@ -718,7 +705,6 @@ export const NewHome: React.FC = () => {
         sessionId: activeSessionIdRef.current,
         existingQueueLen: transLogic.transcriptionQueue.length,
       });
-      hasLiveTranscriptRef.current = false;
       appendModeRef.current = true;
       chunkIndexOffsetRef.current = transLogic.transcriptionQueue.length;
       recordingChunksRef.current = [];
@@ -735,7 +721,6 @@ export const NewHome: React.FC = () => {
       return true;
     }
 
-    hasLiveTranscriptRef.current = false;
     appendModeRef.current = false;
     chunkIndexOffsetRef.current = 0;
     await resetAllDataStates({ preserveBubbleNotes: true });
@@ -1026,7 +1011,6 @@ export const NewHome: React.FC = () => {
             onToggleAutoPipeline={handleToggleAutoPipeline}
             chunksCount={recordingChunks.length}
             onElapsedTimeChange={setRecordingElapsedTime}
-            onRealtimeTranscriptionChange={handleRealtimeTranscriptionChange}
           />
             </div>
           </div>
@@ -1132,7 +1116,6 @@ export const NewHome: React.FC = () => {
               transcriptionProgress={transLogic.transcriptionProgress}
               onSelectPlaybackFile={transLogic.setPlaybackFile}
               currentlyPlayingFile={transLogic.playbackFile?.file ?? null}
-              isRealtimeTranscriptAvailable={!!(appSettings.transcription.enableRealtimeTranscription && activeSourceText && audioBlob)}
             />
             </Suspense>
 
@@ -1199,7 +1182,7 @@ export const NewHome: React.FC = () => {
                 audioRecordingStartTime: audioRecordingStartTime,
                 bubbleNotes: bubbleNotes,
               }}
-              llmSettings={{ ...appSettings.llm, model: appSettings.llm.chatModel ?? appSettings.llm.model }}
+              llmSettings={appSettings.llm}
               chatSystemInstruction={appSettings.systemPrompts?.find(p => p.id === 'chat-system')?.text}
               customInstructions={appSettings.customInstructions}
               history={meetingChatHistory}
