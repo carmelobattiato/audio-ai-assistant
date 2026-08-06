@@ -73,6 +73,14 @@ export const transcriptionService = {
         signal,
         transcriptionPromptTemplate,
       );
+      if (transcription.startsWith('Error:')) {
+        loggingService.error('TRANSCRIPTION_ERROR', transcription, {
+          file: fileName,
+          model: llmSettings.transcriptionModel ?? llmSettings.model,
+          provider: llmSettings.provider,
+          mimeType: mimeTypeForApi,
+        });
+      }
       return { transcription, usageMetadata };
     } catch (error) {
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Aborted')) {

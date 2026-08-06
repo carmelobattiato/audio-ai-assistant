@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.161] — 2026-08-06
+
+- Fix logging trascrizione: `geminiService.transcribeAudio` ora logga `TRANSCRIPTION_GEMINI_ERROR` con modello, provider, attempt, dimensione audio, mimeType ad ogni errore di retry
+- Fix logging trascrizione: `transcriptionService.transcribe` ora logga `TRANSCRIPTION_ERROR` con file, modello, provider quando il service ritorna una stringa `"Error:…"` (caso in cui nessuna eccezione veniva propagata)
+- Fix logging trascrizione: `processFilesInternal` ora logga `TRANSCRIPTION_FILE_ERROR` anche quando l'errore arriva come stringa dal service (non solo come eccezione caught)
+- Log `TRANSCRIPTION_GEMINI_START` con dimensioni audio decoded/base64, modello, baseUrl, presenza API key — comparabile anche in caso di successo
+- Log `TRANSCRIPTION_GEMINI_SUCCESS` con attempt, modello e dimensione audio
+- Fix trascrizione con proxy OpenAI: `apiBaseUrl` che punta a endpoint `/chat/completions` o `/openai/` viene ignorato per le chiamate audio (incompatibile con Gemini multipart API); log `TRANSCRIPTION_BASEURL_IGNORED` WARN quando il bypass scatta
+- Fix load sessione: `apiBaseUrl` e `googleApiKey` non vengono più sovrascritti dai valori salvati nella sessione — al load si mantengono sempre le credenziali e il proxy della sessione corrente
+
+---
+
 ## [1.160] — 2026-07-31
 
 - Fix (Windows): rilevato che cambiare il device audio di default a metà registrazione (es. staccare le cuffie) interrompe silenziosamente il loopback dell'audio di sistema, lasciando solo il microfono attivo

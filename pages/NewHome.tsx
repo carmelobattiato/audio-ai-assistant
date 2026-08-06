@@ -425,7 +425,16 @@ export const NewHome: React.FC = () => {
           setCorrelatedSessions([]);
         }
         setUseHistoricalContext(data.useHistoricalContext ?? true);
-        setAppSettings(data.settings);
+        setAppSettings({
+          ...data.settings,
+          llm: {
+            ...data.settings.llm,
+            // Mantieni credenziali e proxy dalla sessione corrente: non sovrascrivere
+            // con valori salvati in sessioni vecchie che potrebbero avere URL obsoleti
+            apiBaseUrl: appSettings.llm.apiBaseUrl,
+            googleApiKey: appSettings.llm.googleApiKey,
+          },
+        });
         if (data.chunks && data.chunks.length > 0) {
           setRecordingChunks(data.chunks);
           recordingChunksRef.current = data.chunks;

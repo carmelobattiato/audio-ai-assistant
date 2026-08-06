@@ -125,7 +125,10 @@ export const useTranscriptionLogic = (
           const headerHtml = `<br><hr class='my-4 border-gray-600'><br><h3>Transcription for: ${escapeHtml(file.name)}</h3><br>`;
           const isError = result.startsWith("Error:");
           const contentHtml = isError ? `<p class="text-red-400">${result}</p>` : result.replace(/\n/g, '<br />');
-          if (isError) hasError = true;
+          if (isError) {
+            hasError = true;
+            loggingService.error('TRANSCRIPTION_FILE_ERROR', result, { file: file.name });
+          }
           accumulatedHtml += headerHtml + contentHtml;
           setTranscribedText(accumulatedHtml);
 

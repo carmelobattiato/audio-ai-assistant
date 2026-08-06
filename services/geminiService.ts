@@ -285,13 +285,40 @@ export const llmService = {
     const model = llmSettings.transcriptionModel ?? llmSettings.model;
     await waitForRateLimit(llmSettings);
     if (provider !== 'Google') return { transcription: "Error: Google required for audio." };
-    
+
+    const audioDecodedBytes = Math.round(audioBase64.length * 0.75);
+    const audioBase64Bytes = audioBase64.length;
+
+    // apiBaseUrl potrebbe puntare a un proxy OpenAI-compatibile (es. /v1/chat/completions)
+    // che non supporta la Gemini multipart audio API. In quel caso lo ignoriamo.
+    const configuredBaseUrl = llmSettings.apiBaseUrl?.trim() || '';
+    const isOpenAiProxy = configuredBaseUrl.includes('/chat/completions') || configuredBaseUrl.includes('/openai/');
+    const effectiveBaseUrl = isOpenAiProxy ? '' : configuredBaseUrl;
+
+    loggingService.debug('TRANSCRIPTION_GEMINI_START', `model=${model} audio=${(audioDecodedBytes / 1024 / 1024).toFixed(2)}MB base64=${(audioBase64Bytes / 1024 / 1024).toFixed(2)}MB`, {
+        model,
+        provider,
+        mimeType,
+        audioDecodedBytes,
+        audioBase64Bytes,
+        hasApiKey: !!llmSettings.googleApiKey?.trim(),
+        configuredBaseUrl: configuredBaseUrl || '(default)',
+        effectiveBaseUrl: effectiveBaseUrl || '(default)',
+        baseUrlIgnored: isOpenAiProxy,
+        maxRetries,
+        timeout,
+    });
+
+    if (isOpenAiProxy) {
+        loggingService.warn('TRANSCRIPTION_BASEURL_IGNORED', `apiBaseUrl "${configuredBaseUrl}" non è compatibile con la Gemini audio API — verrà usato l'endpoint Google diretto`);
+    }
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             const apiKey = llmSettings.googleApiKey?.trim();
             const ai = new GoogleGenAI({
               apiKey,
-              ...(llmSettings.apiBaseUrl?.trim() && { httpOptions: { baseUrl: llmSettings.apiBaseUrl.trim() } }),
+              ...(effectiveBaseUrl && { httpOptions: { baseUrl: effectiveBaseUrl } }),
             });
             let diarization = attemptDiarization
               ? `\nIdentifica e distingui tutti gli interlocutori presenti nell'audio. Per ogni intervento usa il formato "[Etichetta]: testo" su una nuova riga (es. "Speaker 1:", "Speaker 2:", o il nome/ruolo se menzionato, es. "Cliente:", "Marco:"). Ogni cambio di voce va su riga separata.${approximateSpeakerCount ? ` Presenti circa ${approximateSpeakerCount} persone.` : ' Rileva automaticamente il numero di voci.'}`
@@ -311,15 +338,33 @@ export const llmService = {
                 contents: { parts: [{ inlineData: { mimeType, data: audioBase64 } }, { text: transcribePrompt }] },
             }), timeout * 1000, signal);
             consecutiveErrors = 0;
-            return { 
-                transcription: response.text || "", 
+            loggingService.debug('TRANSCRIPTION_GEMINI_SUCCESS', `attempt=${attempt} model=${model} audio=${(audioDecodedBytes / 1024 / 1024).toFixed(2)}MB`, {
+                model,
+                attempt,
+                audioDecodedBytes,
+                audioBase64Bytes,
+            });
+            return {
+                transcription: response.text || "",
                 usageMetadata: response.usageMetadata ? { inputTokens: response.usageMetadata.promptTokenCount ?? 0, outputTokens: response.usageMetadata.candidatesTokenCount ?? 0, totalTokens: response.usageMetadata.totalTokenCount ?? 0 } : undefined
             };
         } catch (error: unknown) {
             if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) throw error;
             const errorMsg = error instanceof Error ? error.message : String(error);
             const isQuotaError = errorMsg.toLowerCase().includes('quota') || errorMsg.includes('429');
-            if (attempt === maxRetries || isQuotaError) {
+            const isFinal = attempt === maxRetries || isQuotaError;
+            loggingService.error('TRANSCRIPTION_GEMINI_ERROR', errorMsg, {
+                model,
+                provider,
+                attempt,
+                maxRetries,
+                isQuotaError,
+                isFinal,
+                errorName: error instanceof Error ? error.name : undefined,
+                audioSizeBytes: Math.round(audioBase64.length * 0.75),
+                mimeType,
+            });
+            if (isFinal) {
                 consecutiveErrors++;
                 if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS_FOR_COOLDOWN) circuitBreakerTrippedUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
                 return { transcription: `Error: ${errorMsg}` };
