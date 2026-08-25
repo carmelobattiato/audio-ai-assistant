@@ -39,7 +39,7 @@ export const DEFAULT_TRANSCRIPTION_SETTINGS: AppSettings['transcription'] = {
 
 export const DEFAULT_LLM_SETTINGS: AppSettings['llm'] = {
   provider: 'Google',
-  model: 'gemini-2.5-flash-lite',
+  model: 'gemini-flash-latest',
   apiBaseUrl: '',
   customApiKey: '',
   customPromptInstruction: "Follow the user's custom instructions precisely.",

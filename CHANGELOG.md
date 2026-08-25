@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.163] — 2026-08-25
+
+
+- Alias Gemini auto-aggiornanti `gemini-flash-latest` e `gemini-pro-latest` in cima alla lista modelli; `gemini-flash-latest` diventa il default
+- Aggiunto `gemini-3.7-flash` ($0.75/$3.75 intro fino a dic 2026)
+- Aggiunto `gemini-3.5-flash-lite` alla lista modelli
+- Aggiornato pricing `gemini-3.6-flash` a $0.75/$3.75 (introductory fino a dic 2026)
+- Rimosso `gemini-2.5-flash-lite` (offline dal 22 lug 2026)
+- Warning EOL nel selettore modelli per `gemini-2.5-flash` e `gemini-2.5-pro` (fine supporto 16 ott 2026)
+
+---
+
 ## [1.162] — 2026-08-06
 
 - Unificare selezione modello LLM: un solo modello per analisi, trascrizione e chatbot

@@ -199,6 +199,7 @@ export interface ModelInfo {
   cost: string;
   releaseDate: string;
   recommendedFor?: ('analysis' | 'transcription' | 'chat')[];
+  eolDate?: string;
 }
 
 export interface LlmSettings {

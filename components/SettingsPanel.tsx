@@ -60,7 +60,7 @@ const ModelCombobox: React.FC<{
       >
         {models.map((m) => (
           <option key={m.name} value={m.name}>
-            {m.name} — {m.cost}
+            {m.name} — {m.cost}{m.eolDate ? ` ⚠ EOL ${m.eolDate}` : ''}
           </option>
         ))}
         {isCustom && (
@@ -70,6 +70,9 @@ const ModelCombobox: React.FC<{
       {selected ? (
         <p className="text-[11px] text-gray-400 leading-snug">
           {selected.specialization} <span className="text-gray-500">· {selected.releaseDate}</span>
+          {selected.eolDate && (
+            <span className="text-amber-400 ml-1">· ⚠ Fine supporto: {selected.eolDate}</span>
+          )}
         </p>
       ) : (
         <div className="flex gap-2 items-center">
