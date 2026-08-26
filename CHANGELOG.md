@@ -8,6 +8,21 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.164] — 2026-08-26
+
+- `setup_and_run.sh` / `setup_and_run.ps1`: `reinstall` rinominato `install`; chiede se reinstallare `node_modules` (default N)
+- `install`: crea collegamento desktop con icona (`public/favicon-64.png` su macOS/Linux, `public/favicon.ico` su Windows), chiede autostart al boot
+- Aggiunta azione `uninstall`: rimuove collegamento, autostart, `node_modules/`, `dist/`, log e `.app_service.json` senza toccare i sorgenti
+- Aggiunta azione `autostart-enable` / `autostart-disable`: LaunchAgent su macOS, systemd/XDG su Linux, Task Scheduler su Windows
+- Collegamento Desktop macOS (`.command`): apre il browser sull'app dopo l'avvio; chiude la finestra Terminal alla pressione di qualsiasi tasto
+- Collegamento Desktop Windows (`.lnk`): punta a `Start.bat` che gestisce avvio + apertura browser
+- Fix sicurezza: server React ora bind su `127.0.0.1` anche su macOS/Linux (era `0.0.0.0`)
+- Fix `start_persistent_process` (bash): argomenti passati come array, eliminato word splitting
+- Fix `Start-PersistentProcess` (PowerShell): script temporaneo `.ps1` al posto di Base64-encoded command, evita falsi positivi AV
+- Barra di progresso avvio: rimosso uso di `seq` in subshell, sostituito con loop bash nativo
+
+---
+
 ## [1.163] — 2026-08-25
 
 

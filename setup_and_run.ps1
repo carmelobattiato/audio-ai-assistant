@@ -2,16 +2,20 @@
 .SYNOPSIS
 Gestisce l'avvio, l'arresto, lo stato e la reinstallazione dell'applicazione in locale.
 .EXAMPLE
+.\setup_and_run.ps1 install
 .\setup_and_run.ps1 start
 .\setup_and_run.ps1 stop
 .\setup_and_run.ps1 status
 .\setup_and_run.ps1 restart
-.\setup_and_run.ps1 reinstall
+.\setup_and_run.ps1 uninstall
+.\setup_and_run.ps1 autostart-enable
+.\setup_and_run.ps1 autostart-disable
 #>
 
 param (
     [Parameter(Mandatory=$false, Position=0)]
-    [ValidateSet("start", "stop", "status", "restart", "reinstall", "help")]
+    [ValidateSet("start", "stop", "status", "restart", "install", "uninstall",
+                 "autostart-enable", "autostart-disable", "help")]
     [string]$Action = "help",
 
     [Parameter(Mandatory=$false)]
@@ -21,6 +25,7 @@ param (
 $PidFile    = Join-Path $PSScriptRoot ".app_service.json"
 $LogFile    = Join-Path $PSScriptRoot "app_service.log"
 $ErrLogFile = Join-Path $PSScriptRoot "app_service_error.log"
+$TaskName   = "AudioAIAssistant"
 
 # =============================================================================
 # Help
@@ -32,12 +37,15 @@ function Show-Help {
     Write-Host "Uso: .\setup_and_run.ps1 [azione] [-Port <porta>]"
     Write-Host ""
     Write-Host "Azioni disponibili:" -ForegroundColor Yellow
-    Write-Host "  start     - Avvia l'app in background e verifica che risponda."
-    Write-Host "  stop      - Ferma il servizio e libera la porta."
-    Write-Host "  status    - Mostra lo stato; se offline mostra i log recenti."
-    Write-Host "  restart   - Esegue stop + start in sequenza."
-    Write-Host "  reinstall - Elimina node_modules e riavvia l'installazione."
-    Write-Host "  help      - Mostra questo messaggio (default)."
+    Write-Host "  install          - Installa dipendenze, collegamento desktop e (opz.) autostart."
+    Write-Host "  start            - Avvia l'app in background e verifica che risponda."
+    Write-Host "  stop             - Ferma il servizio e libera la porta."
+    Write-Host "  status           - Mostra lo stato; se offline mostra i log recenti."
+    Write-Host "  restart          - Esegue stop + start in sequenza."
+    Write-Host "  uninstall        - Rimuove collegamento, autostart, artefatti (non i sorgenti)."
+    Write-Host "  autostart-enable - Abilita avvio automatico al login (Task Scheduler)."
+    Write-Host "  autostart-disable- Disabilita avvio automatico al login."
+    Write-Host "  help             - Mostra questo messaggio (default)."
     Write-Host ""
     Write-Host "Opzioni:" -ForegroundColor Yellow
     Write-Host "  -Port  Porta su cui esporre l'app (default: 8090)."
@@ -65,12 +73,11 @@ function Test-Requirements {
     Write-Host "Requisiti mancanti: $($missing -join ', ')" -ForegroundColor Red
     Write-Host ""
     Write-Host "L'app richiede Node.js (include npm) installato su Windows." -ForegroundColor Yellow
-    Write-Host "Installa con uno di questi comandi:" -ForegroundColor Yellow
+    Write-Host "Installa con:" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  winget install OpenJS.NodeJS.LTS" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  oppure scarica l'installer da:" -ForegroundColor DarkGray
-    Write-Host "  https://nodejs.org/en/download" -ForegroundColor Cyan
+    Write-Host "  oppure: https://nodejs.org/en/download" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "Dopo l'installazione chiudi e riapri il terminale, poi riprova." -ForegroundColor Yellow
     Write-Host ""
@@ -83,8 +90,7 @@ function Test-Requirements {
 
 function Kill-ProcessTree {
     param([int]$ParentId)
-    $children = Get-CimInstance Win32_Process |
-                Where-Object { $_.ParentProcessId -eq $ParentId }
+    $children = Get-CimInstance Win32_Process -Filter "ParentProcessId=$ParentId" -ErrorAction SilentlyContinue
     foreach ($child in $children) {
         Kill-ProcessTree -ParentId $child.ProcessId
     }
@@ -182,7 +188,7 @@ function Wait-AppReadyVerbose {
 
     if ($ready) {
         Write-Host ""
-        Write-Host "  Server pronto in ${elapsed}s  →  $Url" -ForegroundColor Green
+        Write-Host "  Server pronto in ${elapsed}s  ->  $Url" -ForegroundColor Green
     } else {
         Write-Host ""
         Write-Host "  Timeout dopo ${elapsed}s. Ultimi log:" -ForegroundColor Yellow
@@ -231,61 +237,142 @@ function Show-ServiceLogs {
 
 # =============================================================================
 # Utility - avvio processo persistente
-# Wrappa il comando in un processo PowerShell figlio separato che:
-#   - rimane vivo finche' il comando interno gira
-#   - non aggancia il terminale padre (nessuna pipe condivisa)
-#   - redirige stdout+stderr sul file di log
+# Scrive uno script .ps1 temporaneo e lo esegue in background.
+# Evita Base64-encoded commands che possono generare falsi positivi AV.
 # =============================================================================
 
 function Start-PersistentProcess {
     param(
         [string]$Executable,
-        [string]$Arguments,
+        [string[]]$Arguments,
         [string]$WorkDir,
         [string]$LogPath
     )
 
-    $script  = "Set-Location '$WorkDir'; & '$Executable' $Arguments *>> '$LogPath'"
-    $encoded = [Convert]::ToBase64String(
-                   [Text.Encoding]::Unicode.GetBytes($script))
+    # Crea script temporaneo in una directory controllata
+    $tmpDir  = Join-Path $env:TEMP "audio-ai-assistant"
+    New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
+    $tmpScript = Join-Path $tmpDir "launcher_$(Get-Random).ps1"
 
-    $proc = Start-Process powershell `
-        -ArgumentList "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand $encoded" `
+    # Escape delle variabili per il contenuto dello script
+    $safeExe  = $Executable  -replace "'", "''"
+    $safeDir  = $WorkDir     -replace "'", "''"
+    $safeLog  = $LogPath     -replace "'", "''"
+    $argsList = ($Arguments | ForEach-Object { "'$($_ -replace "'","''")'" }) -join ' '
+
+    $scriptContent = @"
+Set-Location '$safeDir'
+& '$safeExe' $argsList *>> '$safeLog'
+"@
+    Set-Content -Path $tmpScript -Value $scriptContent -Encoding UTF8
+
+    $proc = Start-Process powershell.exe `
+        -ArgumentList "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-File", $tmpScript `
         -WindowStyle Hidden -PassThru
+
+    # Rimuove lo script temporaneo dopo 30 secondi (process ha già il file aperto)
+    Start-Job -ScriptBlock {
+        param($f) Start-Sleep 30; Remove-Item $f -Force -ErrorAction SilentlyContinue
+    } -ArgumentList $tmpScript | Out-Null
+
     return $proc
 }
 
 # =============================================================================
-# Shortcut desktop
+# Icone
+# =============================================================================
+
+function Get-IconPath {
+    $candidates = @(
+        (Join-Path $PSScriptRoot "public\favicon.ico"),
+        (Join-Path $PSScriptRoot "public\favicon-64.png"),
+        (Join-Path $PSScriptRoot "public\favicon.png")
+    )
+    foreach ($c in $candidates) {
+        if (Test-Path $c) { return $c }
+    }
+    return $null
+}
+
+# =============================================================================
+# Collegamento desktop
 # =============================================================================
 
 function Install-Shortcuts {
     $DesktopPath = [Environment]::GetFolderPath("Desktop")
     $LnkDest     = Join-Path $DesktopPath "Audio_AI_Assistance.lnk"
-
-    # Preferisce .ico; fallback a .png (meno nitido ma funziona)
-    $IconPath = Join-Path $PSScriptRoot "public\favicon.ico"
-    if (-not (Test-Path $IconPath)) {
-        $IconPath = Join-Path $PSScriptRoot "public\favicon-64.png"
-    }
+    $StartBat    = Join-Path $PSScriptRoot "Start.bat"
+    $IconPath    = Get-IconPath
 
     try {
         $shell = New-Object -ComObject WScript.Shell
         $lnk   = $shell.CreateShortcut($LnkDest)
-        $lnk.TargetPath       = "powershell.exe"
-        $lnk.Arguments        = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSScriptRoot\setup_and_run.ps1`" start"
+        # Punta a Start.bat: avvia l'app E apre il browser al termine
+        $lnk.TargetPath       = $StartBat
         $lnk.WorkingDirectory = $PSScriptRoot
         $lnk.WindowStyle      = 1
         $lnk.Description      = "Avvia Audio AI Assistant"
-        if (Test-Path $IconPath) {
+        if ($IconPath) {
             $lnk.IconLocation = "$IconPath,0"
         }
         $lnk.Save()
-        Write-Host "  Collegamento creato con icona." -ForegroundColor Green
+        Write-Host "  Collegamento creato: $LnkDest" -ForegroundColor Green
+        if ($IconPath) {
+            Write-Host "  Icona: $IconPath" -ForegroundColor DarkGray
+        }
     }
     catch {
         Write-Host "  Impossibile creare collegamento: $_" -ForegroundColor Red
     }
+}
+
+function Get-ShortcutPath {
+    $DesktopPath = [Environment]::GetFolderPath("Desktop")
+    return Join-Path $DesktopPath "Audio_AI_Assistance.lnk"
+}
+
+function Remove-Shortcut {
+    $lnk = Get-ShortcutPath
+    if (Test-Path $lnk) {
+        Remove-Item $lnk -Force -ErrorAction SilentlyContinue
+        Write-Host "  Collegamento rimosso." -ForegroundColor Green
+    }
+}
+
+# =============================================================================
+# Autostart - Task Scheduler
+# =============================================================================
+
+function Enable-Autostart {
+    $StartBat = Join-Path $PSScriptRoot "Start.bat"
+    try {
+        # Rimuove eventuali task precedenti con lo stesso nome
+        schtasks /Delete /TN $TaskName /F 2>$null | Out-Null
+        schtasks /Create /TN $TaskName `
+                 /TR "`"$StartBat`"" `
+                 /SC ONLOGON `
+                 /RL LIMITED `
+                 /F | Out-Null
+        Write-Host "  Autostart abilitato (Task Scheduler: $TaskName)" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  Impossibile abilitare autostart: $_" -ForegroundColor Red
+    }
+}
+
+function Disable-Autostart {
+    $result = schtasks /Query /TN $TaskName 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        schtasks /Delete /TN $TaskName /F | Out-Null
+        Write-Host "  Autostart disabilitato." -ForegroundColor Green
+    } else {
+        Write-Host "  Autostart non era abilitato." -ForegroundColor DarkGray
+    }
+}
+
+function Test-AutostartEnabled {
+    schtasks /Query /TN $TaskName 2>$null | Out-Null
+    return $LASTEXITCODE -eq 0
 }
 
 # =============================================================================
@@ -293,10 +380,8 @@ function Install-Shortcuts {
 # =============================================================================
 
 function Start-AppService {
-    # Verifica requisiti (node + npm su Windows)
     if (-not (Test-Requirements)) { return }
 
-    # Controlla se gia' in esecuzione (porta come fonte di verita')
     if (Test-PortListening -PortNum $Port) {
         Write-Host "Il servizio e' gia' in ascolto sulla porta $Port." -ForegroundColor Yellow
         Write-Host "Usa 'stop' prima di avviarlo di nuovo, oppure 'restart'." -ForegroundColor Yellow
@@ -308,47 +393,32 @@ function Start-AppService {
 
     $npmCmd = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { "npm.cmd" } else { "npm" }
 
-    # [1/4] Dipendenze npm
     Write-Host ""
     $NodeModulesPath = Join-Path $PSScriptRoot "node_modules"
     if (-not (Test-Path $NodeModulesPath)) {
-        Write-Host "[1/4] Installazione dipendenze npm..." -ForegroundColor Cyan
+        Write-Host "[1/3] Installazione dipendenze npm..." -ForegroundColor Cyan
         Start-Process $npmCmd -ArgumentList "install" -Wait -NoNewWindow `
             -WorkingDirectory $PSScriptRoot
         Write-Host "      Dipendenze installate." -ForegroundColor Green
     }
     else {
-        Write-Host "[1/4] Dipendenze presenti, salto." -ForegroundColor Green
+        Write-Host "[1/3] Dipendenze presenti, salto." -ForegroundColor Green
     }
 
-    # [2/4] Collegamento desktop (controllo indipendente da node_modules)
-    $DesktopPath = [Environment]::GetFolderPath("Desktop")
-    $LnkDest     = Join-Path $DesktopPath "Audio_AI_Assistance.lnk"
-    if (-not (Test-Path $LnkDest)) {
-        Write-Host "[2/4] Installazione collegamento desktop..." -ForegroundColor Cyan
-        Install-Shortcuts
-    }
-    else {
-        Write-Host "[2/4] Collegamento gia' installato, salto." -ForegroundColor Green
-    }
-
-    # [3/4] Avvio npm dev server
     Write-Host ""
-    Write-Host "[3/4] Avvio server React (localhost:$Port)..." -ForegroundColor Cyan
+    Write-Host "[2/3] Avvio server React (localhost:$Port)..." -ForegroundColor Cyan
     if (Test-Path $LogFile)    { Remove-Item $LogFile    -Force -ErrorAction SilentlyContinue }
     if (Test-Path $ErrLogFile) { Remove-Item $ErrLogFile -Force -ErrorAction SilentlyContinue }
 
-    $npmArgs = "run dev -- --port $Port --host 127.0.0.1"
+    $npmArgs = @("run", "dev", "--", "--port", $Port, "--host", "127.0.0.1")
     $npmProc = Start-PersistentProcess -Executable $npmCmd -Arguments $npmArgs `
                    -WorkDir $PSScriptRoot -LogPath $LogFile
 
-    # [4/4] Verifica che l'app risponda via HTTP
     Write-Host ""
-    Write-Host "[4/4] Verifica disponibilita'..." -ForegroundColor Cyan
-    $appUrl = "http://127.0.0.1:$Port"
+    Write-Host "[3/3] Verifica disponibilita'..." -ForegroundColor Cyan
+    $appUrl  = "http://127.0.0.1:$Port"
     $isReady = Wait-AppReadyVerbose -Url $appUrl -LogPath $LogFile -MaxSeconds 60
 
-    # Salva stato
     @{
         Pid       = $npmProc.Id
         Port      = $Port
@@ -368,15 +438,16 @@ function Stop-AppService {
     $stopped = $false
 
     if (Test-Path $PidFile) {
-        $info = Get-Content $PidFile | ConvertFrom-Json
-        Write-Host "Arresto servizio (porta $($info.Port))..." -ForegroundColor Cyan
-        Kill-ProcessTree -ParentId $info.Pid
-        Kill-ProcessByPort -PortNum $info.Port
+        $info = Get-Content $PidFile | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($info) {
+            Write-Host "Arresto servizio (porta $($info.Port))..." -ForegroundColor Cyan
+            Kill-ProcessTree -ParentId $info.Pid
+            Kill-ProcessByPort -PortNum $info.Port
+        }
         Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
         $stopped = $true
     }
 
-    # Fallback: forza chiusura se la porta e' ancora occupata
     if (Test-PortListening -PortNum $Port) {
         Write-Host "Porta $Port ancora occupata, forzo la chiusura..." -ForegroundColor Yellow
         Kill-ProcessByPort -PortNum $Port
@@ -397,8 +468,8 @@ function Stop-AppService {
 
 function Check-AppStatus {
     $portUp = Test-PortListening -PortNum $Port
-
     $httpOk = $false
+
     if ($portUp) {
         try {
             $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port" `
@@ -416,17 +487,17 @@ function Check-AppStatus {
         Write-Host "Accesso: http://127.0.0.1:$Port"
         if ($httpOk) {
             Write-Host "HTTP:    risponde (200 OK)" -ForegroundColor Green
-        }
-        else {
+        } else {
             Write-Host "HTTP:    porta aperta, pagina non verificata" -ForegroundColor Yellow
         }
-
         if (Test-Path $PidFile) {
-            $info = Get-Content $PidFile |
-                    ConvertFrom-Json -ErrorAction SilentlyContinue
-            if ($info) {
-                Write-Host "Avviato: $($info.StartTime)"
-            }
+            $info = Get-Content $PidFile | ConvertFrom-Json -ErrorAction SilentlyContinue
+            if ($info) { Write-Host "Avviato: $($info.StartTime)" }
+        }
+        if (Test-AutostartEnabled) {
+            Write-Host "Autostart: abilitato (Task: $TaskName)" -ForegroundColor Green
+        } else {
+            Write-Host "Autostart: disabilitato" -ForegroundColor DarkGray
         }
     }
     else {
@@ -447,16 +518,28 @@ function Restart-AppService {
 }
 
 # =============================================================================
-# Reinstall
+# Install
 # =============================================================================
 
-function Reinstall-App {
-    Write-Host "=== Reinstallazione Pulita ===" -ForegroundColor Cyan
+function Install-App {
+    Write-Host "=== Installazione Audio AI Assistant ===" -ForegroundColor Cyan
+
     if (-not (Test-Requirements)) { return }
-    Stop-AppService
 
     $NodeModulesPath = Join-Path $PSScriptRoot "node_modules"
+    $reinstallModules = $false
+
     if (Test-Path $NodeModulesPath) {
+        Write-Host ""
+        Write-Host "node_modules/ gia' presente." -ForegroundColor Yellow
+        $answer = Read-Host "  Reinstallare le dipendenze npm? [y/N]"
+        if ($answer -match '^[Yy]$') {
+            $reinstallModules = $true
+        }
+    }
+
+    if ($reinstallModules) {
+        Stop-AppService
         Write-Host "Eliminazione node_modules..." -ForegroundColor Yellow
         Remove-Item -Path $NodeModulesPath -Recurse -Force -ErrorAction SilentlyContinue
         if (Test-Path $NodeModulesPath) {
@@ -464,25 +547,94 @@ function Reinstall-App {
                 -ForegroundColor Red
             return
         }
+        $LockFile = Join-Path $PSScriptRoot "package-lock.json"
+        if (Test-Path $LockFile) {
+            Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+        }
+        Write-Host "Cartella pulita." -ForegroundColor Green
     }
 
-    $LockFile = Join-Path $PSScriptRoot "package-lock.json"
-    if (Test-Path $LockFile) {
-        Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+    Write-Host ""
+    Write-Host "[1/3] Collegamento Desktop..." -ForegroundColor Cyan
+    Install-Shortcuts
+
+    Write-Host ""
+    if (-not (Test-AutostartEnabled)) {
+        $answer = Read-Host "[2/3] Abilitare l'avvio automatico all'accensione/login del PC? [y/N]"
+        if ($answer -match '^[Yy]$') {
+            Enable-Autostart
+        } else {
+            Write-Host "      Autostart saltato." -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Host "[2/3] Autostart gia' abilitato." -ForegroundColor Green
     }
 
-    Write-Host "Cartella pulita. Avvio installazione..." -ForegroundColor Green
+    Write-Host ""
+    Write-Host "[3/3] Avvio app..." -ForegroundColor Cyan
     Start-AppService
+}
+
+# =============================================================================
+# Uninstall
+# =============================================================================
+
+function Uninstall-App {
+    Write-Host "=== Disinstallazione Audio AI Assistant ===" -ForegroundColor Cyan
+    Write-Host "Saranno rimossi: collegamento desktop, autostart, node_modules, dist/, log, .app_service.json" -ForegroundColor Yellow
+    Write-Host "NON saranno rimossi: sorgenti (src/, public/), .env, package.json, setup_and_run.ps1" -ForegroundColor Yellow
+    Write-Host ""
+    $answer = Read-Host "Confermi la disinstallazione? [y/N]"
+    if ($answer -notmatch '^[Yy]$') {
+        Write-Host "Operazione annullata." -ForegroundColor DarkGray
+        return
+    }
+
+    Stop-AppService
+
+    if (Test-AutostartEnabled) {
+        Write-Host "Rimozione autostart..." -ForegroundColor Cyan
+        Disable-Autostart
+    }
+
+    $lnk = Get-ShortcutPath
+    if (Test-Path $lnk) {
+        Write-Host "Rimozione collegamento desktop..." -ForegroundColor Cyan
+        Remove-Shortcut
+    }
+
+    $itemsToRemove = @(
+        (Join-Path $PSScriptRoot "node_modules"),
+        (Join-Path $PSScriptRoot "dist"),
+        (Join-Path $PSScriptRoot "package-lock.json"),
+        $LogFile,
+        $ErrLogFile,
+        $PidFile
+    )
+
+    foreach ($item in $itemsToRemove) {
+        if (Test-Path $item) {
+            Write-Host "Rimozione: $item" -ForegroundColor Cyan
+            Remove-Item -Path $item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Disinstallazione completata." -ForegroundColor Green
+    Write-Host "Per reinstallare: .\setup_and_run.ps1 install" -ForegroundColor DarkGray
 }
 
 # =============================================================================
 
 switch ($Action) {
-    "start"     { Start-AppService }
-    "stop"      { Stop-AppService }
-    "status"    { Check-AppStatus }
-    "restart"   { Restart-AppService }
-    "reinstall" { Reinstall-App }
-    "help"      { Show-Help }
-    Default     { Show-Help }
+    "start"            { Start-AppService }
+    "stop"             { Stop-AppService }
+    "status"           { Check-AppStatus }
+    "restart"          { Restart-AppService }
+    "install"          { Install-App }
+    "uninstall"        { Uninstall-App }
+    "autostart-enable" { Enable-Autostart }
+    "autostart-disable"{ Disable-Autostart }
+    "help"             { Show-Help }
+    Default            { Show-Help }
 }
