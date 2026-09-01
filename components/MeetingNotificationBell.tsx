@@ -85,10 +85,9 @@ export const MeetingNotificationBell: React.FC<Props> = ({
   }, [activeCount]);
 
   const handleStopOverrun = (r: MeetingNotificationRecord) => {
-    // Derive the stable appointment key from the overrun record id: overrun::<key>::<date>::<threshold>
+    // Formato ID overrun: overrun::<key>::<date>
     const parts = r.id.split('::');
-    // key is parts[1], date is parts[2], threshold is parts[3] — we silence the whole appointment key
-    const apptKey = (parts.length >= 3 && parts[1]) ? parts[1] : r.apptId;
+    const apptKey = (parts.length >= 2 && parts[1]) ? parts[1] : r.apptId;
     onStopOverrunNotification?.(apptKey);
     if (onActiveItemDismiss && activeMeetingIds?.has(r.id)) {
       onActiveItemDismiss(r.id);

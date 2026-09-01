@@ -145,8 +145,10 @@ export function useMeetingFlow({
           if (overrunAlertedRef.current.has(dedupKey)) continue;
           overrunAlertedRef.current.add(dedupKey);
           const overdueMinutes = Math.round(overdueMs / 60_000);
+          // ID senza threshold: una sola card per riunione, aggiornata in-place
+          const recordId = `overrun::${key}::${date}`;
           const record: MeetingNotificationRecord = {
-            id: `overrun::${key}::${date}::${threshold.label}`,
+            id: recordId,
             apptId: `${normalizeSubject(appt.subject)}::${appt.start}`,
             date,
             subject: appt.subject,
@@ -159,11 +161,21 @@ export function useMeetingFlow({
             summary: `Questa riunione doveva terminare alle ${new Date(appt.end).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} — sono passati ${overdueMinutes} minuti e la registrazione è ancora attiva.`,
             kind: 'overrun',
           };
-          db.tryClaimMeetingNotification(record).then((claimed) => {
-            if (!claimed) return;
-            setActiveMeetingIds(prev => new Set(prev).add(record.id));
-            setBellForceOpen(true);
-            playOverrunAlert();
+          db.upsertMeetingNotification(record).then(() => {
+            // Forza refresh immediato della history tramite BroadcastChannel
+            if (typeof BroadcastChannel !== 'undefined') {
+              const bc = new BroadcastChannel('meeting-notifications-v1');
+              bc.postMessage({ type: 'ready' });
+              bc.close();
+            }
+            setActiveMeetingIds(prev => {
+              const isNew = !prev.has(recordId);
+              const next = new Set(prev);
+              next.add(recordId);
+              setBellForceOpen(true);
+              if (isNew) playOverrunAlert();
+              return next;
+            });
           }).catch(() => { /* best-effort */ });
         }
       }

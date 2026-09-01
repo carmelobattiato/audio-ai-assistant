@@ -6,6 +6,8 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+
+
 ---
 
 ## [1.166] — 2026-09-01
@@ -13,6 +15,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 - Nuova azione `open` in `setup_and_run.sh` / `.ps1`: se l'app è già attiva mostra menu interattivo (apri browser / riavvia / ferma); se spenta la avvia e apre il browser
 - Collegamento desktop macOS (`.command`) e Linux (`.desktop`) aggiornati per usare `open` invece di `start`
 - `Start.bat` (Windows) semplificato: delega tutto a `setup_and_run.ps1 open`
+- Particella NoteTimeline: ridotta da pool 4 (ciclo su tutti i connettori) a 1 sola, attiva solo sull'ultimo connettore (penultima→ultima bubble)
+- Rimosso effetto onda/ring sui nodi: eliminati cascade ring div, loop ring nel RAF e relativi ref
+- RAF tick semplificato: da ~40 operazioni/frame a ~6, peso CPU/RAM minimo
+- Notifiche overrun: ID unificato senza suffisso threshold — una sola card per riunione, aggiornata in-place al superamento di ogni soglia (5/10/30 min)
+- Aggiunta `upsertMeetingNotification` in `db.ts` (put incondizionale); broadcast BroadcastChannel "ready" dopo upsert per refresh immediato della card
+- Suono overrun: scatta solo alla prima notifica, non ai reminder successivi
 
 ---
 

@@ -271,6 +271,17 @@ export const db = {
     });
   },
 
+  // upsertMeetingNotification: overwrite sempre il record (put). Usato per aggiornare
+  // la notifica overrun con i minuti correnti senza creare card duplicate.
+  async upsertMeetingNotification(record: MeetingNotificationRecord): Promise<void> {
+    return dbOp('upsertMeetingNotification', async () => {
+      const dbInstance = await dbPromise;
+      const tx = dbInstance.transaction(MEETING_NOTIF_STORE_NAME, 'readwrite');
+      await tx.store.put(record);
+      await tx.done;
+    });
+  },
+
   async getMeetingNotification(id: string): Promise<MeetingNotificationRecord | undefined> {
     return dbOp('getMeetingNotification', async () => {
       const dbInstance = await dbPromise;

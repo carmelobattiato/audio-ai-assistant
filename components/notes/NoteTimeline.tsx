@@ -75,92 +75,49 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
 
   // Pulse Trail animation refs (imperative, no re-render)
   const particleRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const ringRefs     = useRef<(HTMLDivElement | null)[]>([]);
   const rafRef       = useRef<number>(0);
   const animRef      = useRef<{
-    particles: Array<{ t: number; pausing: number; connIdx: number; startConn: number }>;
-    rings:     Array<{ t: number; active: boolean }>;
+    particles: Array<{ t: number; pausing: number; connIdx: number }>;
   } | null>(null);
 
   useEffect(() => {
     if (notes.length < 2) return;
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const nConn    = notes.length - 1;
-    const nNodes   = notes.length;
-    const MAX_P    = 4;
-    const poolSize = Math.min(nConn, MAX_P);
-    const STAGGER  = 0.42;
+    const nConn   = notes.length - 1;
+    const lastConn = nConn - 1; // solo l'ultimo connettore (penultima→ultima bubble)
 
     animRef.current = {
-      particles: Array.from({ length: poolSize }, (_, i) => ({
-        t: 0, pausing: -(i * STAGGER),
-        connIdx: i,   // connector currently being traveled
-        startConn: i, // original lane for wrap-around
-      })),
-      rings: Array.from({ length: nNodes }, () => ({ t: 0, active: false })),
+      particles: [{ t: 0, pausing: 0, connIdx: lastConn }],
     };
 
     let lastTs: number | null = null;
-
-    function triggerRing(idx: number) {
-      if (!animRef.current) return;
-      const r = animRef.current.rings[idx];
-      if (r) { r.active = true; r.t = 0; }
-    }
-    triggerRing(0); // first node fires immediately
 
     function tick(ts: number) {
       if (!animRef.current) return;
       if (!lastTs) lastTs = ts;
       const dt = Math.min((ts - lastTs) / 1000, 0.05);
       lastTs = ts;
-      const { particles, rings } = animRef.current;
+      const { particles } = animRef.current;
       const cw = containerRef.current?.offsetWidth ?? 300;
 
-      // Particles
+      // Singola particella sull'ultimo connettore
       particles.forEach((p, pi) => {
         const el = particleRefs.current[pi];
-        if (p.pausing < 0) {          // stagger delay (negative = waiting to start)
-          p.pausing += dt;
-          if (el) el.style.opacity = '0';
-          return;
-        }
-        if (p.pausing > 0) {          // end-of-path pause → advance to next lane
+        if (p.pausing > 0) {
           p.pausing -= dt;
           if (el) el.style.opacity = '0';
-          if (p.pausing <= 0) {
-            p.pausing = 0;
-            p.t = 0;
-            const next = p.connIdx + MAX_P;
-            p.connIdx = next < nConn ? next : p.startConn; // wrap back to original lane
-          }
+          if (p.pausing <= 0) { p.pausing = 0; p.t = 0; }
           return;
         }
         p.t += dt / 2.0;
-        if (p.t >= 1) { p.t = 1; p.pausing = 0.38; triggerRing(p.connIdx + 1); }
+        if (p.t >= 1) { p.t = 1; p.pausing = 0.38; }
         if (!el) return;
         const { x, y } = evalConnectorPos(p.connIdx, p.t);
         const xPx = x / 100 * cw;
         const fade = Math.min(p.t / 0.08, 1) * Math.min((1 - p.t) / 0.08, 1);
         el.style.transform = `translate(${xPx - 4}px, ${y - 4}px)`;
         el.style.opacity   = String(Math.max(0, fade) * 0.92);
-      });
-
-      // Rings
-      rings.forEach((ring, i) => {
-        const el = ringRefs.current[i];
-        if (!el || !ring.active) return;
-        ring.t += dt / 1.2;
-        if (ring.t >= 1) {
-          ring.active = false;
-          el.style.opacity   = '0';
-          el.style.transform = 'translate(-50%,-50%) scale(1)';
-          return;
-        }
-        const ease  = 1 - Math.pow(1 - ring.t, 3);
-        el.style.opacity   = String((1 - ring.t) * 0.72);
-        el.style.transform = `translate(-50%,-50%) scale(${1 + ease * 0.308})`;
       });
 
       rafRef.current = requestAnimationFrame(tick);
@@ -216,11 +173,10 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
           ))}
         </svg>
 
-        {/* Particles — pool of max 4, cycle through all connectors */}
-        {Array.from({ length: Math.min(notes.length - 1, 4) }, (_, i) => (
+        {/* Particle — singola, sull'ultimo connettore (penultima→ultima bubble) */}
+        {notes.length >= 2 && (
           <div
-            key={`pt-${i}`}
-            ref={el => { particleRefs.current[i] = el; }}
+            ref={el => { particleRefs.current[0] = el; }}
             className="absolute pointer-events-none rounded-full"
             style={{
               width: 8, height: 8,
@@ -231,7 +187,7 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
               willChange: 'transform, opacity',
             }}
           />
-        ))}
+        )}
 
         {/* Nodes — wrapper carries z-index so popup beats siblings */}
         {notes.map((note, i) => {
@@ -251,19 +207,6 @@ export const NoteTimeline: React.FC<NoteTimelineProps> = ({ notes, onOpenNote, o
               onMouseEnter={() => setHoveredIdx(i)}
               onMouseLeave={() => setHoveredIdx(null)}
             >
-              {/* Cascade ring */}
-              <div
-                ref={el => { ringRefs.current[i] = el; }}
-                className="absolute pointer-events-none rounded-full"
-                style={{
-                  width: NODE_D, height: NODE_D,
-                  left: '50%', top: '50%',
-                  transform: 'translate(-50%,-50%) scale(1)',
-                  border: '1.5px solid #34d399',
-                  opacity: 0,
-                  willChange: 'transform, opacity',
-                }}
-              />
               <NoteTimelineItem
                 note={note}
                 onOpen={onOpenNote}
