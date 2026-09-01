@@ -265,6 +265,7 @@ export interface AppearanceSettings {
   meetingNotificationsEnabled: boolean;
   meetingNotificationLeadMinutes: number;
   githubRepoUrl: string;
+  updateCheckFrequency?: 'weekly' | 'monthly' | 'never';
 }
 
 export interface CustomInstruction {

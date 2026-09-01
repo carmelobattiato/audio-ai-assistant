@@ -1,12 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from './common/Modal';
 import { Button } from './common/Button';
 import { Select } from './common/Select';
 import { Input } from './common/Input';
 import { Checkbox } from './common/Checkbox';
 import { AppSettings, CustomInstruction, SupportedLanguage, TranscriptionOutputFormat, ModelInfo, Theme } from '../types';
-import { DEFAULT_SETTINGS, LLM_PROVIDERS } from '../constants';
+import { DEFAULT_SETTINGS, LLM_PROVIDERS, APP_VERSION } from '../constants';
+import { llmService } from '../services/geminiService';
 
 import { LogsTab } from './settings/LogsTab';
 import { CustomInstructionsTab } from './settings/CustomInstructionsTab';
@@ -108,6 +109,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
   const [updateInfo, setUpdateInfo] = useState<{ localVersion: string; remoteVersion: string; hasUpdate: boolean; releaseUrl: string } | null>(null);
   const [updateLog, setUpdateLog] = useState<string[]>([]);
+
+  // Changelog modal state
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  const [changelogRaw, setChangelogRaw] = useState<string | null>(null);
+  const [changelogSummary, setChangelogSummary] = useState<string | null>(null);
+  const [changelogLoading, setChangelogLoading] = useState(false);
+  const changelogAbortRef = useRef<AbortController | null>(null);
 
   // API key UI state
   const [showCustomKey, setShowCustomKey] = useState(false);
@@ -330,7 +338,22 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                 onChange={(e) => handleLocalGenericChange('appearance', 'githubRepoUrl', e.target.value.trim())}
               />
 
+              {/* Frequenza controllo automatico */}
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-300">Controlla aggiornamenti automaticamente</label>
+                <select
+                  value={localSettings.appearance?.updateCheckFrequency ?? 'weekly'}
+                  onChange={(e) => handleLocalGenericChange('appearance', 'updateCheckFrequency', e.target.value as 'weekly' | 'monthly' | 'never')}
+                  className="w-full bg-gray-800 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                >
+                  <option value="weekly">Ogni settimana</option>
+                  <option value="monthly">Ogni mese</option>
+                  <option value="never">Mai</option>
+                </select>
+              </div>
+
               <div className="flex flex-wrap gap-2">
+                {/* Verifica manuale — fetch client-side su GitHub */}
                 <button
                   type="button"
                   disabled={!localSettings.appearance?.githubRepoUrl || updateStatus === 'checking' || updateStatus === 'updating'}
@@ -339,11 +362,27 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                     setUpdateLog([]);
                     setUpdateInfo(null);
                     try {
-                      const r = await fetch(`/api/update/check?repo=${encodeURIComponent(localSettings.appearance?.githubRepoUrl || '')}`);
-                      const data = await r.json();
-                      if (data.error) throw new Error(data.error);
-                      setUpdateInfo(data);
-                      setUpdateStatus(data.hasUpdate ? 'ready' : 'idle');
+                      const repoUrl = localSettings.appearance?.githubRepoUrl ?? '';
+                      const match = repoUrl.match(/github\.com\/([^/]+\/[^/]+)/);
+                      if (!match?.[1]) throw new Error('URL repository non valido');
+                      const slug = match[1].replace(/\.git$/, '');
+                      const rawUrl = `https://raw.githubusercontent.com/${slug}/main/constants/appConfig.ts`;
+                      const res = await fetch(rawUrl, { cache: 'no-store' });
+                      if (!res.ok) throw new Error(`GitHub ha risposto ${res.status}`);
+                      const text = await res.text();
+                      const m = text.match(/APP_VERSION\s*=\s*["']([^"']+)["']/);
+                      if (!m?.[1]) throw new Error('Versione non trovata nel file remoto');
+                      const remoteVersion = m[1];
+                      const localVersion = APP_VERSION;
+                      const parseV = (v: string) => v.split('.').map((n: string) => parseInt(n, 10) || 0);
+                      const rv = parseV(remoteVersion); const lv = parseV(localVersion);
+                      let hasUpdate = false;
+                      for (let i = 0; i < Math.max(rv.length, lv.length); i++) {
+                        if ((rv[i] ?? 0) > (lv[i] ?? 0)) { hasUpdate = true; break; }
+                        if ((rv[i] ?? 0) < (lv[i] ?? 0)) break;
+                      }
+                      setUpdateInfo({ localVersion, remoteVersion, hasUpdate, releaseUrl: repoUrl });
+                      setUpdateStatus(hasUpdate ? 'ready' : 'idle');
                     } catch (e: any) {
                       setUpdateLog([`Errore: ${e.message}`]);
                       setUpdateStatus('error');
@@ -352,6 +391,51 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                   className="text-xs px-3 py-1 rounded-md bg-gray-500 hover:bg-gray-400 text-white disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {updateStatus === 'checking' ? 'Verifica…' : 'Verifica aggiornamenti'}
+                </button>
+
+                {/* Changelog */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setChangelogOpen(true);
+                    if (changelogRaw) return; // già caricato
+                    setChangelogLoading(true);
+                    setChangelogSummary(null);
+                    try {
+                      const repoUrl = localSettings.appearance?.githubRepoUrl ?? '';
+                      const match = repoUrl.match(/github\.com\/([^/]+\/[^/]+)/);
+                      if (!match?.[1]) throw new Error('URL repository non valido');
+                      const slug = match[1].replace(/\.git$/, '');
+                      const rawUrl = `https://raw.githubusercontent.com/${slug}/main/CHANGELOG.md`;
+                      const res = await fetch(rawUrl, { cache: 'no-store' });
+                      if (!res.ok) throw new Error(`GitHub ha risposto ${res.status}`);
+                      const text = await res.text();
+                      setChangelogRaw(text);
+
+                      // Summary LLM: sezioni tra versione corrente e remota (o tutto il testo se nessun check)
+                      const targetVersion = updateInfo?.remoteVersion;
+                      let excerpt = text;
+                      if (targetVersion && targetVersion !== APP_VERSION) {
+                        const lines = text.split('\n');
+                        const startIdx = lines.findIndex(l => l.includes(`[${targetVersion}]`));
+                        const endIdx   = lines.findIndex((l, i) => i > startIdx && /^## \[/.test(l) && l.includes(`[${APP_VERSION}]`));
+                        if (startIdx >= 0) excerpt = lines.slice(startIdx, endIdx >= 0 ? endIdx : undefined).join('\n');
+                      }
+
+                      const ctrl = new AbortController();
+                      changelogAbortRef.current = ctrl;
+                      const prompt = `Dato questo changelog, riassumi in 3-5 punti le modifiche principali${targetVersion && targetVersion !== APP_VERSION ? ` tra la versione ${APP_VERSION} e la ${targetVersion}` : ''}. Sii conciso e in italiano.\n\n${excerpt.slice(0, 8000)}`;
+                      const result = await llmService.generateText(prompt, localSettings.llm, undefined, ctrl.signal);
+                      setChangelogSummary(result.text ?? null);
+                    } catch (e: any) {
+                      if (e?.name !== 'AbortError') setChangelogSummary(`Errore: ${e.message}`);
+                    } finally {
+                      setChangelogLoading(false);
+                    }
+                  }}
+                  className="text-xs px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-500 text-white"
+                >
+                  📋 Changelog
                 </button>
 
                 {updateInfo && updateStatus !== 'checking' && updateStatus !== 'done' && (() => {
@@ -413,6 +497,73 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                 <p className="text-xs text-green-400">Aggiornamento completo. Ricarico la pagina…</p>
               )}
             </div>
+
+            {/* ── Changelog Modal ── */}
+            {changelogOpen && (
+              <div
+                className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+                style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+                onClick={() => { setChangelogOpen(false); changelogAbortRef.current?.abort(); }}
+              >
+                <div
+                  className="relative rounded-xl shadow-2xl flex flex-col"
+                  style={{ width: '720px', maxWidth: '95vw', maxHeight: '85vh', background: 'rgba(15,23,42,0.98)', border: '1px solid rgba(124,58,237,0.4)' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid rgba(124,58,237,0.25)' }}>
+                    <h2 className="text-sm font-semibold text-sky-300">
+                      Changelog
+                      {updateInfo?.remoteVersion && updateInfo.remoteVersion !== APP_VERSION
+                        ? ` — da v${APP_VERSION} a v${updateInfo.remoteVersion}`
+                        : ` — v${APP_VERSION}`}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => { setChangelogOpen(false); changelogAbortRef.current?.abort(); }}
+                      className="text-gray-400 hover:text-white text-lg leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="overflow-y-auto flex-1 p-5 space-y-4">
+                    {changelogLoading && !changelogRaw && (
+                      <p className="text-xs text-gray-400 animate-pulse">Caricamento changelog…</p>
+                    )}
+
+                    {/* Summary LLM */}
+                    {(changelogLoading && changelogRaw) && (
+                      <p className="text-xs text-gray-400 animate-pulse">Generazione summary…</p>
+                    )}
+                    {changelogSummary && (
+                      <div className="p-3 rounded-lg space-y-1.5" style={{ background: 'rgba(56,189,248,0.07)', border: '1px solid rgba(56,189,248,0.2)' }}>
+                        <p className="text-xs font-semibold text-sky-300">
+                          {updateInfo?.remoteVersion && updateInfo.remoteVersion !== APP_VERSION
+                            ? `Novità principali dalla tua versione ${APP_VERSION} alla nuova ${updateInfo.remoteVersion}`
+                            : `Novità principali dalla versione ${APP_VERSION}`}
+                        </p>
+                        <p className="text-xs text-gray-200 whitespace-pre-wrap leading-relaxed">{changelogSummary}</p>
+                      </div>
+                    )}
+
+                    {/* Changelog raw */}
+                    {changelogRaw && (
+                      <pre className="text-[11px] text-gray-300 whitespace-pre-wrap leading-relaxed font-mono" style={{ overflowWrap: 'break-word' }}>
+                        {changelogRaw.split('\n').map((line, idx) => {
+                          const isVersion = /^## \[/.test(line);
+                          const isCurrent = line.includes(`[${APP_VERSION}]`);
+                          return (
+                            <span key={idx} style={isVersion ? { fontWeight: 700, color: isCurrent ? '#6ee7b7' : '#a78bfa', display: 'block' } : {}}>
+                              {line + '\n'}
+                            </span>
+                          );
+                        })}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
         

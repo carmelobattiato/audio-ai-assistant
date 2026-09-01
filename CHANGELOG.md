@@ -8,6 +8,16 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.168] — 2026-09-01
+
+- Aggiornamento App: combobox frequenza controllo automatico (ogni settimana / ogni mese / mai)
+- Controllo versione client-side via fetch su raw.githubusercontent.com — funziona in produzione senza Vite
+- Notifica topbar quando è disponibile una nuova versione: badge con link diretto alle Settings e dismiss persistito in localStorage
+- Bottone "Changelog" in Settings: modal con fetch del CHANGELOG.md da GitHub e summary LLM delle novità tra versione corrente e target
+- Titolo summary changelog: "Novità principali dalla tua versione X alla nuova Y" con versioni dinamiche
+
+---
+
 ## [1.167] — 2026-09-01
 
 - Fix notifiche overrun al riavvio: il primo check al mount segna silenziosamente le soglie già superate senza inviare notifiche; solo i superamenti live generano alert

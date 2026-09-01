@@ -8,6 +8,7 @@ import { NeoTopbar } from '../components/newpage/NeoTopbar';
 import { useIsOnline } from '../hooks/useIsOnline';
 import { useCalendarSync } from '../hooks/useCalendarSync';
 import { useMeetingFlow } from '../hooks/useMeetingFlow';
+import { useUpdateCheck, type UpdateInfo } from '../hooks/useUpdateCheck';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
 import { NeoTabs } from '../components/newpage/NeoTabs';
 import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
@@ -846,6 +847,14 @@ export const NewHome: React.FC = () => {
   } = useMeetingFlow({ calAppointments, appSettings, audioRecorderRef, setIsNewCalendarOpen, handleOutlookImport });
 
 
+  // ── Update check ─────────────────────────────────────────────────────────
+  const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
+  useUpdateCheck(
+    appSettings.appearance.githubRepoUrl,
+    appSettings.appearance.updateCheckFrequency ?? 'weekly',
+    setUpdateAvailable,
+  );
+
   // ── Divider drag handler ──────────────────────────────────────────────────
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -941,6 +950,33 @@ export const NewHome: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenNewCalendar={() => setIsNewCalendarOpen(true)}
         notificationBell={
+          <div className="flex items-center gap-2">
+            {updateAvailable && (
+              <div
+                className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg"
+                style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', color: '#fcd34d' }}
+              >
+                <span>🔔 v{updateAvailable.remoteVersion} disponibile</span>
+                <button
+                  type="button"
+                  onClick={() => { setSettingsInitialTab('appearance'); setIsSettingsOpen(true); }}
+                  className="underline hover:text-yellow-200"
+                >
+                  Vedi →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('update-dismissed-version', updateAvailable.remoteVersion);
+                    setUpdateAvailable(null);
+                  }}
+                  className="ml-1 opacity-60 hover:opacity-100"
+                  title="Chiudi"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           <MeetingNotificationBell
             records={meetingHistory}
             onOpenCalendar={() => setIsNewCalendarOpen(true)}
@@ -953,6 +989,7 @@ export const NewHome: React.FC = () => {
             onActiveItemDismiss={handleActiveItemDismiss}
             onStopOverrunNotification={handleStopOverrunNotification}
           />
+          </div>
         }
       />
       {/* Pipeline bar */}

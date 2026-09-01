@@ -56,6 +56,7 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppSettings['appearance'] = {
   meetingNotificationsEnabled: true,
   meetingNotificationLeadMinutes: 10,
   githubRepoUrl: 'https://github.com/carmelobattiato/audio-ai-assistant',
+  updateCheckFrequency: 'monthly' as const,
 };
 
 export const DEFAULT_CUSTOM_INSTRUCTIONS: CustomInstruction[] = [];
