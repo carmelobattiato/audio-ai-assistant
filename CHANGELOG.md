@@ -6,7 +6,11 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ## [Unreleased]
 
+---
 
+## [1.167] — 2026-09-01
+
+- Fix notifiche overrun al riavvio: il primo check al mount segna silenziosamente le soglie già superate senza inviare notifiche; solo i superamenti live generano alert
 
 ---
 

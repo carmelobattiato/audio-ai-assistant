@@ -118,6 +118,7 @@ export function useMeetingFlow({
   // Non notifica mai riunioni di giorni precedenti (filtro per data odierna).
   // Gli eventi silenziati dall'utente vengono saltati permanentemente (localStorage).
   const overrunAlertedRef = useRef<Set<string>>(new Set());
+  const isStartupCheckRef = useRef(true);
   const OVERRUN_THRESHOLDS = [
     { ms: 5 * 60_000, label: '5' },
     { ms: 10 * 60_000, label: '10' },
@@ -144,6 +145,7 @@ export function useMeetingFlow({
           const dedupKey = `${key}::${threshold.label}`;
           if (overrunAlertedRef.current.has(dedupKey)) continue;
           overrunAlertedRef.current.add(dedupKey);
+          if (isStartupCheckRef.current) continue; // soglie già superate al mount: segna senza notificare
           const overdueMinutes = Math.round(overdueMs / 60_000);
           // ID senza threshold: una sola card per riunione, aggiornata in-place
           const recordId = `overrun::${key}::${date}`;
@@ -182,6 +184,7 @@ export function useMeetingFlow({
     };
     const interval = window.setInterval(check, 30_000);
     check();
+    isStartupCheckRef.current = false;
     return () => window.clearInterval(interval);
   }, [calAppointments, audioRecorderRef, playOverrunAlert]); // eslint-disable-line react-hooks/exhaustive-deps
 
