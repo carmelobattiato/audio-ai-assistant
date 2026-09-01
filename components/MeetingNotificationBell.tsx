@@ -13,11 +13,13 @@ interface Props {
   forceOpen?: boolean;
   onForceOpenHandled?: () => void;
   onActiveItemDismiss?: (id: string) => void;
+  onStopOverrunNotification?: (apptKey: string) => void;
 }
 
 export const MeetingNotificationBell: React.FC<Props> = ({
   records, onOpenCalendar, onStartSessionForMeeting, onDelete, onClearAll,
   activeMeetingIds, forceOpen, onForceOpenHandled, onActiveItemDismiss,
+  onStopOverrunNotification,
 }) => {
   const [open, setOpen] = useState(false);
   const [shaking, setShaking] = useState(false);
@@ -81,6 +83,19 @@ export const MeetingNotificationBell: React.FC<Props> = ({
     }
     hasActiveRef.current = activeCount > 0;
   }, [activeCount]);
+
+  const handleStopOverrun = (r: MeetingNotificationRecord) => {
+    // Derive the stable appointment key from the overrun record id: overrun::<key>::<date>::<threshold>
+    const parts = r.id.split('::');
+    // key is parts[1], date is parts[2], threshold is parts[3] — we silence the whole appointment key
+    const apptKey = (parts.length >= 3 && parts[1]) ? parts[1] : r.apptId;
+    onStopOverrunNotification?.(apptKey);
+    if (onActiveItemDismiss && activeMeetingIds?.has(r.id)) {
+      onActiveItemDismiss(r.id);
+    } else {
+      onDelete(r.id);
+    }
+  };
 
   const now = Date.now();
   // Active items first, then newest-first by shownAt/startIso
@@ -222,7 +237,16 @@ export const MeetingNotificationBell: React.FC<Props> = ({
                         }
                       }}
                       actions={
-                        r.kind === 'overrun' ? null :
+                        r.kind === 'overrun' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleStopOverrun(r)}
+                            className="text-[10px] px-2 py-1 rounded font-medium"
+                            style={{ background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.45)', color: '#fdba74' }}
+                          >
+                            🔕 Stop notification
+                          </button>
+                        ) :
                         isActive ? (
                           <button
                             type="button"

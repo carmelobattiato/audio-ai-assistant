@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.165] — 2026-09-01
+
+
+- Fix notifiche overrun: filtro per data odierna — le riunioni di giorni precedenti non generano più alert al riavvio
+- Tre soglie overrun distinte (5, 10, 30 min) con notifiche separate e ID univoci in IndexedDB
+- Bottone "Stop notification" sulle card overrun: silenzia permanentemente l'evento specifico (persiste tra i reload via localStorage)
+
+---
+
 ## [1.164] — 2026-08-26
 
 - `setup_and_run.sh` / `setup_and_run.ps1`: `reinstall` rinominato `install`; chiede se reinstallare `node_modules` (default N)

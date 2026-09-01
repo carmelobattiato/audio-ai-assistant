@@ -842,7 +842,7 @@ export const NewHome: React.FC = () => {
     deleteMeetingHistoryItem, clearAllMeetingHistory,
     handleTestMeetingNotification, handleStartSessionForMeeting,
     pendingAutoStart, autoStartCountdownMs, handleAutoStartNow, handleAutoStartCancel,
-    scheduleAutoStart,
+    scheduleAutoStart, handleStopOverrunNotification,
   } = useMeetingFlow({ calAppointments, appSettings, audioRecorderRef, setIsNewCalendarOpen, handleOutlookImport });
 
 
@@ -951,6 +951,7 @@ export const NewHome: React.FC = () => {
             forceOpen={bellForceOpen}
             onForceOpenHandled={onBellForceOpenHandled}
             onActiveItemDismiss={handleActiveItemDismiss}
+            onStopOverrunNotification={handleStopOverrunNotification}
           />
         }
       />

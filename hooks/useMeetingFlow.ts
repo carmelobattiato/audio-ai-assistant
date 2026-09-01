@@ -41,6 +41,24 @@ export interface MeetingFlowState {
   handleAutoStartNow: () => void;
   handleAutoStartCancel: () => void;
   scheduleAutoStart: (startMs: number, subject: string) => void;
+  handleStopOverrunNotification: (apptKey: string) => void;
+}
+
+const OVERRUN_SILENCED_KEY = 'overrun-silenced';
+
+function getSilencedKeys(): Set<string> {
+  try {
+    const raw = localStorage.getItem(OVERRUN_SILENCED_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch { return new Set(); }
+}
+
+function addSilencedKey(key: string): void {
+  try {
+    const s = getSilencedKeys();
+    s.add(key);
+    localStorage.setItem(OVERRUN_SILENCED_KEY, JSON.stringify([...s]));
+  } catch { /* best-effort */ }
 }
 
 export function useMeetingFlow({
@@ -95,51 +113,69 @@ export function useMeetingFlow({
     } catch { /* audio not available */ }
   }, []);
 
-  // Ogni 30s: se una riunione a calendario ha superato l'orario di fine di oltre 5 minuti
-  // e la registrazione è ancora attiva, avvisa una sola volta per riunione con un suono diverso.
+  // Ogni 30s: controlla le riunioni di OGGI che hanno superato l'orario di fine.
+  // Fuoco a 3 soglie distinte (5, 10, 30 min) solo se c'è una registrazione attiva.
+  // Non notifica mai riunioni di giorni precedenti (filtro per data odierna).
+  // Gli eventi silenziati dall'utente vengono saltati permanentemente (localStorage).
   const overrunAlertedRef = useRef<Set<string>>(new Set());
+  const OVERRUN_THRESHOLDS = [
+    { ms: 5 * 60_000, label: '5' },
+    { ms: 10 * 60_000, label: '10' },
+    { ms: 30 * 60_000, label: '30' },
+  ];
   useEffect(() => {
-    const OVERRUN_THRESHOLD_MS = 5 * 60_000;
     const check = () => {
       const sessionId = audioRecorderRef.current?.getRecordingSessionId();
       if (!sessionId) return;
       const now = Date.now();
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const silenced = getSilencedKeys();
       for (const appt of calAppointments) {
         if (appt.isCanceled || !appt.end) continue;
-        const endMs = new Date(appt.end).getTime();
-        if (!Number.isFinite(endMs) || now - endMs < OVERRUN_THRESHOLD_MS) continue;
-        const key = meetingStableId(appt);
-        if (overrunAlertedRef.current.has(key)) continue;
-        overrunAlertedRef.current.add(key);
-
-        const overdueMinutes = Math.round((now - endMs) / 60_000);
         const date = new Date(appt.start).toISOString().slice(0, 10);
-        const record: MeetingNotificationRecord = {
-          id: `overrun::${key}::${date}`,
-          apptId: `${normalizeSubject(appt.subject)}::${appt.start}`,
-          date,
-          subject: appt.subject,
-          organizer: appt.organizer || 'unknown',
-          role: 'unknown',
-          startIso: appt.start,
-          endIso: appt.end,
-          generatedAt: now,
-          expiresAt: now + 24 * 60 * 60_000,
-          summary: `Questa riunione doveva terminare alle ${new Date(appt.end).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} — sono passati ${overdueMinutes} minuti e la registrazione è ancora attiva.`,
-          kind: 'overrun',
-        };
-        db.tryClaimMeetingNotification(record).then((claimed) => {
-          if (!claimed) return;
-          setActiveMeetingIds(prev => new Set(prev).add(record.id));
-          setBellForceOpen(true);
-          playOverrunAlert();
-        }).catch(() => { /* best-effort */ });
+        if (date !== todayISO) continue;
+        const endMs = new Date(appt.end).getTime();
+        if (!Number.isFinite(endMs)) continue;
+        const key = meetingStableId(appt);
+        if (silenced.has(key)) continue;
+        const overdueMs = now - endMs;
+        for (const threshold of OVERRUN_THRESHOLDS) {
+          if (overdueMs < threshold.ms) continue;
+          const dedupKey = `${key}::${threshold.label}`;
+          if (overrunAlertedRef.current.has(dedupKey)) continue;
+          overrunAlertedRef.current.add(dedupKey);
+          const overdueMinutes = Math.round(overdueMs / 60_000);
+          const record: MeetingNotificationRecord = {
+            id: `overrun::${key}::${date}::${threshold.label}`,
+            apptId: `${normalizeSubject(appt.subject)}::${appt.start}`,
+            date,
+            subject: appt.subject,
+            organizer: appt.organizer || 'unknown',
+            role: 'unknown',
+            startIso: appt.start,
+            endIso: appt.end,
+            generatedAt: now,
+            expiresAt: now + 24 * 60 * 60_000,
+            summary: `Questa riunione doveva terminare alle ${new Date(appt.end).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} — sono passati ${overdueMinutes} minuti e la registrazione è ancora attiva.`,
+            kind: 'overrun',
+          };
+          db.tryClaimMeetingNotification(record).then((claimed) => {
+            if (!claimed) return;
+            setActiveMeetingIds(prev => new Set(prev).add(record.id));
+            setBellForceOpen(true);
+            playOverrunAlert();
+          }).catch(() => { /* best-effort */ });
+        }
       }
     };
     const interval = window.setInterval(check, 30_000);
     check();
     return () => window.clearInterval(interval);
-  }, [calAppointments, audioRecorderRef, playOverrunAlert]);
+  }, [calAppointments, audioRecorderRef, playOverrunAlert]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleStopOverrunNotification = useCallback((apptKey: string) => {
+    addSilencedKey(apptKey);
+  }, []);
 
   const handleMeetingTrigger = useCallback((data: MeetingToastData) => {
     setActiveMeetingIds(prev => {
@@ -301,6 +337,6 @@ export function useMeetingFlow({
     deleteMeetingHistoryItem, clearAllMeetingHistory,
     handleTestMeetingNotification, handleStartSessionForMeeting,
     pendingAutoStart, autoStartCountdownMs, handleAutoStartNow, handleAutoStartCancel,
-    scheduleAutoStart,
+    scheduleAutoStart, handleStopOverrunNotification,
   };
 }
