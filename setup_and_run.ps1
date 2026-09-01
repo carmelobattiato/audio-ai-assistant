@@ -15,7 +15,7 @@ Gestisce l'avvio, l'arresto, lo stato e la reinstallazione dell'applicazione in 
 param (
     [Parameter(Mandatory=$false, Position=0)]
     [ValidateSet("start", "stop", "status", "restart", "install", "uninstall",
-                 "autostart-enable", "autostart-disable", "help")]
+                 "autostart-enable", "autostart-disable", "open", "help")]
     [string]$Action = "help",
 
     [Parameter(Mandatory=$false)]
@@ -376,6 +376,51 @@ function Test-AutostartEnabled {
 }
 
 # =============================================================================
+# Open (interattivo - usato dal collegamento desktop)
+# =============================================================================
+
+function Open-App {
+    $appUrl = "http://127.0.0.1:$Port"
+
+    if (-not (Test-PortListening -PortNum $Port)) {
+        Start-AppService
+        Start-Process $appUrl
+        return
+    }
+
+    do {
+        Write-Host ""
+        Write-Host "Audio AI Assistant e' gia' in esecuzione -> $appUrl" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Cosa vuoi fare?"
+        Write-Host "    1) Apri nuova sessione di registrazione"
+        Write-Host "    2) Riavvia applicazione"
+        Write-Host "    3) Ferma server applicazione"
+        Write-Host ""
+        $choice = Read-Host "  Scelta [1/2/3]"
+        switch ($choice) {
+            "1" {
+                Write-Host "Apertura browser..." -ForegroundColor Green
+                Start-Process $appUrl
+                return
+            }
+            "2" {
+                Restart-AppService
+                Start-Process $appUrl
+                return
+            }
+            "3" {
+                Stop-AppService
+                return
+            }
+            default {
+                Write-Host "Scelta non valida. Inserisci 1, 2 o 3." -ForegroundColor Yellow
+            }
+        }
+    } while ($true)
+}
+
+# =============================================================================
 # Start
 # =============================================================================
 
@@ -635,6 +680,7 @@ switch ($Action) {
     "uninstall"        { Uninstall-App }
     "autostart-enable" { Enable-Autostart }
     "autostart-disable"{ Disable-Autostart }
+    "open"             { Open-App }
     "help"             { Show-Help }
     Default            { Show-Help }
 }

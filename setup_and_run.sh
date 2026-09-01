@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$ACTION" in
-    start|stop|status|restart|install|uninstall|autostart-enable|autostart-disable|help) ;;
+    start|stop|status|restart|install|uninstall|autostart-enable|autostart-disable|open|help) ;;
     *) ACTION="help" ;;
 esac
 
@@ -321,17 +321,7 @@ install_shortcuts() {
         cat > "$shortcut" <<EOF
 #!/usr/bin/env bash
 cd "$(printf '%s' "$TARGET_DIR" | sed 's/"/\\"/g')"
-bash "$(printf '%s' "$SELF_PATH" | sed 's/"/\\"/g')" start
-# Leggi la porta dal file di stato (fallback 8090)
-_pid_file="$(printf '%s' "$TARGET_DIR" | sed 's/"/\\"/g')/.app_service.json"
-if [[ -f "\$_pid_file" ]]; then
-    _port=\$(grep '"Port"' "\$_pid_file" 2>/dev/null | sed 's/.*:.*"\([^"]*\)".*/\1/')
-fi
-_port="\${_port:-8090}"
-_url="http://127.0.0.1:\$_port"
-echo ""
-echo "Apertura browser su \$_url ..."
-open "\$_url"
+bash "$(printf '%s' "$SELF_PATH" | sed 's/"/\\"/g')" open --port ${PORT}
 echo ""
 read -rn 1 -p "Premi un tasto per chiudere questa finestra..."
 osascript -e 'tell application "Terminal" to close front window' 2>/dev/null || true
@@ -367,7 +357,7 @@ Version=1.0
 Type=Application
 Name=Audio AI Assistance
 Comment=Avvia Audio AI Assistant
-Exec=bash -c 'cd "$(printf '%s' "$TARGET_DIR" | sed "s/'/'\\\\''/g")" && bash "$(printf '%s' "$SELF_PATH" | sed "s/'/'\\\\''/g")" start; exec bash'
+Exec=bash -c 'cd "$(printf '%s' "$TARGET_DIR" | sed "s/'/'\\\\''/g")" && bash "$(printf '%s' "$SELF_PATH" | sed "s/'/'\\\\''/g")" open --port ${PORT}; exec bash'
 Icon=$icon_entry
 Terminal=true
 Categories=Utility;
@@ -644,6 +634,60 @@ check_app_status() {
 }
 
 # =============================================================================
+# Open (interattivo - usato dal collegamento desktop)
+# =============================================================================
+
+open_app() {
+    local app_url="http://127.0.0.1:$PORT"
+
+    _open_browser() {
+        if [[ "$(uname)" == "Darwin" ]]; then
+            open "$app_url"
+        else
+            xdg-open "$app_url" 2>/dev/null || true
+        fi
+    }
+
+    if ! test_port_listening "$PORT"; then
+        start_app_service
+        _open_browser
+        return
+    fi
+
+    while true; do
+        echo ""
+        echo -e "${CYAN}Audio AI Assistant è già in esecuzione → $app_url${RESET}"
+        echo ""
+        echo "  Cosa vuoi fare?"
+        echo "    1) Apri nuova sessione di registrazione"
+        echo "    2) Riavvia applicazione"
+        echo "    3) Ferma server applicazione"
+        echo ""
+        printf "  Scelta [1/2/3]: "
+        read -r choice </dev/tty
+        case "$choice" in
+            1)
+                echo -e "${GREEN}Apertura browser...${RESET}"
+                _open_browser
+                break
+                ;;
+            2)
+                restart_app_service
+                _open_browser
+                break
+                ;;
+            3)
+                stop_app_service
+                break
+                ;;
+            *)
+                echo -e "${YELLOW}Scelta non valida. Inserisci 1, 2 o 3.${RESET}"
+                ;;
+        esac
+    done
+}
+
+# =============================================================================
 # Restart
 # =============================================================================
 
@@ -776,5 +820,6 @@ case "$ACTION" in
     uninstall)        uninstall_app ;;
     autostart-enable) autostart_enable ;;
     autostart-disable)autostart_disable ;;
+    open)             open_app ;;
     help|*)           show_help ;;
 esac

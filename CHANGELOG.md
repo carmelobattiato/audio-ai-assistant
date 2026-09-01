@@ -8,6 +8,14 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.166] — 2026-09-01
+
+- Nuova azione `open` in `setup_and_run.sh` / `.ps1`: se l'app è già attiva mostra menu interattivo (apri browser / riavvia / ferma); se spenta la avvia e apre il browser
+- Collegamento desktop macOS (`.command`) e Linux (`.desktop`) aggiornati per usare `open` invece di `start`
+- `Start.bat` (Windows) semplificato: delega tutto a `setup_and_run.ps1 open`
+
+---
+
 ## [1.165] — 2026-09-01
 
 
