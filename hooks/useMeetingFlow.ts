@@ -22,6 +22,7 @@ interface UseMeetingFlowParams {
   calAppointments: OutlookAppointment[];
   appSettings: AppSettings;
   audioRecorderRef: React.RefObject<AudioRecorderRef | null>;
+  isActivelyRecording: boolean;
   setIsNewCalendarOpen: (v: boolean) => void;
   handleOutlookImport: (title: string, noteHtml: string, attendees: { name: string; email: string }[], eventId?: string) => void;
 }
@@ -62,7 +63,7 @@ function addSilencedKey(key: string): void {
 }
 
 export function useMeetingFlow({
-  calAppointments, appSettings, audioRecorderRef, setIsNewCalendarOpen: _setIsNewCalendarOpen, handleOutlookImport,
+  calAppointments, appSettings, audioRecorderRef, isActivelyRecording, setIsNewCalendarOpen: _setIsNewCalendarOpen, handleOutlookImport,
 }: UseMeetingFlowParams): MeetingFlowState {
   const [activeMeetingIds, setActiveMeetingIds] = useState<Set<string>>(new Set());
   const [bellForceOpen, setBellForceOpen] = useState(false);
@@ -118,7 +119,7 @@ export function useMeetingFlow({
   // Non notifica mai riunioni di giorni precedenti (filtro per data odierna).
   // Gli eventi silenziati dall'utente vengono saltati permanentemente (localStorage).
   const overrunAlertedRef = useRef<Set<string>>(new Set());
-  const isStartupCheckRef = useRef(true);
+  const appStartTimeRef   = useRef(Date.now()); // timestamp fisso al mount
   const OVERRUN_THRESHOLDS = [
     { ms: 5 * 60_000, label: '5' },
     { ms: 10 * 60_000, label: '10' },
@@ -126,8 +127,7 @@ export function useMeetingFlow({
   ];
   useEffect(() => {
     const check = () => {
-      const sessionId = audioRecorderRef.current?.getRecordingSessionId();
-      if (!sessionId) return;
+      if (!isActivelyRecording) return;
       const now = Date.now();
       const todayISO = new Date().toISOString().slice(0, 10);
       const silenced = getSilencedKeys();
@@ -142,10 +142,12 @@ export function useMeetingFlow({
         const overdueMs = now - endMs;
         for (const threshold of OVERRUN_THRESHOLDS) {
           if (overdueMs < threshold.ms) continue;
+          // La soglia è stata superata a: endMs + threshold.ms
+          // Se quel momento è precedente all'avvio dell'app, ignora — overrun pre-esistente
+          if (endMs + threshold.ms < appStartTimeRef.current) continue;
           const dedupKey = `${key}::${threshold.label}`;
           if (overrunAlertedRef.current.has(dedupKey)) continue;
           overrunAlertedRef.current.add(dedupKey);
-          if (isStartupCheckRef.current) continue; // soglie già superate al mount: segna senza notificare
           const overdueMinutes = Math.round(overdueMs / 60_000);
           // ID senza threshold: una sola card per riunione, aggiornata in-place
           const recordId = `overrun::${key}::${date}`;
@@ -184,9 +186,8 @@ export function useMeetingFlow({
     };
     const interval = window.setInterval(check, 30_000);
     check();
-    isStartupCheckRef.current = false;
     return () => window.clearInterval(interval);
-  }, [calAppointments, audioRecorderRef, playOverrunAlert]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [calAppointments, isActivelyRecording, playOverrunAlert]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStopOverrunNotification = useCallback((apptKey: string) => {
     addSilencedKey(apptKey);

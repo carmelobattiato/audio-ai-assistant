@@ -8,6 +8,13 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.169] — 2026-09-02
+
+- Fix overrun al riavvio (definitivo): soglie superate prima dell'avvio dell'app ignorate tramite `appStartTimeRef`; rimosso `isStartupCheckRef` che non era sufficiente in caso di sessione recuperata
+- Fix overrun su riunioni senza registrazione: guard sostituito con `isActivelyRecording` (passato da `NewHome` come `recordingState === RecordingState.RECORDING`); `getRecordingSessionId()` non è affidabile perché non si azzera mai dopo lo stop
+
+---
+
 ## [1.168] — 2026-09-01
 
 - Aggiornamento App: combobox frequenza controllo automatico (ogni settimana / ogni mese / mai)
