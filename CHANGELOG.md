@@ -8,6 +8,19 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.171] — 2026-09-08
+
+
+- Modello `gemini-3.8-flash` in lista e come default LLM (context 1M, output 64K, audio nativo)
+- Alias `gemini-flash-latest`: target aggiornato a gemini-3.8-flash
+- Prezzi corretti per `gemini-3.5-flash` (In $1.50 / Out $9.00, nessun pricing introduttivo)
+- Tabella costi statistiche: aggiunte 3.8/3.7/3.6-flash, 3.5-flash-lite e gli alias `*-latest`
+- Fix chat archivio: `generateWithTools` ignorava `apiBaseUrl` e chiamava generativelanguage.googleapis.com (403 `API_KEY_HTTP_REFERRER_BLOCKED`)
+- Fix `embedContent`: nuovo parametro `apiBaseUrl`, propagato da `useArchiveIndex.ensureEmbeddings`
+- `resolveGeminiBaseUrl` centralizza il fallback quando `apiBaseUrl` punta a un proxy OpenAI-compatibile; log `TOOLS_BASEURL_IGNORED`
+
+---
+
 ## [1.170] — 2026-09-08
 
 - Backup completo del DB in ZIP da Settings → Storage, con selezione per categoria, conteggi, dimensione e stima tempo

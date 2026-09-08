@@ -18,7 +18,11 @@ interface StatisticsModalProps {
 // Costs per 1,000,000 tokens. Keys ordered longest-first so prefix matching
 // picks the most specific entry (e.g. flash-lite before flash).
 const MODEL_PRICING: { key: string; input: number; output: number }[] = [
-  // Gemini 3.x
+  // Gemini 3.x (3.6/3.7/3.8: pricing introduttivo fino al 31 dic 2026, poi raddoppia)
+  { key: 'gemini-3.8-flash',       input: 0.75,  output: 3.75  },
+  { key: 'gemini-3.7-flash',       input: 0.75,  output: 3.75  },
+  { key: 'gemini-3.6-flash',       input: 0.75,  output: 3.75  },
+  { key: 'gemini-3.5-flash-lite',  input: 0.10,  output: 0.60  },
   { key: 'gemini-3.5-flash',       input: 1.50,  output: 9.00  },
   { key: 'gemini-3.1-pro',         input: 2.00,  output: 12.00 },
   { key: 'gemini-3.1-flash-lite',  input: 0.25,  output: 1.50  },
@@ -34,6 +38,9 @@ const MODEL_PRICING: { key: string; input: number; output: number }[] = [
   { key: 'gemini-2.0-flash',       input: 0.10,  output: 0.40  },
   { key: 'gemini-1.5-flash',       input: 0.075, output: 0.30  },
   { key: 'gemini-1.5-pro',         input: 1.25,  output: 5.00  },
+  // Alias auto-aggiornanti: prezzo del modello a cui puntano oggi
+  { key: 'gemini-flash-latest',    input: 0.75,  output: 3.75  },
+  { key: 'gemini-pro-latest',      input: 2.00,  output: 12.00 },
 ];
 
 const calculateCost = (usage: LlmUsageStats): number => {

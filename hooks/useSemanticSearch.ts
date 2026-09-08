@@ -36,6 +36,7 @@ export function useSemanticSearch(
   sessions: SavedSession[],
   apiKey: string,
   model: string,
+  apiBaseUrl?: string,
 ): UseSemanticSearchReturn {
   const [isIndexing, setIsIndexing] = useState(false);
   const [results, setResults]       = useState<SemanticSearchResult[]>([]);
@@ -59,7 +60,11 @@ export function useSemanticSearch(
 
     setIsIndexing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      const base = apiBaseUrl?.trim() ?? '';
+      const ai = new GoogleGenAI({
+        apiKey,
+        ...(base && { httpOptions: { baseUrl: base } }),
+      });
 
       const ctx = indexable.map((s, i) => {
         const text = s.data.transcribedText.slice(0, SESSION_TEXT_SLICE);
@@ -101,7 +106,7 @@ ${ctx}`;
     } finally {
       setIsIndexing(false);
     }
-  }, [sessions, apiKey, model]);
+  }, [sessions, apiKey, model, apiBaseUrl]);
 
   return {
     search,

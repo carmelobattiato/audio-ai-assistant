@@ -3,7 +3,7 @@ import { ModelInfo } from '../types';
 
 export const APP_TITLE = "Audio AI Assistant";
 export const APP_CREATOR = "Carmelo Battiato";
-export const APP_VERSION = "1.170";
+export const APP_VERSION = "1.171";
 export const APP_BUILD_TIMESTAMP = "2025-06-28_00-00-00";
 
 export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl?: boolean; docsUrl?: string, isCustom?: boolean } } = {
@@ -12,8 +12,8 @@ export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl
       // ── Alias auto-aggiornanti ──────────────────────────────────────────────
       {
         name: 'gemini-flash-latest',
-        specialization: 'Sempre aggiornato — punta automaticamente all\'ultimo Flash stabile (oggi: gemini-3.5-flash). Versione e costi possono cambiare con 2 settimane di preavviso.',
-        cost: 'Prezzo del modello target (oggi: In: $0.30 | Out: $2.50)',
+        specialization: 'Sempre aggiornato — punta automaticamente all\'ultimo Flash stabile (oggi: gemini-3.8-flash). Versione e costi possono cambiare con 2 settimane di preavviso.',
+        cost: 'Prezzo del modello target (oggi: In: $0.75 | Out: $3.75)',
         releaseDate: 'Auto',
         recommendedFor: ['analysis', 'transcription', 'chat'],
       },
@@ -25,6 +25,13 @@ export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl
         recommendedFor: ['analysis'],
       },
       // ── Modelli fissi — generazione corrente ───────────────────────────────
+      {
+        name: 'gemini-3.8-flash',
+        specialization: 'Flash più intelligente — reasoning e coding al top della gamma, agentic long-horizon, audio nativo. Context 1M, output 64K. Pricing introduttivo fino al 31 dic 2026.',
+        cost: 'In: $0.75 | Out: $3.75',
+        releaseDate: 'Set 2026',
+        recommendedFor: ['analysis', 'transcription', 'chat'],
+      },
       {
         name: 'gemini-3.7-flash',
         specialization: 'Più capace della gamma Flash — coding, agentic, multimodale. Pricing introduttivo fino al 31 dic 2026.',
@@ -41,8 +48,8 @@ export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl
       },
       {
         name: 'gemini-3.5-flash',
-        specialization: 'Flagship 2026 — agentic, coding, multimodale. Migliore intelligenza su tutta la gamma Flash stabile.',
-        cost: 'In: $0.30 | Out: $2.50',
+        specialization: 'Flash stabile senza pricing introduttivo — costa più di 3.7/3.8 a parità di gamma. Preferisci gemini-3.8-flash per nuovi progetti.',
+        cost: 'In: $1.50 | Out: $9.00',
         releaseDate: '2026',
         recommendedFor: ['analysis', 'chat'],
       },

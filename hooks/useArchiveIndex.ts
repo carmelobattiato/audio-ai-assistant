@@ -42,7 +42,7 @@ interface UseArchiveIndexResult {
   sessions: SavedSession[];
   grepSearch: (keywords: string[], filters?: { dateRange?: { from: Date; to: Date } }) => SessionMatch[];
   embedSearch: (queryVector: number[], limit?: number) => Promise<SessionMatch[]>;
-  ensureEmbeddings: (apiKey: string) => Promise<void>;
+  ensureEmbeddings: (apiKey: string, apiBaseUrl?: string) => Promise<void>;
   reload: () => Promise<void>;
 }
 
@@ -169,7 +169,7 @@ export function useArchiveIndex(userEmail?: string): UseArchiveIndexResult {
     return results.sort((a, b) => b.score - a.score).slice(0, limit);
   }, [sessions, metaIndex]);
 
-  const ensureEmbeddings = useCallback(async (apiKey: string) => {
+  const ensureEmbeddings = useCallback(async (apiKey: string, apiBaseUrl?: string) => {
     if (isIndexing || !apiKey) return;
     setIsIndexing(true);
     try {
@@ -178,7 +178,7 @@ export function useArchiveIndex(userEmail?: string): UseArchiveIndexResult {
       const missing = sessions.filter(s => !existingIds.has(s.id) && (s.data.llmProcessedText || s.data.transcribedText));
       for (const s of missing) {
         const text = `${s.name}\n${s.data.llmProcessedText ?? htmlToPlainText(s.data.transcribedText ?? '')}`.slice(0, 8000);
-        const vector = await llmService.embedContent(text, apiKey);
+        const vector = await llmService.embedContent(text, apiKey, apiBaseUrl);
         if (vector) {
           await db.upsertEmbedding({ sessionId: s.id, vector, textSnippet: text.slice(0, 200), generatedAt: Date.now() });
         }

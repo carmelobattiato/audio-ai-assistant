@@ -26,6 +26,19 @@ let circuitBreakerTrippedUntil = 0;
 const MAX_CONSECUTIVE_ERRORS_FOR_COOLDOWN = 3;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 120 * 1000;
 
+/**
+ * Risolve il baseUrl da passare al client Gemini.
+ * `apiBaseUrl` può puntare a un proxy OpenAI-compatibile (es. /v1/chat/completions)
+ * che non parla il protocollo nativo Gemini: in quel caso va ignorato e si usa
+ * l'endpoint Google diretto. Ogni chiamata che istanzia GoogleGenAI deve passare
+ * da qui, altrimenti ignora silenziosamente il proxy configurato dall'utente.
+ */
+const resolveGeminiBaseUrl = (apiBaseUrl?: string): { baseUrl: string; ignored: boolean } => {
+  const configured = apiBaseUrl?.trim() || '';
+  const isOpenAiProxy = configured.includes('/chat/completions') || configured.includes('/openai/');
+  return { baseUrl: isOpenAiProxy ? '' : configured, ignored: isOpenAiProxy };
+};
+
 class TimeoutError extends Error {
   constructor(message = 'Request timed out') {
     super(message);
@@ -145,9 +158,10 @@ export const llmService = {
             const apiKey = llmSettings.googleApiKey?.trim();
             if (!apiKey) return { text: 'Error: API Key non configurata. Salvala nelle Impostazioni.' };
 
+            const { baseUrl } = resolveGeminiBaseUrl(apiBaseUrl);
             const ai = new GoogleGenAI({
               apiKey,
-              ...(apiBaseUrl?.trim() && { httpOptions: { baseUrl: apiBaseUrl.trim() } }),
+              ...(baseUrl && { httpOptions: { baseUrl } }),
             });
             const params: GenerateContentParameters = {
                 model,
@@ -201,10 +215,14 @@ export const llmService = {
    * Genera un vettore embedding per un testo via Gemini text-embedding-004.
    * Solo provider Google. In errore ritorna null (non lancia).
    */
-  embedContent: async (text: string, apiKey: string): Promise<number[] | null> => {
+  embedContent: async (text: string, apiKey: string, apiBaseUrl?: string): Promise<number[] | null> => {
     if (!apiKey?.trim()) return null;
     try {
-      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const { baseUrl } = resolveGeminiBaseUrl(apiBaseUrl);
+      const ai = new GoogleGenAI({
+        apiKey: apiKey.trim(),
+        ...(baseUrl && { httpOptions: { baseUrl } }),
+      });
       const response = await ai.models.embedContent({
         model: 'text-embedding-004',
         contents: text,
@@ -243,7 +261,14 @@ export const llmService = {
     if (!apiKey) return { text: 'Error: API Key non configurata. Salvala nelle Impostazioni.' };
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      const { baseUrl, ignored } = resolveGeminiBaseUrl(llmSettings.apiBaseUrl);
+      if (ignored) {
+        loggingService.warn('TOOLS_BASEURL_IGNORED', `apiBaseUrl "${llmSettings.apiBaseUrl}" non è compatibile con il function calling Gemini — verrà usato l'endpoint Google diretto`);
+      }
+      const ai = new GoogleGenAI({
+        apiKey,
+        ...(baseUrl && { httpOptions: { baseUrl } }),
+      });
       const params: GenerateContentParameters = {
         model: llmSettings.model,
         contents,
@@ -296,11 +321,8 @@ export const llmService = {
     const audioDecodedBytes = Math.round(audioBase64.length * 0.75);
     const audioBase64Bytes = audioBase64.length;
 
-    // apiBaseUrl potrebbe puntare a un proxy OpenAI-compatibile (es. /v1/chat/completions)
-    // che non supporta la Gemini multipart audio API. In quel caso lo ignoriamo.
     const configuredBaseUrl = llmSettings.apiBaseUrl?.trim() || '';
-    const isOpenAiProxy = configuredBaseUrl.includes('/chat/completions') || configuredBaseUrl.includes('/openai/');
-    const effectiveBaseUrl = isOpenAiProxy ? '' : configuredBaseUrl;
+    const { baseUrl: effectiveBaseUrl, ignored: isOpenAiProxy } = resolveGeminiBaseUrl(configuredBaseUrl);
 
     loggingService.debug('TRANSCRIPTION_GEMINI_START', `model=${model} audio=${(audioDecodedBytes / 1024 / 1024).toFixed(2)}MB base64=${(audioBase64Bytes / 1024 / 1024).toFixed(2)}MB`, {
         model,
