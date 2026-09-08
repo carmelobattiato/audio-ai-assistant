@@ -8,6 +8,19 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.170] — 2026-09-08
+
+- Backup completo del DB in ZIP da Settings → Storage, con selezione per categoria, conteggi, dimensione e stima tempo
+- Opzione esclusione audio nel backup: tutto / solo se già trascritto / mai
+- Import backup con resoconto preventivo del contenuto e modalità Merge (default) o Replace
+- Categoria `secrets` opt-in: esporta chiave API cifrata e chiave AES, deselezionata di default
+- Merge salta le sessioni con id già presente; retention `MAX_SESSIONS` applicata una sola volta a fine import via `db.saveSessionRaw`
+- `db.saveSessionRaw`, `db.bulkPut`, `db.clearStore`, `db.getAllCalendarEventsRaw`, `db.getSecretRecords`
+- `blobToDataUrl` / `dataUrlToBlob` estratti in `utils/blobUtils.ts`, riusati da `useSessionLogic` e dal backup
+- Test roundtrip ZIP + base64 in `tests/backupService.test.ts`
+
+---
+
 ## [1.169] — 2026-09-02
 
 - Fix overrun al riavvio (definitivo): soglie superate prima dell'avvio dell'app ignorate tramite `appStartTimeRef`; rimosso `isStartupCheckRef` che non era sufficiente in caso di sessione recuperata

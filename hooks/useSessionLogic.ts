@@ -4,22 +4,7 @@ import { db } from '../utils/db';
 import { saveBlobToFile, createSessionZipBlob, parseStoredZip } from '../utils/fileUtils';
 import { SavedSession } from '../types';
 import { loggingService } from '../services/loggingService';
-
-const blobToDataUrl = (blob: Blob): Promise<string> =>
-  new Promise((resolve) => {
-    const r = new FileReader();
-    r.onloadend = () => resolve(r.result as string);
-    r.readAsDataURL(blob);
-  });
-
-const dataUrlToBlob = (dataUrl: string): Blob => {
-  const [header, b64] = dataUrl.split(',');
-  const mime = header?.match(/:(.*?);/)?.[1] ?? 'application/octet-stream';
-  const binary = atob(b64 ?? '');
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type: mime });
-};
+import { blobToDataUrl, dataUrlToBlob } from '../utils/blobUtils';
 
 type ImportedSession = {
   id: string;

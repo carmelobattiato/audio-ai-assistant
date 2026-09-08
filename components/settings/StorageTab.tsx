@@ -4,6 +4,7 @@ import { StorageStats, SavedSession } from '../../types';
 import { db } from '../../utils/db';
 import { Button } from '../common/Button';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { BackupRestoreSection } from './BackupRestoreSection';
 import { CAL_AUDIO_RETENTION_DAYS } from '../../constants/appConfig';
 
 interface StorageTabProps {
@@ -287,6 +288,9 @@ export const StorageTab: React.FC<StorageTabProps> = () => {
               Rimuove eventi con data di fine nel passato che non sono collegati a una sessione.
             </p>
           </section>
+
+          {/* E. Backup & Ripristino */}
+          <BackupRestoreSection showToast={showToast} onRestored={loadData} />
         </>
       )}
 

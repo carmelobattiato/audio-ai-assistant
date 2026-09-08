@@ -87,6 +87,12 @@ interface AppDB extends DBSchema {
 
 type AppStoreName = 'sessions' | 'inProgressSessions' | 'appSecrets' | 'meetingNotifications' | 'calendarEvents' | 'sessionEmbeddings';
 
+// Store coperti da backup/restore: `inProgressSessions` è stato volatile di
+// recupero crash e resta fuori.
+export type BackupStoreName = 'sessions' | 'calendarEvents' | 'sessionEmbeddings' | 'meetingNotifications' | 'appSecrets';
+
+export const DB_SCHEMA_VERSION = DB_VERSION;
+
 const dbPromise = openDB<AppDB>(DB_NAME, DB_VERSION, {
   upgrade(db: IDBPDatabase<AppDB>, oldVersion: number, _newVersion: number | null, tx: IDBPTransaction<AppDB, AppStoreName[], 'versionchange'>) {
     console.log(`Upgrading database from version ${oldVersion} to ${DB_VERSION}`);
@@ -137,6 +143,22 @@ export const db = {
       console.log(`DB: Session '${session.name}' persisted. Size: ${session.totalSizeMb}MB. Status: ${session.status}`);
 
       await db.cleanupOldSessions();
+    });
+  },
+
+  // Come saveSession ma senza cleanupOldSessions(): usato dal restore di un backup,
+  // dove la retention MAX_SESSIONS va applicata una sola volta a fine importazione
+  // (altrimenti le sessioni scritte per prime verrebbero cancellate a metà import).
+  async saveSessionRaw(session: SavedSession): Promise<void> {
+    return dbOp('saveSessionRaw', async () => {
+      const dbInstance = await dbPromise;
+
+      let totalBytes = 0;
+      if (session.data.audioBlob) totalBytes += session.data.audioBlob.size;
+      if (session.data.chunks) session.data.chunks.forEach(c => totalBytes += c.size);
+      session.totalSizeMb = Number((totalBytes / (1024 * 1024)).toFixed(2));
+
+      await dbInstance.put(SESSIONS_STORE_NAME, session);
     });
   },
 
@@ -559,6 +581,41 @@ export const db = {
         sessionWithAudioCount: sessionsWithAudio,
         calendarEventCount: events.length,
       };
+    });
+  },
+
+  // ── Backup / Restore ────────────────────────────────────────────────────────
+  // Dump grezzo degli eventi calendario: a differenza di getAllCalendarEvents()
+  // non deduplica per subject+start, quindi è l'unico adatto a un backup fedele.
+  async getAllCalendarEventsRaw(): Promise<CalendarEventRecord[]> {
+    return dbOp('getAllCalendarEventsRaw', async () => {
+      const dbInstance = await dbPromise;
+      return dbInstance.getAll(CALENDAR_EVENTS_STORE_NAME);
+    });
+  },
+
+  async getSecretRecords(): Promise<SecretRecord[]> {
+    return dbOp('getSecretRecords', async () => {
+      const dbInstance = await dbPromise;
+      return dbInstance.getAll(SECRETS_STORE_NAME);
+    });
+  },
+
+  async bulkPut(storeName: BackupStoreName, records: unknown[]): Promise<void> {
+    return dbOp(`bulkPut:${storeName}`, async () => {
+      if (records.length === 0) return;
+      const dbInstance = await dbPromise;
+      const tx = dbInstance.transaction(storeName, 'readwrite');
+      const store = tx.store as unknown as { put: (value: unknown) => Promise<unknown> };
+      for (const record of records) await store.put(record);
+      await tx.done;
+    });
+  },
+
+  async clearStore(storeName: BackupStoreName): Promise<void> {
+    return dbOp(`clearStore:${storeName}`, async () => {
+      const dbInstance = await dbPromise;
+      await dbInstance.clear(storeName);
     });
   },
 
