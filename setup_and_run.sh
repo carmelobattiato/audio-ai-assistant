@@ -329,19 +329,19 @@ EOF
         chmod +x "$shortcut"
 
         if [[ -n "$icon_path" ]]; then
-            # fileicon (brew) è il metodo più affidabile su macOS moderno
             if command -v fileicon >/dev/null 2>&1; then
                 fileicon set "$shortcut" "$icon_path" 2>/dev/null || true
             else
-                osascript - "$icon_path" "$shortcut" <<'APPLESCRIPT' 2>/dev/null || true
-on run {iconPath, targetPath}
-    set iconAlias to POSIX file iconPath as alias
-    set targetAlias to POSIX file targetPath as alias
-    tell application "Finder"
-        set icon of targetAlias to icon of iconAlias
-    end tell
-end run
-APPLESCRIPT
+                # JXA: usa NSWorkspace per impostare il contenuto del PNG come icona
+                osascript -l JavaScript - "$icon_path" "$shortcut" <<'JXA' 2>/dev/null || true
+function run(argv) {
+    ObjC.import('AppKit');
+    var img = $.NSImage.alloc.initWithContentsOfFile(argv[0]);
+    if (img.isValid) {
+        $.NSWorkspace.sharedWorkspace.setIconForFileOptions(img, argv[1], 0);
+    }
+}
+JXA
             fi
         fi
 
