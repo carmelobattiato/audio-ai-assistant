@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.172] — 2026-09-09
+
+- `setup_and_run.sh`: verifica node/npm prima di procedere; su macOS offre installazione via Homebrew, su Linux mostra comandi per distro principali
+- `setup_and_run.sh`: "Dipendenze installate." stampato solo se `npm install` ha exit code 0
+- `setup_and_run.ps1`: `Test-Requirements` offre installazione automatica via winget se disponibile, con ricarica PATH senza riaprire il terminale
+- `setup_and_run.ps1`: "Dipendenze installate." condizionale all'exit code di `npm install`
+- `vite.config.ts` `POST /api/update/apply`: se `.git` non esiste, esegue `git init` + `git remote add origin` prima del fetch (supporta installazioni senza `git clone`)
+- `vite.config.ts` `POST /api/update/apply`: legge `repoUrl` dal body JSON per inizializzare il remote
+- `SettingsPanel`: passa `repoUrl` nel body di `POST /api/update/apply`
+
+---
+
 ## [1.171] — 2026-09-08
 
 
