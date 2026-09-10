@@ -11,7 +11,6 @@ import { useMeetingFlow } from '../hooks/useMeetingFlow';
 import { useUpdateCheck, type UpdateInfo } from '../hooks/useUpdateCheck';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
 import { NeoTabs } from '../components/newpage/NeoTabs';
-import { NeoTipsPanel } from '../components/newpage/NeoTipsPanel';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Modal } from '../components/common/Modal';
 import { Button } from '../components/common/Button';
@@ -1051,11 +1050,6 @@ export const NewHome: React.FC = () => {
             onElapsedTimeChange={setRecordingElapsedTime}
           />
             </div>
-          </div>
-
-          {/* Tips panel — below recording, hidden on small screens */}
-          <div className="hidden min-[1100px]:block" style={{ flexShrink: 0 }}>
-            <NeoTipsPanel />
           </div>
         </div>
 

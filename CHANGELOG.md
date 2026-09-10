@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.173] — 2026-09-10
+
+- Rimossa finestrella `NeoTipsPanel` ("Tips & Features") dall'interfaccia e il relativo file `components/newpage/NeoTipsPanel.tsx`
+
+---
+
 ## [1.172] — 2026-09-09
 
 - `setup_and_run.sh`: verifica node/npm prima di procedere; su macOS offre installazione via Homebrew, su Linux mostra comandi per distro principali
