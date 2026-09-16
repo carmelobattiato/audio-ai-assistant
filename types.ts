@@ -388,6 +388,7 @@ export interface MeetingChatMessage {
     role: 'user' | 'assistant';
     content: string;
     timestamp: number;
+    attachedImages?: { mimeType: string; previewUrl: string }[];
 }
 
 export interface SavedSessionData {

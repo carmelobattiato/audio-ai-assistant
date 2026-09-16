@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from './common/Button';
 import { Modal } from './common/Modal';
 import {
-  SaveIcon, EditIcon, UploadIcon, StopIcon, ArrowUpIcon, ArrowDownIcon, PlayIcon, TrashIcon, DownloadIcon,
+  SaveIcon, EditIcon, UploadIcon, StopIcon, ArrowUpIcon, ArrowDownIcon, PlayIcon, TrashIcon, DownloadIcon, CopyIcon,
   FormatBoldIcon, FormatItalicIcon, FormatUnderlinedIcon, FormatListBulletedIcon, FormatListNumberedIcon,
 } from '../constants';
 import { saveTextToFile, parseTextFile, generateStandardMetadataHeader, saveBlobToFile } from '../utils/fileUtils';
@@ -87,6 +87,7 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
   const [pendingTextFile, setPendingTextFile] = useState<TextFileContent | null>(null);
   const [isRetranscribeModalOpen, setIsRetranscribeModalOpen] = useState(false);
   const [pendingChunkRetranscribeIndex, setPendingChunkRetranscribeIndex] = useState<number | null>(null);
+  const [copiedTranscript, setCopiedTranscript] = useState(false);
 
   useEffect(() => {
     if (!isTextModeActive) {
@@ -107,6 +108,17 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
         { transcriptionLanguage: settings.language, outputFormat: settings.outputFormat }
       );
       saveTextToFile(activeSourceText, baseFileName, settings.outputFormat, metadataHeader || undefined);
+    }
+  };
+
+  const handleCopyTranscription = async () => {
+    if (!activeSourceText) return;
+    try {
+      await navigator.clipboard.writeText(activeSourceText);
+      setCopiedTranscript(true);
+      setTimeout(() => setCopiedTranscript(false), 2000);
+    } catch {
+      // fallback: ignore
     }
   };
 
@@ -410,6 +422,17 @@ const TranscriptionViewBase: React.FC<TranscriptionViewProps> = ({
                   disabled={disabled}
               >
                   Download Transcription as {settings.outputFormat.toUpperCase()}
+              </Button>
+            )}
+            {activeSourceText && !isTranscribing && (
+              <Button
+                  onClick={handleCopyTranscription}
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<CopyIcon className="w-4 h-4"/>}
+                  disabled={disabled}
+              >
+                  {copiedTranscript ? 'Copiato!' : 'Copy Transcription'}
               </Button>
             )}
             <Button

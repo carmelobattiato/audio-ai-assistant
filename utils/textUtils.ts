@@ -44,6 +44,94 @@ export const getCurrentTimestampSuffix = (): string => {
   return `${d}${m}${y}_${h}${min}`;
 };
 
+// ── LaTeX → HTML renderer (no external dependencies) ─────────────────────
+
+function renderLatexExpr(expr: string): string {
+  let s = expr;
+
+  // \text{...} → literal content
+  s = s.replace(/\\text\{([^}]*)\}/g, '$1');
+
+  // \frac{N}{D} — 3 passes for up to 3 levels of nesting
+  const fracPass = (str: string) =>
+    str.replace(/\\frac\{((?:[^{}]|\{[^{}]*\})*)\}\{((?:[^{}]|\{[^{}]*\})*)\}/g,
+      '<span class="math-frac"><span class="math-num">$1</span><span class="math-den">$2</span></span>');
+  s = fracPass(fracPass(fracPass(s)));
+
+  // \sqrt{...}
+  s = s.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
+
+  // Superscripts/subscripts with braces
+  s = s.replace(/\^\{([^}]*)\}/g, '<sup>$1</sup>');
+  s = s.replace(/_\{([^}]*)\}/g, '<sub>$1</sub>');
+
+  // LaTeX commands → Unicode
+  const cmdMap: Record<string, string> = {
+    times: '×', ge: '≥', geq: '≥', le: '≤', leq: '≤', ne: '≠', neq: '≠',
+    approx: '≈', cdot: '·', pm: '±', mp: '∓', infty: '∞',
+    sum: '∑', int: '∫', prod: '∏', oint: '∮',
+    to: '→', leftarrow: '←', rightarrow: '→', Rightarrow: '⇒', Leftarrow: '⇐',
+    in: '∈', notin: '∉', subset: '⊂', supset: '⊃', cup: '∪', cap: '∩',
+    partial: '∂', nabla: '∇', perp: '⊥',
+    ldots: '…', cdots: '⋯', vdots: '⋮',
+    circ: '°', degree: '°', '%': '%',
+    forall: '∀', exists: '∃', emptyset: '∅', varnothing: '∅',
+    // Greek lowercase
+    alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε',
+    zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'θ', iota: 'ι', kappa: 'κ',
+    lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π',
+    rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ',
+    phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
+    // Greek uppercase
+    Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ',
+    Pi: 'Π', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+  };
+  s = s.replace(/\\([a-zA-Z%]+)/g, (_, name) => cmdMap[name] ?? '');
+
+  // Superscripts/subscripts without braces (single char/digit)
+  s = s.replace(/\^([a-zA-Z0-9])/g, '<sup>$1</sup>');
+  s = s.replace(/_([a-zA-Z0-9])/g, '<sub>$1</sub>');
+
+  // Strip remaining LaTeX grouping braces
+  s = s.replace(/[{}]/g, '');
+
+  return s;
+}
+
+/**
+ * Pre-processes LaTeX math ($...$, $$...$$) in markdown text, renders it to
+ * HTML spans, then passes the result through markdownToHtmlSimple.
+ * Replaces math with unique placeholders so the markdown renderer doesn't
+ * mangle the formulas, then restores them after.
+ */
+export function renderLatexInMarkdown(text: string): string {
+  if (!text) return '';
+  const placeholders = new Map<string, string>();
+  let idx = 0;
+
+  // Block math $$...$$
+  let processed = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+    const key = `\x00MB${idx++}\x00`;
+    placeholders.set(key, `<span class="math-block">${renderLatexExpr(expr.trim())}</span>`);
+    return key;
+  });
+
+  // Inline math $...$  — require \, ^ or _ to distinguish from currency
+  processed = processed.replace(/\$([^$\n]{1,400}?)\$/g, (match, expr) => {
+    if (!/[\\^_]/.test(expr)) return match;
+    const key = `\x00MI${idx++}\x00`;
+    placeholders.set(key, `<span class="math-inline">${renderLatexExpr(expr.trim())}</span>`);
+    return key;
+  });
+
+  let html = markdownToHtmlSimple(processed);
+
+  placeholders.forEach((rendered, key) => {
+    html = html.replaceAll(key, rendered);
+  });
+  return html;
+}
+
 /**
  * Robustly converts Markdown to HTML supporting nested lists and tables.
  */

@@ -4,7 +4,7 @@ import { Button } from './common/Button';
 import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote, CustomInstruction, SavedSessionData } from '../types';
 import { buildCorrelatedSessionsContext } from '../utils/correlationContext';
 import { llmService } from '../services/geminiService';
-import { htmlToPlainText, markdownToHtmlSimple, formatTime, bubbleNotesToText } from '../utils/textUtils';
+import { htmlToPlainText, renderLatexInMarkdown, formatTime, bubbleNotesToText } from '../utils/textUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import type { Part } from '@google/genai';
 import { useArchiveIndex } from '../hooks/useArchiveIndex';
@@ -110,7 +110,7 @@ function renderMessageContent(content: string): string {
       const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return `<pre class="text-sm rounded-lg p-3 overflow-x-auto my-2" style="background:rgba(17,24,39,0.9);color:#d1d5db;border:1px solid rgba(55,65,81,0.5)"><code>${escaped}</code></pre>`;
     }
-    return markdownToHtmlSimple(seg);
+    return renderLatexInMarkdown(seg);
   }).join('');
 }
 
@@ -197,9 +197,11 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [imageDecision, setImageDecision] = useState<'with-images' | 'text-only' | null>(null);
+  const [pendingImages, setPendingImages] = useState<{ mimeType: string; data: string; previewUrl: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hasContext = !!(
     sessionContext.transcription ||
@@ -279,7 +281,7 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
 
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
-    if (!text || isTyping) return;
+    if ((!text && pendingImages.length === 0) || isTyping) return;
     if (chatMode === 'session' && !hasContext) return;
 
     // ── Archive mode — function calling loop ────────────────────────────────
@@ -362,31 +364,41 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
       return;
     }
 
-    // ── Session mode (invariato) ──────────────────────────────────────────────
+    // ── Session mode ──────────────────────────────────────────────────────────
+    const effectiveText = text || 'Analizza le immagini allegate.';
     const userMsg: MeetingChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: text,
+      content: effectiveText,
       timestamp: Date.now(),
+      ...(pendingImages.length > 0 && {
+        attachedImages: pendingImages.map(({ mimeType, previewUrl }) => ({ mimeType, previewUrl })),
+      }),
     };
 
     const newHistory = [...history, userMsg];
     onHistoryChange(newHistory);
     setInputValue('');
+    const imagesToSend = pendingImages;
+    setPendingImages([]);
     setIsTyping(true);
     abortRef.current = new AbortController();
 
     try {
       const systemPrompt = buildSystemPrompt();
-      const promptText = buildPrompt(text);
+      const promptText = buildPrompt(effectiveText);
 
-      const promptOrParts: string | Part[] =
-        imageDecision === 'with-images' && noteImages.length > 0
-          ? [
-              { text: promptText },
-              ...noteImages.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
-            ]
-          : promptText;
+      const userImageParts: Part[] = imagesToSend.map(img => ({
+        inlineData: { mimeType: img.mimeType, data: img.data },
+      }));
+      const noteImageParts: Part[] = imageDecision === 'with-images' && noteImages.length > 0
+        ? noteImages.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } }))
+        : [];
+      const allImageParts = [...noteImageParts, ...userImageParts];
+
+      const promptOrParts: string | Part[] = allImageParts.length > 0
+        ? [{ text: promptText }, ...allImageParts]
+        : promptText;
 
       const { text: responseText, usageMetadata } = await llmService.generateText(
         promptOrParts,
@@ -427,7 +439,7 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
       setIsTyping(false);
       abortRef.current = null;
     }
-  }, [inputValue, isTyping, chatMode, hasContext, history, archiveChatHistory, onHistoryChange, buildSystemPrompt, buildPrompt, llmSettings, onLlmUsage, archiveIndex]);
+  }, [inputValue, isTyping, chatMode, hasContext, history, archiveChatHistory, onHistoryChange, buildSystemPrompt, buildPrompt, llmSettings, onLlmUsage, archiveIndex, pendingImages, noteImages, imageDecision]);
 
   const handleStop = useCallback(() => {
     // If waiting for candidate selection, unblock the Promise first
@@ -505,6 +517,38 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
       handleSend();
     }
   };
+
+  const addImagesFromFiles = useCallback((files: File[]) => {
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const commaIdx = dataUrl.indexOf(',');
+        const header = dataUrl.slice(0, commaIdx);
+        const data = dataUrl.slice(commaIdx + 1);
+        const mimeType = header.match(/:(.*?);/)?.[1] ?? file.type;
+        setPendingImages(prev => [...prev, { mimeType, data, previewUrl: dataUrl }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const handlePasteImage = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageItems = Array.from(e.clipboardData.items).filter(i => i.type.startsWith('image/'));
+    if (imageItems.length === 0) return;
+    e.preventDefault();
+    addImagesFromFiles(imageItems.map(i => i.getAsFile()).filter((f): f is File => f !== null));
+  }, [addImagesFromFiles]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    addImagesFromFiles(Array.from(e.target.files ?? []));
+    e.target.value = '';
+  }, [addImagesFromFiles]);
+
+  const handleRemovePendingImage = useCallback((idx: number) => {
+    setPendingImages(prev => prev.filter((_, i) => i !== idx));
+  }, []);
 
   const handleQuickAction = (action: string) => {
     setInputValue(action);
@@ -699,9 +743,24 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
               }}
             >
               {msg.role === 'user' ? (
-                <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--neo-text)' }}>
-                  {msg.content}
-                </p>
+                <div>
+                  {msg.attachedImages && msg.attachedImages.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {msg.attachedImages.map((img, idx) => (
+                        <img
+                          key={idx}
+                          src={img.previewUrl}
+                          alt=""
+                          className="w-14 h-14 object-cover rounded-lg"
+                          style={{ border: '1px solid rgba(139,92,246,0.35)' }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--neo-text)' }}>
+                    {msg.content}
+                  </p>
+                </div>
               ) : (
                 <div
                   className="llm-result-display-prose text-sm"
@@ -812,29 +871,79 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
             border: '1px solid rgba(255,255,255,0.09)',
           }}
         >
-          <textarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              chatMode === 'archive'
-                ? 'Cerca nell\'archivio… (es. "AI con Mario Rossi la scorsa settimana")'
-                : hasContext
-                  ? 'Chiedi qualcosa… (Invio per inviare, Shift+Invio per andare a capo)'
-                  : 'Trascrivi prima una sessione…'
-            }
-            disabled={disabled || (chatMode === 'session' && !hasContext) || isTyping}
-            rows={4}
-            className="flex-1 bg-transparent text-sm outline-none py-1 px-1"
-            style={{
-              color: 'var(--neo-text)',
-              minHeight: '80px',
-              maxHeight: '300px',
-              resize: 'vertical',
-            }}
-          />
-          <div className="flex-shrink-0 pb-0.5">
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Pending image thumbnails */}
+            {pendingImages.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 px-1 pt-1 pb-0.5">
+                {pendingImages.map((img, idx) => (
+                  <div key={idx} className="relative flex-shrink-0">
+                    <img
+                      src={img.previewUrl}
+                      alt=""
+                      className="w-12 h-12 object-cover rounded-lg"
+                      style={{ border: '1px solid rgba(139,92,246,0.4)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePendingImage(idx)}
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-white text-xs leading-none"
+                      style={{ background: 'rgba(239,68,68,0.9)', fontSize: '10px' }}
+                      aria-label="Rimuovi immagine"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePasteImage}
+              placeholder={
+                chatMode === 'archive'
+                  ? 'Cerca nell\'archivio… (es. "AI con Mario Rossi la scorsa settimana")'
+                  : hasContext
+                    ? 'Chiedi qualcosa… (Invio per inviare, Shift+Invio per andare a capo)'
+                    : 'Trascrivi prima una sessione…'
+              }
+              disabled={disabled || (chatMode === 'session' && !hasContext) || isTyping}
+              rows={4}
+              className="flex-1 bg-transparent text-sm outline-none py-1 px-1"
+              style={{
+                color: 'var(--neo-text)',
+                minHeight: '80px',
+                maxHeight: '300px',
+                resize: 'vertical',
+              }}
+            />
+          </div>
+          <div className="flex-shrink-0 pb-0.5 flex flex-col gap-1 items-center">
+            {/* Attachment button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || isTyping}
+              className="p-1.5 rounded-lg opacity-50 hover:opacity-100 transition-opacity"
+              style={{ color: 'var(--neo-muted)' }}
+              title="Allega immagine"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+              aria-hidden="true"
+            />
             {isTyping ? (
               <Button variant="danger" size="sm" onClick={handleStop} leftIcon={<StopIcon />}>
                 Stop
@@ -844,7 +953,7 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
                 variant="primary"
                 size="sm"
                 onClick={handleSend}
-                disabled={!inputValue.trim() || !hasContext || disabled}
+                disabled={(!inputValue.trim() && pendingImages.length === 0) || !hasContext || disabled}
                 leftIcon={<SendIcon />}
               >
                 Invia

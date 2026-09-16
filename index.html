@@ -1204,6 +1204,40 @@
       .note-editor-content .ProseMirror ul { list-style: disc; padding-left: 1.4em; }
       .note-editor-content .ProseMirror ol { list-style: decimal; padding-left: 1.4em; }
 
+      /* ── Math formula rendering (renderLatexInMarkdown) ── */
+      .math-frac {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        vertical-align: middle;
+        font-size: 0.92em;
+        line-height: 1.2;
+        margin: 0 0.15em;
+      }
+      .math-num {
+        border-bottom: 1.5px solid currentColor;
+        padding: 0 3px 1px;
+        text-align: center;
+        min-width: 1em;
+      }
+      .math-den {
+        padding: 1px 3px 0;
+        text-align: center;
+        min-width: 1em;
+      }
+      .math-block {
+        display: block;
+        text-align: center;
+        margin: 0.6em 0;
+        font-size: 1.05em;
+        font-style: italic;
+        overflow-x: auto;
+      }
+      .math-inline {
+        font-style: italic;
+        white-space: nowrap;
+      }
+
     </style>
 </head>
   <body class="bg-gray-900 text-gray-100 antialiased">
