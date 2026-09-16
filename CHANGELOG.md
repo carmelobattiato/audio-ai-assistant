@@ -8,11 +8,20 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
-## [1.173] — 2026-09-16
+## [1.174] — 2026-09-16
+
+
+
 - Chat: allega immagini tramite copia/incolla o bottone paperclip; Gemini le riceve come input multimodale
 - Chat: thumbnail immagini allegate visibili nel messaggio utente
 - Chat: rendering formule LaTeX (`$...$`, `$$...$$`) con renderer regex interno — `\frac`, apici/pedici, simboli, lettere greche
 - Trascrizione: bottone "Copy Transcription" copia il testo in clipboard con feedback visivo
+- Web Locks API: impedisce a Edge/Chromium di scaricare il tab inattivo dalla memoria (Sleeping Tabs)
+
+---
+
+## [1.173] — 2026-09-10
+
 - Rimossa finestrella `NeoTipsPanel` ("Tips & Features") dall'interfaccia e il relativo file `components/newpage/NeoTipsPanel.tsx`
 
 ---

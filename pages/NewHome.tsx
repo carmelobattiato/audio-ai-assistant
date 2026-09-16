@@ -163,6 +163,16 @@ export const NewHome: React.FC = () => {
     return title;
   }, [recordingTitle, recordingTimestampSuffix]);
 
+  // Impedisce a Edge (e Chromium) di mettere in sleep/discard questo tab tramite Web Locks API.
+  useEffect(() => {
+    if (!('locks' in navigator)) return;
+    navigator.locks.request(
+      'audio-ai-assistant-keep-alive',
+      { mode: 'shared' },
+      () => new Promise(() => {}),
+    );
+  }, []);
+
   // Se la sessione attiva ha un evento calendario auto-creato ('app'), tieni il subject
   // allineato al titolo quando l'utente rinomina la registrazione.
   useEffect(() => {
