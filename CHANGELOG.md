@@ -8,6 +8,16 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.175] — 2026-09-19
+
+- Tab "AI Analysis" e "Chat" sostituiti da unico tab "AI & Chat" (design Progressive Disclosure)
+- Header "AI & Chat": bottone "⚡ Analizza trascrizione" con toggle Sessione/Archivio integrato; animazione espansione pannello controlli smooth (max-height CSS transition)
+- Icona robot 🤖 con stile glassmorphism nell'empty state della chat
+- Sessione/Archivio: stato condiviso tra header analisi e pannello chat
+- `MeetingChatPanel`: card risultato analisi sopra la chat; supporto `externalChatMode` controllato dall'esterno
+
+---
+
 ## [1.174] — 2026-09-16
 
 

@@ -39,6 +39,10 @@ interface LlmProcessorProps {
   resultType?: string;
   correlatedSessionsData?: SavedSessionData[];
   useHistoricalContext?: boolean;
+  compact?: boolean;
+  chatMode?: 'session' | 'archive';
+  onChatModeChange?: (mode: 'session' | 'archive') => void;
+  archiveSessionCount?: number;
 }
 
 const DEFAULT_ACTIONS = [
@@ -87,6 +91,10 @@ const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
   meetingAttendees,
   correlatedSessionsData,
   useHistoricalContext = true,
+  compact = false,
+  chatMode,
+  onChatModeChange,
+  archiveSessionCount,
 }, ref) => {
   const [customContext, setCustomContext] = useState<string>("");
   const [activeProcessingDisplayTitle, setActiveProcessingDisplayTitle] = useState<string | null>(null);
@@ -97,6 +105,7 @@ const LlmProcessorBase = React.forwardRef<LlmProcessorRef, LlmProcessorProps>(({
   const [selectedProcessingActionKey, setSelectedProcessingActionKey] = useState<string>('default-minutes-concise');
   const [selectedMeetingTemplate, setSelectedMeetingTemplate] = useState<string>('');
   const [copyButtonText, setCopyButtonText] = useState<string>("Copy Text");
+  const [showExpanded, setShowExpanded] = useState<boolean>(false);
   const lastProcessedAutoTrigger = useRef<number>(-1);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -502,10 +511,217 @@ Se una sezione è vuota scrivi "Nessuno."${defaultCustomContextAddition}`);
     }
   };
 
+  // ── Compact mode — Progressive Disclosure (Mockup C) ────────────────────
+  if (compact) {
+    const labelStyle: React.CSSProperties = {
+      fontSize: 10, fontWeight: 600, letterSpacing: '.06em',
+      textTransform: 'uppercase', color: 'var(--neo-muted)',
+      width: 44, flexShrink: 0,
+    };
+    const chipStyle = (active: boolean): React.CSSProperties => ({
+      padding: '4px 10px', borderRadius: 100, fontSize: 12, fontWeight: 500,
+      border: '1px solid',
+      background: active ? 'rgba(124,58,237,0.20)' : 'rgba(255,255,255,0.06)',
+      borderColor: active ? 'rgba(167,139,250,0.50)' : 'rgba(255,255,255,0.08)',
+      color: active ? 'var(--neo-primary-l)' : 'var(--neo-muted)',
+      cursor: 'pointer', transition: 'all 160ms ease', whiteSpace: 'nowrap' as const,
+    });
+
+    return (
+      <div style={{ borderBottom: '1px solid var(--neo-border)', flexShrink: 0, position: 'relative' }}>
+
+        {/* ── Header bar — il bottone principale rimane sempre visibile ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', minHeight: 48 }}>
+          {isProcessing ? (
+            /* Stato: analisi in corso */
+            <>
+              <svg className="animate-spin w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--neo-primary-l)' }}>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--neo-muted)' }}>Analisi in corso…</span>
+              <div style={{ flex: 1 }} />
+              <Button variant="danger" size="sm" onClick={stopProcessing}>Stop</Button>
+            </>
+          ) : (
+            /* Stato: idle o risultato presente — il bottone è SEMPRE visibile */
+            <>
+              <button
+                type="button"
+                onClick={() => setShowExpanded(v => !v)}
+                disabled={disabled || !sourceText}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px',
+                  background: showExpanded ? 'rgba(124,58,237,0.15)' : 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+                  border: showExpanded ? '1px solid rgba(167,139,250,0.4)' : 'none',
+                  borderRadius: 8, color: '#fff', fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: 600, cursor: disabled || !sourceText ? 'not-allowed' : 'pointer',
+                  opacity: disabled || !sourceText ? 0.5 : 1,
+                  boxShadow: showExpanded ? 'none' : '0 2px 12px rgba(124,58,237,0.45)',
+                  whiteSpace: 'nowrap', letterSpacing: '-.01em', transition: 'all 200ms ease', flexShrink: 0,
+                }}
+              >
+                <span>⚡</span>
+                Analizza trascrizione
+                <span style={{ fontSize: 10, opacity: 0.8, marginLeft: 2, display: 'inline-block', transition: 'transform 200ms ease', transform: showExpanded ? 'rotate(180deg)' : 'none' }}>▾</span>
+              </button>
+
+              {/* Badge ✓ — appare solo quando c'è un risultato */}
+              {currentLlmResult && activeProcessingDisplayTitle && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: '#86EFAC', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <span style={{ width: 16, height: 16, background: 'rgba(34,197,94,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✓</span>
+                  {activeProcessingDisplayTitle}
+                </span>
+              )}
+
+              <div style={{ flex: 1 }} />
+
+              {/* Session/Archive badges */}
+              {chatMode && onChatModeChange && (
+                <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                  <button type="button" onClick={() => onChatModeChange('session')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: chatMode === 'session' ? 'rgba(192,38,211,0.20)' : 'rgba(255,255,255,0.05)', border: `1px solid ${chatMode === 'session' ? 'rgba(192,38,211,0.45)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 100, cursor: 'pointer', transition: 'all 160ms ease' }}>
+                    {chatMode === 'session' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 6px #22C55E', flexShrink: 0 }} />}
+                    <span style={{ fontSize: 11.5, color: chatMode === 'session' ? 'var(--neo-text)' : 'var(--neo-muted)', fontWeight: chatMode === 'session' ? 600 : 400 }}>💬 Sessione</span>
+                  </button>
+                  <button type="button" onClick={() => onChatModeChange('archive')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: chatMode === 'archive' ? 'rgba(192,38,211,0.20)' : 'rgba(255,255,255,0.05)', border: `1px solid ${chatMode === 'archive' ? 'rgba(192,38,211,0.45)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 100, cursor: 'pointer', transition: 'all 160ms ease' }}>
+                    {chatMode === 'archive' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 6px #22C55E', flexShrink: 0 }} />}
+                    <span style={{ fontSize: 11.5, color: chatMode === 'archive' ? 'var(--neo-text)' : 'var(--neo-muted)', fontWeight: chatMode === 'archive' ? 600 : 400 }}>🗂 Archivio</span>
+                    {archiveSessionCount !== undefined && archiveSessionCount > 0 && (
+                      <span style={{ padding: '1px 6px', background: 'rgba(167,139,250,0.15)', borderRadius: 100, fontSize: 11, fontWeight: 600, color: 'var(--neo-primary-l)' }}>{archiveSessionCount}</span>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── Expand sheet (controls) — smooth CSS animation ── */}
+        <div style={{
+            overflow: 'hidden',
+            maxHeight: showExpanded && !isProcessing ? '420px' : '0',
+            opacity: showExpanded && !isProcessing ? 1 : 0,
+            transition: 'max-height 280ms cubic-bezier(0.4,0,0.2,1), opacity 200ms ease',
+          }}>
+          <div style={{
+            background: 'linear-gradient(180deg, rgba(30,27,72,0.95) 0%, rgba(20,18,48,0.90) 100%)',
+            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            borderBottom: '1px solid var(--neo-border)', position: 'relative',
+          }}>
+            {/* Left gradient strip */}
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: 'linear-gradient(180deg, rgba(124,58,237,0.8) 0%, rgba(192,38,211,0.6) 60%, transparent 100%)', borderRadius: '0 2px 2px 0' }} />
+
+            <div style={{ padding: '14px 18px 16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {/* Azioni risultato — visibili solo quando c'è un risultato */}
+              {currentLlmResult && activeProcessingDisplayTitle && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 8, borderBottom: '1px solid rgba(139,92,246,0.15)' }}>
+                  <span style={{ fontSize: 11, color: 'var(--neo-muted)', flex: 1 }}>Risultato: {activeProcessingDisplayTitle}</span>
+                  <Button onClick={handleDownloadLlmResult} variant="ghost" size="sm" leftIcon={<DownloadIcon className="w-3.5 h-3.5" />}>Download</Button>
+                  <Button onClick={handleCopyText} variant="ghost" size="sm" leftIcon={<CopyIcon className="w-3.5 h-3.5" />}>Copia</Button>
+                  <Button onClick={() => setIsEditorModalOpen(true)} variant="ghost" size="sm" leftIcon={<EditPencilIcon className="w-3.5 h-3.5" />}>Modifica</Button>
+                </div>
+              )}
+
+              {/* Tipo */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={labelStyle}>Tipo</span>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {MEETING_TEMPLATES.map(t => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => {
+                        const isActive = selectedMeetingTemplate === t.key;
+                        setSelectedMeetingTemplate(isActive ? '' : t.key);
+                        if (!isActive) { setSelectedProcessingActionKey(t.analysisKey); setCustomContext(t.context); }
+                      }}
+                      disabled={disabled}
+                      style={chipStyle(selectedMeetingTemplate === t.key)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Azione */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={labelStyle}>Azione</span>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <select
+                    value={selectedProcessingActionKey}
+                    onChange={e => setSelectedProcessingActionKey(e.target.value)}
+                    disabled={disabled}
+                    style={{
+                      width: '100%', appearance: 'none', WebkitAppearance: 'none',
+                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)',
+                      borderRadius: 8, color: 'var(--neo-text)', fontFamily: 'inherit',
+                      fontSize: 13, padding: '7px 28px 7px 10px', cursor: 'pointer', outline: 'none',
+                    }}
+                  >
+                    {DEFAULT_ACTIONS.map(a => <option key={a.key} value={a.key} style={{ background: '#1E1B48' }}>{a.title}</option>)}
+                  </select>
+                  <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--neo-muted)', pointerEvents: 'none' }}>▾</span>
+                </div>
+              </div>
+
+              {/* Note + Run */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <span style={{ ...labelStyle, paddingTop: 8 }}>Note</span>
+                <textarea
+                  value={customContext}
+                  onChange={e => setCustomContext(e.target.value)}
+                  placeholder="Istruzioni aggiuntive (es. Usa tono formale, focus su aspetti tecnici…)"
+                  disabled={disabled}
+                  rows={2}
+                  style={{
+                    flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)',
+                    borderRadius: 8, color: 'var(--neo-text)', fontFamily: 'inherit', fontSize: 13,
+                    padding: '7px 10px', outline: 'none', resize: 'none',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => { executeAnalysis(); setShowExpanded(false); }}
+                  disabled={disabled || !sourceText}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+                    background: 'linear-gradient(135deg, var(--neo-primary), var(--neo-accent))',
+                    border: 'none', borderRadius: 8, color: '#fff', fontFamily: 'inherit',
+                    fontSize: 13, fontWeight: 600, cursor: disabled || !sourceText ? 'not-allowed' : 'pointer',
+                    opacity: disabled || !sourceText ? 0.5 : 1, whiteSpace: 'nowrap', flexShrink: 0,
+                    boxShadow: '0 2px 14px rgba(192,38,211,0.35)', marginTop: 1,
+                  }}
+                >
+                  ▶ Analizza
+                </button>
+              </div>
+
+              {error && <p style={{ color: '#F87171', fontSize: 12 }}>⚠ {error}</p>}
+            </div>
+          </div>
+        </div>
+
+        {isEditorModalOpen && currentLlmResult && (
+          <RichTextEditorModal
+            isOpen={isEditorModalOpen}
+            onClose={() => setIsEditorModalOpen(false)}
+            initialContent={currentLlmResult}
+            onSave={(h) => onLlmResultUpdate(h, activeProcessingDisplayTitle || 'AI Report')}
+            currentLanguage={transcriptionLanguage}
+            llmSettings={settings}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Full mode ─────────────────────────────────────────────────────────────
   return (
     <div className="p-4 bg-gray-800 rounded-lg shadow-lg space-y-6">
       <h3 className="text-xl font-semibold text-sky-400">LLM Processing (Provider: {settings.provider} | Model: {settings.model})</h3>
-      
+
       <div className="space-y-1">
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tipo riunione</p>
         <div className="flex flex-wrap gap-2">
@@ -588,7 +804,7 @@ Se una sezione è vuota scrivi "Nessuno."${defaultCustomContextAddition}`);
           </div>
           <div
             id="llmResultOutputDisplay"
-            className="llm-result-display-prose" 
+            className="llm-result-display-prose"
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentLlmResult) }}
           />
           {groundingChunks.length > 0 && (

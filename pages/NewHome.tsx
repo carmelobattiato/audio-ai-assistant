@@ -72,12 +72,6 @@ const SparklesIcon = () => (
       d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
   </svg>
 );
-const ChatIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-  </svg>
-);
 
 export const NewHome: React.FC = () => {
   const { appSettings, hasCustomApiKey, setAppSettings, patchSettings, persistSettings, saveCustomApiKey, deleteCustomApiKey } = useSettings();
@@ -162,6 +156,8 @@ export const NewHome: React.FC = () => {
     finalEffectiveTitleRef.current = title;
     return title;
   }, [recordingTitle, recordingTimestampSuffix]);
+
+  const [unifiedChatMode, setUnifiedChatMode] = useState<'session' | 'archive'>('session');
 
   // Impedisce a Edge (e Chromium) di mettere in sleep/discard questo tab tramite Web Locks API.
   useEffect(() => {
@@ -840,10 +836,8 @@ export const NewHome: React.FC = () => {
       badge: transLogic.transcriptionQueue.length > 0
         ? `${transLogic.transcriptionQueue.filter(q => q.transcribed).length}/${transLogic.transcriptionQueue.length}`
         : undefined },
-    { id: 'analysis',   label: 'AI Analysis', icon: <SparklesIcon />,
-      badge: llmProcessedText ? '✓' : undefined },
-    { id: 'chat',       label: 'Chat', icon: <ChatIcon />,
-      badge: meetingChatHistory.length > 0 ? String(meetingChatHistory.length) : undefined },
+    { id: 'ai-chat',   label: 'AI & Chat', icon: <SparklesIcon />,
+      badge: llmProcessedText ? '✓' : (meetingChatHistory.length > 0 ? String(meetingChatHistory.length) : undefined) },
   ], [bubbleNotes.length, transLogic.transcriptionQueue, llmProcessedText, meetingChatHistory.length]);
   // ── Meeting notifications + auto-start ───────────────────────────────────
   const {
@@ -1161,80 +1155,93 @@ export const NewHome: React.FC = () => {
             />
             </Suspense>
 
-            {/* Tab 2: AI Analysis */}
-            <ErrorBoundary variant="inline" label="LlmProcessor">
-            <Suspense fallback={<div style={{ padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>Caricamento…</div>}>
-            {correlatedSessions.length > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1" style={{ borderBottom: '1px solid #374151' }}>
-                <span className="text-[11px] text-gray-400">🕰 Use historical context</span>
-                <button
-                  onClick={() => handleToggleHistoricalContext(!useHistoricalContext)}
-                  className="relative inline-flex h-4 w-7 rounded-full transition-colors flex-shrink-0"
-                  style={{ background: useHistoricalContext ? '#8B5CF6' : '#374151' }}
-                  aria-label="Toggle historical context"
-                >
-                  <span
-                    className="inline-block w-3 h-3 rounded-full bg-white shadow transition-transform mt-0.5"
-                    style={{ transform: useHistoricalContext ? 'translateX(14px)' : 'translateX(2px)' }}
-                  />
-                </button>
-                <span className="text-[11px]" style={{ color: '#6B7280' }}>
-                  {correlatedSessions.length} correlated session{correlatedSessions.length !== 1 ? 's' : ''}
-                </span>
+            {/* Tab 2: AI & Chat (unified) */}
+            <div className="flex flex-col h-full overflow-hidden">
+              {correlatedSessions.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1 flex-shrink-0" style={{ borderBottom: '1px solid rgba(55,65,81,0.5)' }}>
+                  <span className="text-[11px] text-gray-400">🕰 Use historical context</span>
+                  <button
+                    onClick={() => handleToggleHistoricalContext(!useHistoricalContext)}
+                    className="relative inline-flex h-4 w-7 rounded-full transition-colors flex-shrink-0"
+                    style={{ background: useHistoricalContext ? '#8B5CF6' : '#374151' }}
+                    aria-label="Toggle historical context"
+                  >
+                    <span
+                      className="inline-block w-3 h-3 rounded-full bg-white shadow transition-transform mt-0.5"
+                      style={{ transform: useHistoricalContext ? 'translateX(14px)' : 'translateX(2px)' }}
+                    />
+                  </button>
+                  <span className="text-[11px]" style={{ color: '#6B7280' }}>
+                    {correlatedSessions.length} correlated session{correlatedSessions.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+              <ErrorBoundary variant="inline" label="LlmProcessorCompact">
+              <Suspense fallback={null}>
+              <div className="flex-shrink-0">
+                <LlmProcessor
+                  compact
+                  ref={undefined}
+                  sourceText={activeSourceText}
+                  bubbleNotes={bubbleNotes}
+                  onProcessingComplete={handleLlmProcessingComplete}
+                  currentLlmResult={llmProcessedText}
+                  onLlmResultUpdate={(h: string) => setLlmProcessedText(h)}
+                  settings={appSettings.llm}
+                  transcriptionSettings={appSettings.transcription}
+                  transcriptionLanguage={appSettings.transcription.language}
+                  customInstructions={customInstructionsStable}
+                  systemPrompts={systemPromptsStable}
+                  meetingTitle={recordingTitle}
+                  meetingAttendees={meetingAttendees}
+                  disabled={isBusy}
+                  audioDuration={audioBlob ? audioDuration : undefined}
+                  audioRecordingStartTime={audioRecordingStartTime}
+                  audioFileName={audioFileName}
+                  recordingTitle={finalEffectiveTitle}
+                  autoTrigger={llmAutoTrigger}
+                  isQuickProcessActive={pipelineStep === PipelineStep.ANALYZING}
+                  onQuickProcessComplete={noop}
+                  onProcessingError={handleLlmProcessingError}
+                  resultType={llmProcessingType}
+                  correlatedSessionsData={correlatedSessions.map(s => s.data)}
+                  useHistoricalContext={useHistoricalContext}
+                  chatMode={unifiedChatMode}
+                  onChatModeChange={setUnifiedChatMode}
+                  archiveSessionCount={savedSessions.length}
+                />
               </div>
-            )}
-            <LlmProcessor
-              ref={llmProcessorRef}
-              sourceText={activeSourceText}
-              bubbleNotes={bubbleNotes}
-              onProcessingComplete={handleLlmProcessingComplete}
-              currentLlmResult={llmProcessedText}
-              onLlmResultUpdate={(h: string) => setLlmProcessedText(h)}
-              settings={appSettings.llm}
-              transcriptionSettings={appSettings.transcription}
-              transcriptionLanguage={appSettings.transcription.language}
-              customInstructions={customInstructionsStable}
-              systemPrompts={systemPromptsStable}
-              meetingTitle={recordingTitle}
-              meetingAttendees={meetingAttendees}
-              disabled={isBusy}
-              audioDuration={audioBlob ? audioDuration : undefined}
-              audioRecordingStartTime={audioRecordingStartTime}
-              audioFileName={audioFileName}
-              recordingTitle={finalEffectiveTitle}
-              autoTrigger={llmAutoTrigger}
-              isQuickProcessActive={pipelineStep === PipelineStep.ANALYZING}
-              onQuickProcessComplete={noop}
-              onProcessingError={handleLlmProcessingError}
-              resultType={llmProcessingType}
-              correlatedSessionsData={correlatedSessions.map(s => s.data)}
-              useHistoricalContext={useHistoricalContext}
-            />
-            </Suspense>
-            </ErrorBoundary>
+              </Suspense>
+              </ErrorBoundary>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <Suspense fallback={<div style={{ padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>Caricamento…</div>}>
+                <MeetingChatPanel
+                  sessionContext={{
+                    transcription: activeSourceText,
+                    llmResult: llmProcessedText,
+                    llmResultTitle: llmProcessingType || undefined,
+                    sessionTitle: finalEffectiveTitle,
+                    audioDuration: audioBlob ? audioDuration : undefined,
+                    audioRecordingStartTime: audioRecordingStartTime,
+                    bubbleNotes: bubbleNotes,
+                  }}
+                  llmSettings={appSettings.llm}
+                  chatSystemInstruction={appSettings.systemPrompts?.find(p => p.id === 'chat-system')?.text}
+                  customInstructions={appSettings.customInstructions}
+                  history={meetingChatHistory}
+                  onHistoryChange={setMeetingChatHistory}
+                  onLlmUsage={(stats) => setLlmUsageHistory(prev => [...prev, stats])}
+                  disabled={isBusy}
+                  correlatedSessionsData={correlatedSessions.map(s => s.data)}
+                  useHistoricalContext={useHistoricalContext}
+                  externalChatMode={unifiedChatMode}
+                  onExternalChatModeChange={setUnifiedChatMode}
+                  onAnalysisEdit={(html) => setLlmProcessedText(html)}
+                />
+                </Suspense>
+              </div>
+            </div>
 
-            {/* Tab 3: Chat with the Meeting Session */}
-            <Suspense fallback={<div style={{ padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>Caricamento…</div>}>
-            <MeetingChatPanel
-              sessionContext={{
-                transcription: activeSourceText,
-                llmResult: llmProcessedText,
-                sessionTitle: finalEffectiveTitle,
-                audioDuration: audioBlob ? audioDuration : undefined,
-                audioRecordingStartTime: audioRecordingStartTime,
-                bubbleNotes: bubbleNotes,
-              }}
-              llmSettings={appSettings.llm}
-              chatSystemInstruction={appSettings.systemPrompts?.find(p => p.id === 'chat-system')?.text}
-              customInstructions={appSettings.customInstructions}
-              history={meetingChatHistory}
-              onHistoryChange={setMeetingChatHistory}
-              onLlmUsage={(stats) => setLlmUsageHistory(prev => [...prev, stats])}
-              disabled={isBusy}
-              correlatedSessionsData={correlatedSessions.map(s => s.data)}
-              useHistoricalContext={useHistoricalContext}
-            />
-            </Suspense>
           </NeoTabs>
         </div>
       </div>

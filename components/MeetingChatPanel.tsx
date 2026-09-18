@@ -4,7 +4,7 @@ import { Button } from './common/Button';
 import { MeetingChatMessage, AppSettings, LlmUsageStats, BubbleNote, CustomInstruction, SavedSessionData } from '../types';
 import { buildCorrelatedSessionsContext } from '../utils/correlationContext';
 import { llmService } from '../services/geminiService';
-import { htmlToPlainText, renderLatexInMarkdown, formatTime, bubbleNotesToText } from '../utils/textUtils';
+import { htmlToPlainText, renderLatexInMarkdown, markdownToHtmlSimple, formatTime, bubbleNotesToText } from '../utils/textUtils';
 import { sanitizeHtml } from '../utils/sanitize';
 import type { Part } from '@google/genai';
 import { useArchiveIndex } from '../hooks/useArchiveIndex';
@@ -26,8 +26,8 @@ const TrashIcon = () => (
   </svg>
 );
 
-const DownloadIcon = () => (
-  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+const DownloadIcon = ({ className }: { className?: string } = {}) => (
+  <svg className={className ?? 'w-4 h-4'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
   </svg>
@@ -49,6 +49,12 @@ const StopIcon = () => (
 const CheckIcon = () => (
   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const EditPencilIcon = ({ className }: { className?: string }) => (
+  <svg className={className ?? 'w-3.5 h-3.5'} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
   </svg>
 );
 
@@ -152,6 +158,7 @@ interface MeetingChatPanelProps {
   sessionContext: {
     transcription: string;
     llmResult: string;
+    llmResultTitle?: string;
     sessionTitle: string;
     audioDuration?: number;
     audioRecordingStartTime?: Date | null;
@@ -167,6 +174,9 @@ interface MeetingChatPanelProps {
   correlatedSessionsData?: SavedSessionData[];
   useHistoricalContext?: boolean;
   userEmail?: string;
+  externalChatMode?: 'session' | 'archive';
+  onExternalChatModeChange?: (mode: 'session' | 'archive') => void;
+  onAnalysisEdit?: (newHtml: string) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -183,9 +193,17 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
   correlatedSessionsData,
   useHistoricalContext = true,
   userEmail,
+  externalChatMode,
+  onExternalChatModeChange,
+  onAnalysisEdit,
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const [chatMode, setChatMode] = useState<'session' | 'archive'>('session');
+  const [internalChatMode, setInternalChatMode] = useState<'session' | 'archive'>('session');
+  const chatMode: 'session' | 'archive' = externalChatMode ?? internalChatMode;
+  const setChatMode = (m: 'session' | 'archive') => {
+    setInternalChatMode(m);
+    onExternalChatModeChange?.(m);
+  };
   const [archiveChatHistory, setArchiveChatHistory] = useState<MeetingChatMessage[]>([]);
   const [pendingCandidates, setPendingCandidates] = useState<SessionSummary[] | null>(null);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
@@ -196,6 +214,9 @@ export const MeetingChatPanel: React.FC<MeetingChatPanelProps> = ({
   const candidatesResolveRef = useRef<((ids: string[] | null) => void) | null>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedAnalysis, setCopiedAnalysis] = useState(false);
+  const [analysisEditMode, setAnalysisEditMode] = useState(false);
+  const [analysisEditContent, setAnalysisEditContent] = useState('');
   const [imageDecision, setImageDecision] = useState<'with-images' | 'text-only' | null>(null);
   const [pendingImages, setPendingImages] = useState<{ mimeType: string; data: string; previewUrl: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -460,6 +481,17 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
     }
   }, [isTyping, handleStop, chatMode, onHistoryChange]);
 
+  const handleCopyAnalysis = useCallback(async () => {
+    if (!sessionContext.llmResult) return;
+    try {
+      await navigator.clipboard.writeText(htmlToPlainText(sessionContext.llmResult));
+      setCopiedAnalysis(true);
+      setTimeout(() => setCopiedAnalysis(false), 2000);
+    } catch {
+      // ignore
+    }
+  }, [sessionContext.llmResult]);
+
   const handleCopyMessage = useCallback(async (msg: MeetingChatMessage) => {
     const html = sanitizeHtml(renderMessageContent(msg.content));
     try {
@@ -562,8 +594,8 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
 
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between mb-3 flex-shrink-0 gap-2">
-        {/* Mode toggle pill */}
-        <div className="flex rounded-full overflow-hidden border flex-shrink-0" style={{ borderColor: 'var(--neo-border)', fontSize: 11 }}>
+        {/* Mode toggle pill — hidden when controlled externally (toggle is in LlmProcessor header) */}
+        <div className="flex rounded-full overflow-hidden border flex-shrink-0" style={{ borderColor: 'var(--neo-border)', fontSize: 11, display: externalChatMode !== undefined ? 'none' : undefined }}>
           <button
             onClick={() => { setChatMode('session'); setPendingCandidates(null); }}
             className="px-3 py-1 transition-colors"
@@ -594,11 +626,11 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
           </button>
         </div>
 
-        <span className="text-xs truncate" style={{ color: 'var(--neo-muted)' }}>
-          {chatMode === 'session'
-            ? (history.length > 0 ? `${history.length} messaggio${history.length !== 1 ? 'i' : ''}` : 'Chiedi qualcosa sulla sessione')
-            : (archiveChatHistory.length > 0 ? `${archiveChatHistory.length} messaggio${archiveChatHistory.length !== 1 ? 'i' : ''}` : 'Interroga il tuo archivio')}
-        </span>
+        {activeHistory.length > 0 && (
+          <span className="text-xs truncate" style={{ color: 'var(--neo-muted)' }}>
+            {activeHistory.length} messaggio{activeHistory.length !== 1 ? 'i' : ''}
+          </span>
+        )}
 
         {activeHistory.length > 0 && (
           <div className="flex gap-1 flex-shrink-0">
@@ -673,21 +705,25 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
 
         {/* Empty state — context available but no messages yet (session mode) */}
         {chatMode === 'session' && hasContext && history.length === 0 && !isTyping && (imageDecision !== null || !hasNoteImages) && (
-          <div className="py-2">
-            <p className="text-xs text-center mb-3" style={{ color: 'var(--neo-muted)' }}>
-              Inizia con una domanda o scegli un suggerimento:
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center">
+          <div className="flex flex-col items-center py-6 gap-3">
+            <div style={{
+              width: 64, height: 64, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'linear-gradient(135deg, rgba(124,58,237,0.25), rgba(192,38,211,0.15))',
+              border: '1px solid rgba(167,139,250,0.25)', boxShadow: '0 0 30px rgba(124,58,237,0.15)', fontSize: 30,
+            }}>🤖</div>
+            <div className="text-center">
+              <p className="text-sm font-semibold mb-1" style={{ color: 'var(--neo-text)' }}>Trascrizione caricata e pronta</p>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--neo-muted)' }}>
+                Premi "Analizza" per generare l'analisi AI<br />oppure fai una domanda direttamente
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center pt-1">
               {QUICK_ACTIONS.map(action => (
                 <button
                   key={action}
                   onClick={() => handleQuickAction(action)}
                   className="text-xs px-3 py-1.5 rounded-full transition-all hover:opacity-90 active:scale-95"
-                  style={{
-                    background: 'rgba(124,58,237,0.12)',
-                    border: '1px solid rgba(124,58,237,0.28)',
-                    color: '#a78bfa',
-                  }}
+                  style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.28)', color: '#a78bfa' }}
                 >
                   {action}
                 </button>
@@ -725,6 +761,103 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
                   </button>
                 ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* AI Analysis result card (shown only when llmResultTitle is provided = compact/unified mode) */}
+        {sessionContext.llmResultTitle && sessionContext.llmResult && chatMode === 'session' && (
+          <div
+            className="rounded-xl mb-2 overflow-hidden flex-shrink-0"
+            style={{ border: '1px solid rgba(139,92,246,0.30)', background: 'rgba(255,255,255,0.03)' }}
+          >
+            {/* Card header */}
+            <div
+              className="flex items-center gap-2 px-3 py-1.5"
+              style={{ borderBottom: '1px solid rgba(139,92,246,0.18)', background: 'rgba(124,58,237,0.10)' }}
+            >
+              <span className="text-xs font-medium flex-1 truncate" style={{ color: 'var(--neo-primary-l)' }}>
+                🤖 AI Analysis — {sessionContext.llmResultTitle}
+              </span>
+              {/* Download .md */}
+              <button
+                onClick={() => {
+                  const text = htmlToPlainText(sessionContext.llmResult);
+                  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${sessionContext.sessionTitle.replace(/[^a-z0-9]/gi, '_')}_analisi.md`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="opacity-50 hover:opacity-100 transition-opacity p-0.5 rounded"
+                title="Scarica come .md"
+                style={{ color: 'var(--neo-muted)' }}
+              >
+                <DownloadIcon className="w-3.5 h-3.5" />
+              </button>
+              {/* Edit / Save */}
+              {onAnalysisEdit && (
+                analysisEditMode ? (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        onAnalysisEdit(markdownToHtmlSimple(analysisEditContent));
+                        setAnalysisEditMode(false);
+                      }}
+                      className="text-[10px] px-2 py-0.5 rounded font-semibold"
+                      style={{ background: 'rgba(34,197,94,0.20)', color: '#86EFAC', border: '1px solid rgba(34,197,94,0.35)' }}
+                    >
+                      Salva
+                    </button>
+                    <button
+                      onClick={() => setAnalysisEditMode(false)}
+                      className="text-[10px] px-2 py-0.5 rounded"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--neo-muted)', border: '1px solid rgba(255,255,255,0.10)' }}
+                    >
+                      Annulla
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setAnalysisEditContent(htmlToPlainText(sessionContext.llmResult)); setAnalysisEditMode(true); }}
+                    className="opacity-50 hover:opacity-100 transition-opacity p-0.5 rounded"
+                    title="Modifica testo"
+                    style={{ color: 'var(--neo-muted)' }}
+                  >
+                    <EditPencilIcon className="w-3.5 h-3.5" />
+                  </button>
+                )
+              )}
+              {/* Copy */}
+              <button
+                onClick={handleCopyAnalysis}
+                className="opacity-50 hover:opacity-100 transition-opacity p-0.5 rounded"
+                title="Copia analisi"
+                style={{ color: 'var(--neo-muted)' }}
+              >
+                {copiedAnalysis ? <CheckIcon /> : <CopyIcon />}
+              </button>
+            </div>
+            {/* Card body */}
+            {analysisEditMode ? (
+              <textarea
+                value={analysisEditContent}
+                onChange={e => setAnalysisEditContent(e.target.value)}
+                className="w-full text-sm p-3 outline-none"
+                style={{
+                  background: 'rgba(255,255,255,0.02)', color: 'var(--neo-text)',
+                  fontFamily: 'inherit', resize: 'vertical', minHeight: '200px', maxHeight: '400px',
+                  border: 'none', borderTop: '1px solid rgba(139,92,246,0.20)',
+                }}
+              />
+            ) : (
+              <div
+                className="llm-result-display-prose text-sm p-3 overflow-y-auto"
+                style={{ maxHeight: '260px' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(sessionContext.llmResult) }}
+              />
             )}
           </div>
         )}
@@ -921,6 +1054,19 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
             />
           </div>
           <div className="flex-shrink-0 pb-0.5 flex flex-col gap-1 items-center">
+            {/* Download chat .md */}
+            {activeHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={handleExportMarkdown}
+                disabled={disabled}
+                className="p-1.5 rounded-lg opacity-50 hover:opacity-100 transition-opacity"
+                style={{ color: 'var(--neo-muted)' }}
+                title="Scarica chat come .md"
+              >
+                <DownloadIcon className="w-4 h-4" />
+              </button>
+            )}
             {/* Attachment button */}
             <button
               type="button"
