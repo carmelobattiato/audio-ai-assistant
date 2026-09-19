@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.176] — 2026-09-19
+
+- Fix copia analisi AI: usa `ClipboardItem` con `text/html` + `text/plain` per preservare tabelle e formattazione quando si incolla in editor esterni (Outlook, Word, ecc.)
+
+---
+
 ## [1.175] — 2026-09-19
 
 - Tab "AI Analysis" e "Chat" sostituiti da unico tab "AI & Chat" (design Progressive Disclosure)

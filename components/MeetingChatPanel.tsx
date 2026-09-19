@@ -483,13 +483,19 @@ ${notesText ? `BUBBLE NOTES (timestamped notes taken during the session):\n${not
 
   const handleCopyAnalysis = useCallback(async () => {
     if (!sessionContext.llmResult) return;
+    const html = sanitizeHtml(sessionContext.llmResult);
     try {
-      await navigator.clipboard.writeText(htmlToPlainText(sessionContext.llmResult));
-      setCopiedAnalysis(true);
-      setTimeout(() => setCopiedAnalysis(false), 2000);
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([htmlToPlainText(html)], { type: 'text/plain' }),
+        }),
+      ]);
     } catch {
-      // ignore
+      await navigator.clipboard.writeText(htmlToPlainText(html));
     }
+    setCopiedAnalysis(true);
+    setTimeout(() => setCopiedAnalysis(false), 2000);
   }, [sessionContext.llmResult]);
 
   const handleCopyMessage = useCallback(async (msg: MeetingChatMessage) => {
