@@ -91,6 +91,23 @@ const ModelCombobox: React.FC<{
 };
 
 
+function createSilentWavBase64(durationSec = 0.2): string {
+  const sampleRate = 8000;
+  const numSamples = Math.floor(sampleRate * durationSec);
+  const buf = new ArrayBuffer(44 + numSamples);
+  const v = new DataView(buf);
+  const w = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + numSamples, true); w(8, 'WAVE');
+  w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, 'data'); v.setUint32(40, numSamples, true);
+  for (let i = 0; i < numSamples; i++) v.setUint8(44 + i, 128);
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+}
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen, onClose, settings, onSettingsChange,
   hasCustomApiKey, onSaveCustomApiKey, onDeleteCustomApiKey,
@@ -116,6 +133,34 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [changelogSummary, setChangelogSummary] = useState<string | null>(null);
   const [changelogLoading, setChangelogLoading] = useState(false);
   const changelogAbortRef = useRef<AbortController | null>(null);
+
+  // LLM test state
+  type TestStatus = 'idle' | 'running' | 'ok' | 'error';
+  type TestResult = { status: TestStatus; msg?: string };
+  const [chatTest, setChatTest] = useState<TestResult>({ status: 'idle' });
+  const [audioTest, setAudioTest] = useState<TestResult>({ status: 'idle' });
+
+  const runLlmTest = async () => {
+    const validProvider = LLM_PROVIDERS[localSettings.llm.provider] ? localSettings.llm.provider : 'Google';
+    const testSettings = { ...localSettings.llm, provider: validProvider, maxRetries: 0, timeout: 30 };
+    setChatTest({ status: 'running' });
+    setAudioTest({ status: 'running' });
+
+    const chatResult = await llmService.generateText('Rispondi solo con la parola OK.', testSettings);
+    if (chatResult.text.startsWith('Error')) {
+      setChatTest({ status: 'error', msg: chatResult.text.replace(/^Error[^:]*:\s*/, '') });
+    } else {
+      setChatTest({ status: 'ok', msg: chatResult.text.trim().slice(0, 80) });
+    }
+
+    const silentWav = createSilentWavBase64();
+    const audioResult = await llmService.transcribeAudio(silentWav, 'audio/wav', 'Italian', testSettings);
+    if (audioResult.transcription.startsWith('Error')) {
+      setAudioTest({ status: 'error', msg: audioResult.transcription.replace(/^Error[^:]*:\s*/, '') });
+    } else {
+      setAudioTest({ status: 'ok', msg: audioResult.transcription.trim().slice(0, 80) });
+    }
+  };
 
   // API key UI state
   const [showCustomKey, setShowCustomKey] = useState(false);
@@ -577,37 +622,7 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                 value={localSettings.llm.provider}
                 onChange={(e) => handleLocalProviderChange(e.target.value)}
               />
-              {currentProviderInfo?.isCustom ? (
-                <div className="space-y-4 border-t border-gray-600 pt-4 mt-4">
-                  <Input
-                    label="Model Name:"
-                    id="customModelName"
-                    type="text"
-                    value={localSettings.llm.model}
-                    onChange={(e) => handleLocalLlmChange('model', e.target.value)}
-                    placeholder="e.g., mistral-7b-v0.1"
-                    required
-                  />
-                  <Input
-                    label="Base URL:"
-                    id="llmApiBaseUrl"
-                    type="text"
-                    value={localSettings.llm.apiBaseUrl}
-                    onChange={(e) => handleLocalLlmChange('apiBaseUrl', e.target.value)}
-                    placeholder="e.g., http://localhost:11434/v1"
-                    required
-                  />
-                  <Input
-                    label="API Key (Optional):"
-                    id="llmCustomApiKey"
-                    type="password"
-                    value={localSettings.llm.customApiKey || ''}
-                    onChange={(e) => handleLocalLlmChange('customApiKey', e.target.value)}
-                    placeholder="Enter your API key, if applicable"
-                  />
-                </div>
-              ) : (
-                <>
+              <>
                   {/* ── API Key Management ───────────────────────────────── */}
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-gray-300">Google API Key:</label>
@@ -690,8 +705,7 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                       onChange={(v) => handleLocalLlmChange('model', v)}
                     />
                   </div>
-                </>
-              )}
+              </>
 
               <Checkbox
                 label="Enhance results with web search & sources (Google Only)"
@@ -719,6 +733,44 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                     value={localSettings.llm.timeout ?? 600}
                     onChange={(e) => handleLocalLlmChange('timeout', parseInt(e.target.value, 10) || 10)}
                 />
+              </div>
+
+              {/* ── LLM Test ─────────────────────────────────────────── */}
+              <div className="border-t border-gray-600 pt-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={runLlmTest}
+                    disabled={chatTest.status === 'running' || audioTest.status === 'running'}
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md border border-indigo-700"
+                  >
+                    {(chatTest.status === 'running' || audioTest.status === 'running') ? '⏳ Test in corso…' : '⚡ Test LLM'}
+                  </button>
+                  {(chatTest.status !== 'idle' || audioTest.status !== 'idle') && (
+                    <button
+                      type="button"
+                      onClick={() => { setChatTest({ status: 'idle' }); setAudioTest({ status: 'idle' }); }}
+                      className="text-xs text-gray-400 hover:text-gray-200 underline"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+                {(chatTest.status !== 'idle' || audioTest.status !== 'idle') && (
+                  <div className="space-y-1.5 text-xs font-mono">
+                    {[
+                      { label: 'Chat', result: chatTest },
+                      { label: 'Trascrizione audio', result: audioTest },
+                    ].map(({ label, result }) => (
+                      <div key={label} className="flex items-start gap-2">
+                        <span className="text-gray-400 w-36 shrink-0">{label}:</span>
+                        {result.status === 'running' && <span className="text-gray-400">in corso…</span>}
+                        {result.status === 'ok' && <span className="text-emerald-400">✓ {result.msg}</span>}
+                        {result.status === 'error' && <span className="text-red-400 break-all">✗ {result.msg}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
           </div>
         </section>

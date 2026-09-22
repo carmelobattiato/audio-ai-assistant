@@ -33,9 +33,13 @@ const CIRCUIT_BREAKER_COOLDOWN_MS = 120 * 1000;
  * l'endpoint Google diretto. Ogni chiamata che istanzia GoogleGenAI deve passare
  * da qui, altrimenti ignora silenziosamente il proxy configurato dall'utente.
  */
+const GOOGLE_NATIVE_DOMAINS = ['googleapis.com', 'google.com'];
 const resolveGeminiBaseUrl = (apiBaseUrl?: string): { baseUrl: string; ignored: boolean } => {
   const configured = apiBaseUrl?.trim() || '';
-  const isOpenAiProxy = configured.includes('/chat/completions') || configured.includes('/openai/');
+  const isOpenAiProxy =
+    configured.includes('/chat/completions') ||
+    configured.includes('/openai/') ||
+    (configured !== '' && !GOOGLE_NATIVE_DOMAINS.some(d => configured.includes(d)));
   return { baseUrl: isOpenAiProxy ? '' : configured, ignored: isOpenAiProxy };
 };
 
@@ -116,7 +120,7 @@ export const llmService = {
         return { text: `Error: Circuit breaker active. Wait ${timeLeft}s.` };
     }
     
-    const { provider, model, apiBaseUrl, customApiKey, enhanceWithWebSearch, maxRetries = 3, timeout = 600 } = llmSettings;
+    const { provider, model, apiBaseUrl, enhanceWithWebSearch, maxRetries = 3, timeout = 600 } = llmSettings;
     loggingService.debug('LLM_CALL_START', `Starting LLM call to ${provider}`, { model, provider });
     await waitForRateLimit(llmSettings);
 
@@ -124,41 +128,44 @@ export const llmService = {
         try {
             if (signal?.aborted) throw new Error('Aborted');
 
-            if (provider === 'Custom OpenAI-compatible') {
-              if (!apiBaseUrl || !model) return { text: "Error: Custom provider config missing." };
-              const fullUrl = apiBaseUrl.trim().endsWith('/') ? `${apiBaseUrl}chat/completions` : `${apiBaseUrl}/chat/completions`;
-              const headers: HeadersInit = { 'Content-Type': 'application/json' };
-              if (customApiKey) headers['Authorization'] = `Bearer ${customApiKey}`;
-
-              const messages = [];
-              if (systemInstruction) messages.push({ role: 'system', content: systemInstruction });
-              messages.push({ role: 'user', content: typeof promptOrParts === 'string' ? promptOrParts : promptOrParts.map(partText).filter(Boolean).join('\n\n') });
-
-              const response = await promiseWithTimeout(fetch(fullUrl, { method: 'POST', headers, body: JSON.stringify({ model, messages }), signal }), timeout * 1000);
-
-              if (!response.ok) {
-                const errorBody = await response.json().catch(() => ({}));
-                const msg = errorBody?.error?.message || response.statusText;
-                loggingService.error('LLM_API_ERROR', `Custom provider error: ${msg}`, { status: response.status, provider });
-                if (response.status === 429 && msg.toLowerCase().includes('quota')) {
-                    return { text: `Error: Quota exceeded (${provider}).` };
-                }
-                throw new Error(`[${response.status}] ${msg}`);
-              }
-              const responseData = await response.json();
-              consecutiveErrors = 0;
-              return { 
-                text: responseData.choices?.[0]?.message?.content || "", 
-                usageMetadata: responseData.usage ? { inputTokens: responseData.usage.prompt_tokens, outputTokens: responseData.usage.completion_tokens, totalTokens: responseData.usage.total_tokens } : undefined 
-              };
-            }
-            
             if (provider !== 'Google') return { text: `Error: Invalid provider.` };
 
             const apiKey = llmSettings.googleApiKey?.trim();
             if (!apiKey) return { text: 'Error: API Key non configurata. Salvala nelle Impostazioni.' };
 
-            const { baseUrl } = resolveGeminiBaseUrl(apiBaseUrl);
+            const { baseUrl, ignored } = resolveGeminiBaseUrl(apiBaseUrl);
+
+            if (ignored && apiBaseUrl) {
+              // Non-Google proxy (LiteLLM, etc.): use OpenAI-compatible format
+              const base = apiBaseUrl.trim().replace(/\/$/, '');
+              const fullUrl = `${base}/v1/chat/completions`;
+              const headers: HeadersInit = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
+              const messages: { role: string; content: string }[] = [];
+              if (systemInstruction) messages.push({ role: 'system', content: systemInstruction });
+              messages.push({ role: 'user', content: typeof promptOrParts === 'string' ? promptOrParts : promptOrParts.map(partText).filter(Boolean).join('\n\n') });
+              const response = await promiseWithTimeout(
+                fetch(fullUrl, { method: 'POST', headers, body: JSON.stringify({ model, messages }), signal }),
+                timeout * 1000,
+              );
+              if (!response.ok) {
+                const errorBody = await response.json().catch(() => ({}));
+                const msg = errorBody?.error?.message || response.statusText;
+                loggingService.error('LLM_API_ERROR', `Proxy error: ${msg}`, { status: response.status });
+                if (response.status === 429 && msg.toLowerCase().includes('quota')) {
+                  return { text: `Error: Quota exceeded.` };
+                }
+                throw new Error(`[${response.status}] ${msg}`);
+              }
+              const responseData = await response.json();
+              consecutiveErrors = 0;
+              return {
+                text: responseData.choices?.[0]?.message?.content || '',
+                usageMetadata: responseData.usage
+                  ? { inputTokens: responseData.usage.prompt_tokens, outputTokens: responseData.usage.completion_tokens, totalTokens: responseData.usage.total_tokens }
+                  : undefined,
+              };
+            }
+
             const ai = new GoogleGenAI({
               apiKey,
               ...(baseUrl && { httpOptions: { baseUrl } }),
@@ -338,30 +345,68 @@ export const llmService = {
         timeout,
     });
 
-    if (isOpenAiProxy) {
-        loggingService.warn('TRANSCRIPTION_BASEURL_IGNORED', `apiBaseUrl "${configuredBaseUrl}" non è compatibile con la Gemini audio API — verrà usato l'endpoint Google diretto`);
-    }
+    const buildTranscriptionPrompt = (): string => {
+      const diarization = attemptDiarization
+        ? `\nIdentifica e distingui tutti gli interlocutori presenti nell'audio. Per ogni intervento usa il formato "[Etichetta]: testo" su una nuova riga (es. "Speaker 1:", "Speaker 2:", o il nome/ruolo se menzionato, es. "Cliente:", "Marco:"). Ogni cambio di voce va su riga separata.${approximateSpeakerCount ? ` Presenti circa ${approximateSpeakerCount} persone.` : ' Rileva automaticamente il numero di voci.'}`
+        : "";
+      if (promptTemplate) {
+        return promptTemplate
+          .split('{{LANGUAGE}}').join(language)
+          .split('{{DIARIZATION}}').join(diarization)
+          .split('{{EXTRA}}').join(customInstruction || '');
+      }
+      return `Transcribe accurately in ${language}.${diarization} IMPORTANT: if the audio contains no recognizable human speech — silence, noise, background sounds, music, or unintelligible audio — you MUST respond with only the literal string: [chunk senza audio riconoscibile]. Never invent, guess, or hallucinate words. Only transcribe words you can clearly hear. ${customInstruction || ''}`;
+    };
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             const apiKey = llmSettings.googleApiKey?.trim();
+            const transcribePrompt = buildTranscriptionPrompt();
+
+            if (isOpenAiProxy && configuredBaseUrl) {
+              // Proxy path: send audio as multimodal image_url (LiteLLM converts to Gemini inlineData)
+              const base = configuredBaseUrl.replace(/\/$/, '');
+              const fullUrl = `${base}/v1/chat/completions`;
+              const headers: HeadersInit = { 'Content-Type': 'application/json' };
+              if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+              const proxyResponse = await promiseWithTimeout(
+                fetch(fullUrl, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    model,
+                    messages: [{
+                      role: 'user',
+                      content: [
+                        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${audioBase64}` } },
+                        { type: 'text', text: transcribePrompt },
+                      ],
+                    }],
+                  }),
+                  signal,
+                }),
+                timeout * 1000,
+                signal,
+              );
+              if (!proxyResponse.ok) {
+                const errBody = await proxyResponse.json().catch(() => ({}));
+                const msg = errBody?.error?.message || proxyResponse.statusText;
+                throw new Error(`[${proxyResponse.status}] ${msg}`);
+              }
+              const proxyData = await proxyResponse.json();
+              consecutiveErrors = 0;
+              return {
+                transcription: proxyData.choices?.[0]?.message?.content || '',
+                usageMetadata: proxyData.usage
+                  ? { inputTokens: proxyData.usage.prompt_tokens, outputTokens: proxyData.usage.completion_tokens, totalTokens: proxyData.usage.total_tokens }
+                  : undefined,
+              };
+            }
+
             const ai = new GoogleGenAI({
               apiKey,
               ...(effectiveBaseUrl && { httpOptions: { baseUrl: effectiveBaseUrl } }),
             });
-            let diarization = attemptDiarization
-              ? `\nIdentifica e distingui tutti gli interlocutori presenti nell'audio. Per ogni intervento usa il formato "[Etichetta]: testo" su una nuova riga (es. "Speaker 1:", "Speaker 2:", o il nome/ruolo se menzionato, es. "Cliente:", "Marco:"). Ogni cambio di voce va su riga separata.${approximateSpeakerCount ? ` Presenti circa ${approximateSpeakerCount} persone.` : ' Rileva automaticamente il numero di voci.'}`
-              : "";
-            let transcribePrompt: string;
-            if (promptTemplate) {
-              // resolve {{LANGUAGE}}, {{DIARIZATION}}, {{EXTRA}} in user-edited template
-              transcribePrompt = promptTemplate
-                .split('{{LANGUAGE}}').join(language)
-                .split('{{DIARIZATION}}').join(diarization)
-                .split('{{EXTRA}}').join(customInstruction || '');
-            } else {
-              transcribePrompt = `Transcribe accurately in ${language}.${diarization} IMPORTANT: if the audio contains no recognizable human speech — silence, noise, background sounds, music, or unintelligible audio — you MUST respond with only the literal string: [chunk senza audio riconoscibile]. Never invent, guess, or hallucinate words. Only transcribe words you can clearly hear. ${customInstruction || ''}`;
-            }
             const response: GenerateContentResponse = await promiseWithTimeout(ai.models.generateContent({
                 model,
                 contents: { parts: [{ inlineData: { mimeType, data: audioBase64 } }, { text: transcribePrompt }] },

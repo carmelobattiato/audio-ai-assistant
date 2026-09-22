@@ -5,6 +5,7 @@ import { loggingService } from '../services/loggingService';
 import type { AppSettings } from '../types';
 import { Theme } from '../types';
 import { DEFAULT_SETTINGS, DEFAULT_SYSTEM_PROMPTS, APP_VERSION } from '../constants';
+import { LLM_PROVIDERS } from '../constants/appConfig';
 
 const APP_SETTINGS_KEY = 'audioAIAssistantSettings';
 
@@ -88,6 +89,10 @@ export function migrateSettings(raw: Partial<AppSettings>): AppSettings {
     llm: { ...DEFAULT_SETTINGS.llm, ...raw.llm },
     transcription: { ...DEFAULT_SETTINGS.transcription, ...raw.transcription },
   };
+
+  if (!LLM_PROVIDERS[s.llm.provider]) {
+    s = { ...s, llm: { ...s.llm, provider: 'Google' } };
+  }
 
   if (!s.transcription?.language) {
     s = { ...s, transcription: { ...s.transcription, language: 'Italian' } };

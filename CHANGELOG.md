@@ -8,6 +8,17 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.177] — 2026-09-22
+
+- Fix compatibilità proxy LiteLLM: provider Google con URL non-Google usa automaticamente formato OpenAI-compatible (`/v1/chat/completions`) invece del Gemini SDK nativo
+- Rimosso provider "Custom OpenAI-compatible" dal dropdown (ridondante dopo il fix)
+- Rimosso campo `customApiKey` da `LlmSettings` e Settings UI
+- Migration settings: provider sconosciuto (es. "Custom OpenAI-compatible" salvato da versione precedente) auto-corretto a "Google" al caricamento
+- Tasto "⚡ Test LLM" in Settings → LLM Configuration: verifica chat e trascrizione audio (WAV silenzioso sintetico) con la configurazione corrente e mostra esito inline
+- Trascrizione audio: se configurato un proxy non-Google, usa formato OpenAI-compatible (`image_url` + `text` nel body) invece di Gemini SDK diretto — compatibile con LiteLLM multimodal
+
+---
+
 ## [1.176] — 2026-09-19
 
 - Fix copia analisi AI: usa `ClipboardItem` con `text/html` + `text/plain` per preservare tabelle e formattazione quando si incolla in editor esterni (Outlook, Word, ecc.)

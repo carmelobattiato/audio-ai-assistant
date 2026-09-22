@@ -3,10 +3,10 @@ import { ModelInfo } from '../types';
 
 export const APP_TITLE = "Audio AI Assistant";
 export const APP_CREATOR = "Carmelo Battiato";
-export const APP_VERSION = "1.176";
+export const APP_VERSION = "1.177";
 export const APP_BUILD_TIMESTAMP = "2025-06-28_00-00-00";
 
-export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl?: boolean; docsUrl?: string, isCustom?: boolean } } = {
+export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl?: boolean; docsUrl?: string } } = {
   'Google': {
     models: [
       // ── Alias auto-aggiornanti ──────────────────────────────────────────────
@@ -100,11 +100,6 @@ export const LLM_PROVIDERS: { [key: string]: { models: ModelInfo[]; needsBaseUrl
       },
     ],
     docsUrl: 'https://ai.google.dev/docs',
-  },
-  'Custom OpenAI-compatible': {
-    models: [],
-    isCustom: true,
-    docsUrl: 'https://platform.openai.com/docs/api-reference/chat',
   },
 };
 

@@ -15,11 +15,12 @@ async function freshService() {
   return (await import('@/services/geminiService')).llmService;
 }
 
+// Provider Google + non-Google base URL → proxy path (OpenAI-compatible format)
 const customSettings = (over: Partial<LlmSettings> = {}): LlmSettings => ({
-  provider: 'Custom OpenAI-compatible',
-  model: 'gpt-x',
+  provider: 'Google',
+  model: 'gemini-3.8-flash',
   apiBaseUrl: 'https://api.example.com/v1',
-  customApiKey: 'k',
+  googleApiKey: 'k',
   customPromptInstruction: '',
   enhanceWithWebSearch: false,
   maxRetries: 0,
@@ -75,7 +76,7 @@ describe('llmService — circuit breaker', () => {
 
     for (let i = 0; i < 3; i++) {
       const r = await svc.generateText('p', s);
-      expect(r.text).toMatch(/Error from Custom/);
+      expect(r.text).toMatch(/Error from Google API/);
     }
     // 4th call short-circuits before hitting fetch
     const blocked = await svc.generateText('p', s);
@@ -142,15 +143,9 @@ describe('llmService — rate limiter', () => {
 });
 
 describe('llmService — config guards', () => {
-  it('errors when custom provider misses baseUrl/model', async () => {
+  it('errors when Google API key is missing', async () => {
     const svc = await freshService();
-    const res = await svc.generateText('p', customSettings({ apiBaseUrl: '' }));
-    expect(res.text).toMatch(/Custom provider config missing/);
-  });
-
-  it('transcribeAudio rejects non-Google provider', async () => {
-    const svc = await freshService();
-    const res = await svc.transcribeAudio('AAAA', 'audio/webm', 'Italian', customSettings());
-    expect(res.transcription).toMatch(/Google required/);
+    const res = await svc.generateText('p', customSettings({ googleApiKey: '' }));
+    expect(res.text).toMatch(/API Key non configurata/);
   });
 });
