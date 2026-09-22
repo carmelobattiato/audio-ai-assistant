@@ -33,13 +33,12 @@ const CIRCUIT_BREAKER_COOLDOWN_MS = 120 * 1000;
  * l'endpoint Google diretto. Ogni chiamata che istanzia GoogleGenAI deve passare
  * da qui, altrimenti ignora silenziosamente il proxy configurato dall'utente.
  */
-const GOOGLE_NATIVE_DOMAINS = ['googleapis.com', 'google.com'];
-const resolveGeminiBaseUrl = (apiBaseUrl?: string): { baseUrl: string; ignored: boolean } => {
+const resolveGeminiBaseUrl = (apiBaseUrl?: string, useOpenAiCompatibleProxy?: boolean): { baseUrl: string; ignored: boolean } => {
   const configured = apiBaseUrl?.trim() || '';
   const isOpenAiProxy =
+    !!useOpenAiCompatibleProxy ||
     configured.includes('/chat/completions') ||
-    configured.includes('/openai/') ||
-    (configured !== '' && !GOOGLE_NATIVE_DOMAINS.some(d => configured.includes(d)));
+    configured.includes('/openai/');
   return { baseUrl: isOpenAiProxy ? '' : configured, ignored: isOpenAiProxy };
 };
 
@@ -133,7 +132,7 @@ export const llmService = {
             const apiKey = llmSettings.googleApiKey?.trim();
             if (!apiKey) return { text: 'Error: API Key non configurata. Salvala nelle Impostazioni.' };
 
-            const { baseUrl, ignored } = resolveGeminiBaseUrl(apiBaseUrl);
+            const { baseUrl, ignored } = resolveGeminiBaseUrl(apiBaseUrl, llmSettings.useOpenAiCompatibleProxy);
 
             if (ignored && apiBaseUrl) {
               // Non-Google proxy (LiteLLM, etc.): use OpenAI-compatible format
@@ -268,7 +267,7 @@ export const llmService = {
     if (!apiKey) return { text: 'Error: API Key non configurata. Salvala nelle Impostazioni.' };
 
     try {
-      const { baseUrl, ignored } = resolveGeminiBaseUrl(llmSettings.apiBaseUrl);
+      const { baseUrl, ignored } = resolveGeminiBaseUrl(llmSettings.apiBaseUrl, llmSettings.useOpenAiCompatibleProxy);
       if (ignored) {
         loggingService.warn('TOOLS_BASEURL_IGNORED', `apiBaseUrl "${llmSettings.apiBaseUrl}" non è compatibile con il function calling Gemini — verrà usato l'endpoint Google diretto`);
       }
@@ -329,7 +328,7 @@ export const llmService = {
     const audioBase64Bytes = audioBase64.length;
 
     const configuredBaseUrl = llmSettings.apiBaseUrl?.trim() || '';
-    const { baseUrl: effectiveBaseUrl, ignored: isOpenAiProxy } = resolveGeminiBaseUrl(configuredBaseUrl);
+    const { baseUrl: effectiveBaseUrl, ignored: isOpenAiProxy } = resolveGeminiBaseUrl(configuredBaseUrl, llmSettings.useOpenAiCompatibleProxy);
 
     loggingService.debug('TRANSCRIPTION_GEMINI_START', `model=${model} audio=${(audioDecodedBytes / 1024 / 1024).toFixed(2)}MB base64=${(audioBase64Bytes / 1024 / 1024).toFixed(2)}MB`, {
         model,

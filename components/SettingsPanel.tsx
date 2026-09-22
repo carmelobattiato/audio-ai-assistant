@@ -694,6 +694,14 @@ const languageOptions = (["Italian", "English"] as SupportedLanguage[]).map(l =>
                     onChange={(e) => handleLocalLlmChange('apiBaseUrl', e.target.value)}
                     placeholder="https://generativelanguage.googleapis.com"
                   />
+                  {localSettings.llm.apiBaseUrl?.trim() && (
+                    <Checkbox
+                      label="Proxy OpenAI-compatible (LiteLLM, ecc.) — usa /v1/chat/completions invece del Gemini SDK"
+                      id="llmUseOpenAiProxy"
+                      checked={!!localSettings.llm.useOpenAiCompatibleProxy}
+                      onChange={(e) => handleLocalLlmChange('useOpenAiCompatibleProxy', e.target.checked)}
+                    />
+                  )}
 
                   {/* Modello LLM unico per tutte le funzioni */}
                   <div className="space-y-4 border-t border-gray-600 pt-4">

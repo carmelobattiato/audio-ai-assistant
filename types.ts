@@ -206,6 +206,7 @@ export interface LlmSettings {
   provider: string;
   model: string;
   apiBaseUrl: string;
+  useOpenAiCompatibleProxy?: boolean;
   /** Resolved in-memory only — never persisted to localStorage. */
   googleApiKey?: string;
   customPromptInstruction: string;

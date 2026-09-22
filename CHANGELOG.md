@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.178] — 2026-09-22
+
+- Checkbox "Proxy OpenAI-compatible" in LLM Configuration: attiva esplicitamente il formato /v1/chat/completions per proxy LiteLLM; disattivo usa Gemini SDK nativo (per gateway Gemini aziendali tipo gemini.genai-garage.accenture.com)
+
+---
+
 ## [1.177] — 2026-09-22
 
 - Fix compatibilità proxy LiteLLM: provider Google con URL non-Google usa automaticamente formato OpenAI-compatible (`/v1/chat/completions`) invece del Gemini SDK nativo
