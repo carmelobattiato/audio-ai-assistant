@@ -57,31 +57,61 @@ function Show-Help {
 # Utility - verifica requisiti
 # =============================================================================
 
+function Install-NodeJs {
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        Write-Host ""
+        Write-Host "winget non disponibile su questo sistema." -ForegroundColor Red
+        Write-Host "Installa Node.js manualmente da: https://nodejs.org/en/download" -ForegroundColor Cyan
+        Write-Host ""
+        return $false
+    }
+    Write-Host ""
+    Write-Host "Installazione Node.js LTS tramite winget..." -ForegroundColor Cyan
+    $result = Start-Process winget -ArgumentList "install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent" -Wait -PassThru -NoNewWindow
+    if ($result.ExitCode -eq 0) {
+        $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')
+        Write-Host "Node.js installato con successo." -ForegroundColor Green
+        return $true
+    } else {
+        Write-Host "Installazione fallita (codice $($result.ExitCode))." -ForegroundColor Red
+        Write-Host "Installa manualmente da: https://nodejs.org/en/download" -ForegroundColor Cyan
+        Write-Host ""
+        return $false
+    }
+}
+
 function Test-Requirements {
-    $missing = @()
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    $npm  = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if (-not $npm) { $npm = Get-Command npm -ErrorAction SilentlyContinue }
+
+    if ($node -and $npm) { return $true }
+
+    Write-Host ""
+    Write-Host "Requisito mancante: Node.js non trovato." -ForegroundColor Red
+    Write-Host "L'app richiede Node.js (include npm)." -ForegroundColor Yellow
+    Write-Host ""
+    $answer = Read-Host "Installare automaticamente Node.js ora? [S/N]"
+    if ($answer -notmatch '^[Ss]$') {
+        Write-Host ""
+        Write-Host "Installazione annullata. Installa Node.js da: https://nodejs.org/en/download" -ForegroundColor Yellow
+        Write-Host ""
+        return $false
+    }
+
+    if (-not (Install-NodeJs)) { return $false }
 
     $node = Get-Command node -ErrorAction SilentlyContinue
-    if (-not $node) { $missing += "node" }
-
-    $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    $npm  = Get-Command npm.cmd -ErrorAction SilentlyContinue
     if (-not $npm) { $npm = Get-Command npm -ErrorAction SilentlyContinue }
-    if (-not $npm) { $missing += "npm" }
-
-    if ($missing.Count -eq 0) { return $true }
-
-    Write-Host ""
-    Write-Host "Requisiti mancanti: $($missing -join ', ')" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "L'app richiede Node.js (include npm) installato su Windows." -ForegroundColor Yellow
-    Write-Host "Installa con:" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  winget install OpenJS.NodeJS.LTS" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "  oppure: https://nodejs.org/en/download" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "Dopo l'installazione chiudi e riapri il terminale, poi riprova." -ForegroundColor Yellow
-    Write-Host ""
-    return $false
+    if (-not $node -or -not $npm) {
+        Write-Host ""
+        Write-Host "Node.js non trovato dopo l'installazione. Riavvia il terminale e riprova." -ForegroundColor Red
+        Write-Host ""
+        return $false
+    }
+    return $true
 }
 
 # =============================================================================

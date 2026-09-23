@@ -4,7 +4,7 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-1.135-6366f1?style=for-the-badge&logo=github)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.178-6366f1?style=for-the-badge&logo=github)](CHANGELOG.md)
 [![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
@@ -82,52 +82,80 @@ Markdown export
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Installazione
 
-<table>
-<tr>
-<td>
+### 🪟 Windows — installazione guidata (consigliata)
+
+> Per chi non usa il terminale. Tutto automatico con un doppio clic.
+
+**Passo 1 — Scarica l'app**
+
+Clicca **[Download ZIP](https://github.com/carmelobattiato/audio-ai-assistant/archive/refs/heads/main.zip)**, estrai la cartella dove vuoi (es. `C:\Audio-AI-Assistant\`).
+
+**Passo 2 — Ottieni la chiave API Gemini**
+
+La chiave è gratuita. Puoi ottenerla su [aistudio.google.com/apikey](https://aistudio.google.com/apikey), oppure richiedila al tuo responsabile IT.
+
+**Passo 3 — Avvia l'installazione**
+
+Fai **doppio clic** su `Installa_Windows.bat` nella cartella estratta.  
+Lo script ti guida passo dopo passo: inserisce la chiave API, installa Node.js se mancante, crea l'icona sul Desktop e avvia l'app nel browser.
+
+**Avvii successivi:** doppio clic sull'icona `Audio AI Assistant` sul Desktop.
+
+---
 
 ### 🖥️ macOS / Linux
 
+<details>
+<summary>Espandi istruzioni macOS / Linux</summary>
+
 ```bash
-# Clone & install
+# Clona il repository
 git clone https://github.com/carmelobattiato/audio-ai-assistant
 cd audio-ai-assistant
-npm install
 
-# Set your Gemini API key
-echo "GEMINI_API_KEY=your_key_here" > .env
+# Imposta la chiave API
+echo "GEMINI_API_KEY=la_tua_chiave_qui" > .env
 
-# Launch dev server
-npm run dev
-# → http://localhost:8090
+# Installa, crea icona Desktop e avvia
+bash setup_and_run.sh install
+# → http://127.0.0.1:8090
+
+# Comandi successivi
+bash setup_and_run.sh open      # apri nel browser (avvia se spento)
+bash setup_and_run.sh stop      # ferma il server
+bash setup_and_run.sh status    # verifica stato
+bash setup_and_run.sh restart   # riavvia
 ```
 
-</td>
-<td>
+> Senza git: scarica il [ZIP](https://github.com/carmelobattiato/audio-ai-assistant/archive/refs/heads/main.zip) ed estrai.
 
-### 🪟 Windows (PowerShell)
+</details>
+
+### 🪟 Windows (PowerShell avanzato)
+
+<details>
+<summary>Espandi istruzioni PowerShell</summary>
 
 ```powershell
-# Start (installs deps on first run + Desktop shortcut)
-.\setup_and_run.ps1 start
+# Prima installazione (installa deps, crea icona Desktop, avvia)
+.\setup_and_run.ps1 install
 
-# Control
-.\setup_and_run.ps1 stop
-.\setup_and_run.ps1 status
-.\setup_and_run.ps1 reinstall
+# Avvii successivi
+.\setup_and_run.ps1 open        # apri nel browser (avvia se spento)
+.\setup_and_run.ps1 stop        # ferma il server
+.\setup_and_run.ps1 status      # verifica stato
+.\setup_and_run.ps1 restart     # riavvia
 
-# Custom port
-.\setup_and_run.ps1 start -Port 3000
+# Porta personalizzata
+.\setup_and_run.ps1 install -Port 3000
 # → http://127.0.0.1:8090
 ```
 
-</td>
-</tr>
-</table>
+</details>
 
-> 🔑 Get a free Gemini API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+> 🔑 Chiave API Gemini gratuita: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 
 ---
 
@@ -312,34 +340,34 @@ Audio Sources          Processing              Storage
 <th>Use for</th>
 </tr>
 <tr>
-<td><code>gemini-3-flash-preview</code> ⭐ default</td>
+<td><code>gemini-3.8-flash</code> ⭐ default</td>
+<td>🟢 Fast</td>
+<td>🟢 High</td>
+<td>Transcription + analysis (recommended)</td>
+</tr>
+<tr>
+<td><code>gemini-flash-latest</code></td>
+<td>🟢 Fast</td>
+<td>🟢 High</td>
+<td>Auto-updated alias — always latest Flash</td>
+</tr>
+<tr>
+<td><code>gemini-3.1-pro-preview</code></td>
+<td>🟡 Medium</td>
+<td>🟢 Best</td>
+<td>Detailed minutes, complex analysis</td>
+</tr>
+<tr>
+<td><code>gemini-2.5-flash</code> ⚠️ EOL ott 2026</td>
 <td>🟢 Fast</td>
 <td>🟡 Good</td>
-<td>Transcription + quick analysis</td>
+<td>Legacy — prefer gemini-3.8-flash</td>
 </tr>
 <tr>
-<td><code>gemini-3-pro-preview</code></td>
-<td>🟡 Medium</td>
-<td>🟢 High</td>
-<td>Detailed minutes, reports</td>
-</tr>
-<tr>
-<td><code>gemini-2.5-flash</code></td>
-<td>🟢 Fast</td>
-<td>🟢 High</td>
-<td>Best speed/quality balance</td>
-</tr>
-<tr>
-<td><code>gemini-2.5-pro</code></td>
-<td>🔴 Slow</td>
-<td>🟢 Best</td>
-<td>Complex analysis, research</td>
-</tr>
-<tr>
-<td>Custom OpenAI-compatible</td>
+<td>OpenAI-compatible proxy</td>
 <td>—</td>
 <td>—</td>
-<td>Any proxy / local model</td>
+<td>LiteLLM, gateway aziendale, local model</td>
 </tr>
 </table>
 
@@ -408,7 +436,7 @@ sequenceDiagram
 │  📁 audio chunks    📝 transcript    🤖 LLM results            │
 │  📌 bubble notes    💬 chat history  📊 statistics             │
 │                                                                │
-│  Max: 15 sessions · 50 MB each · auto-purge oldest            │
+│  Max: 50 sessions · 50 MB each · auto-purge oldest            │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -517,53 +545,27 @@ audio-ai-assistant/
 
 ## 🛠️ Scripts & Deployment
 
-| Script | Platform | Commands |
-|--------|----------|----------|
-| `github.sh` | macOS / Linux | `push` · `--pull-force` (overwrite local from remote) |
-| `setup_and_run.ps1` | Windows | `start` · `stop` · `status` · `reinstall` |
-| `setup_and_run.sh` | macOS / Linux | Same lifecycle for Unix |
-| `backup.sh` | macOS / Linux | Local backup with size reporting |
+| Script | Platform | Comandi |
+|--------|----------|---------|
+| `Installa_Windows.bat` | Windows | Doppio clic — guida installazione completa per non tecnici |
+| `Start.bat` | Windows | Doppio clic — avvio rapido (dopo prima installazione) |
+| `setup_and_run.ps1` | Windows | `install` · `open` · `stop` · `status` · `restart` · `uninstall` |
+| `setup_and_run.sh` | macOS / Linux | `install` · `open` · `stop` · `status` · `restart` · `autostart-enable` |
+| `scripts/github.sh` | macOS / Linux | `push` · `--pull-force` (sovrascrive locale da remoto) |
+| `backup.sh` | macOS / Linux | Backup locale con report dimensioni |
 
 ---
 
-## 📋 Latest Changes
+## 📋 Ultime modifiche
 
-### v1.135
+### v1.178 — 2026-09-22
 
-- Fix focus stealing nei modal: `useFocusTrap` non ri-sposta il focus ad ogni re-render del parent
-- Fix settings reset: `SettingsPanel` non sovrascrive le modifiche in corso se il parent aggiorna `appSettings`
-- Fix cost tracker: `StatisticsModal` ora calcola il costo reale per tutti i modelli Gemini (era sempre $0.00)
-- Rimossa cartella `extension-v2/` — unica versione è v3 (Bearer JWT + outlook.cloud.microsoft)
+- Checkbox "Proxy OpenAI-compatible" in LLM Configuration: attiva formato `/v1/chat/completions` per proxy LiteLLM; disattivo usa Gemini SDK nativo
+- `Installa_Windows.bat`: installer doppio clic per utenti non tecnici — guida chiave API, auto-install Node.js, avvio app
+- `setup_and_run.ps1`: auto-installazione Node.js via winget se mancante
+- `setup_and_run.sh`: controllo dipendenze con auto-install via brew / apt / dnf / pacman
 
-<details>
-<summary>📜 Older versions</summary>
-
-### v1.134 — 2026-07-01
-- Extension v3: fix sync `outlook.cloud.microsoft` — Bearer JWT + `x-anchormailbox` / `x-tenantid`
-- Old calendar (`NeoCalendarDayView`) rimosso — unico entry point è `NewCalendarView`
-- Settings ZIP aggiornato a `calendar-bridge-v3.zip`
-
-### v1.93 — 2026-04-29
-- Chat textarea: double-height (4 rows, min 80 px), resizable up to 300 px
-- Smart Pipeline: auto-transcription disabled when pipeline off
-- `github_push.sh` → `github.sh` + `--pull-force` parameter
-
-### v1.91 — 2026-04-29
-- Settings → AI Rules: sub-tab "User Rules" / "System Prompts"
-- 8 editable system prompts grouped by category
-- Placeholders: `{{LANGUAGE}}`, `{{DATE}}`, `{{DIARIZATION}}`, `{{EXTRA}}`
-
-### v1.76 — 2026-04-24
-- New **Settings → AI Rules** tab — persistent rules injected into every Gemini call
-- **✉ Prepare Email** button (Windows) — pre-filled Outlook draft from AI result
-- Outlook attendee `type: 'required' | 'optional'` added to type definitions
-
-### v1.75 — 2026-04-10
-- Custom API key, base URL, model name in Settings
-- Neo Calendar: parallel-meeting layout (up to 10 dynamic columns)
-- Teams + Rec: opens Teams desktop via `msteams://` protocol
-
-</details>
+> Storico completo in [CHANGELOG.md](CHANGELOG.md)
 
 ---
 

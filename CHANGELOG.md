@@ -8,6 +8,15 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.179] — 2026-09-23
+
+- `Installa_Windows.bat`: installer doppio clic per utenti non tecnici — guida chiave API, auto-install Node.js via winget, avvio app
+- `setup_and_run.ps1`: auto-installazione Node.js via winget se mancante (prima era solo un avviso)
+- `setup_and_run.sh`: controllo dipendenze con auto-install Node.js via brew (macOS) o apt/dnf/pacman (Linux)
+- `README.md`: sezione installazione Windows step-by-step, badge versione aggiornato
+
+---
+
 ## [1.178] — 2026-09-22
 
 - Checkbox "Proxy OpenAI-compatible" in LLM Configuration: attiva esplicitamente il formato /v1/chat/completions per proxy LiteLLM; disattivo usa Gemini SDK nativo (per gateway Gemini aziendali tipo gemini.genai-garage.accenture.com)

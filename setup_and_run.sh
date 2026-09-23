@@ -48,6 +48,55 @@ case "$ACTION" in
 esac
 
 # =============================================================================
+# Verifica prerequisiti
+# =============================================================================
+
+check_requirements() {
+    local missing=()
+    command -v node &>/dev/null || missing+=("node")
+    command -v npm  &>/dev/null || missing+=("npm")
+
+    if [[ ${#missing[@]} -eq 0 ]]; then return 0; fi
+
+    echo -e "${RED}Requisito mancante: Node.js non trovato.${RESET}"
+    echo -e "${YELLOW}L'app richiede Node.js (include npm).${RESET}"
+    echo ""
+    printf "Installare automaticamente Node.js ora? [s/N] "
+    read -r answer </dev/tty
+    if [[ ! "$answer" =~ ^[Ss]$ ]]; then
+        echo -e "${YELLOW}Installazione annullata. Installa Node.js da: https://nodejs.org${RESET}"
+        return 1
+    fi
+
+    local os
+    os="$(uname)"
+    if [[ "$os" == "Darwin" ]]; then
+        if command -v brew &>/dev/null; then
+            echo -e "${CYAN}Installazione Node.js via Homebrew...${RESET}"
+            brew install node && return 0
+        else
+            echo -e "${YELLOW}Homebrew non trovato. Installalo prima da: https://brew.sh${RESET}"
+            echo -e "${YELLOW}Poi esegui: brew install node${RESET}"
+            return 1
+        fi
+    else
+        if command -v apt-get &>/dev/null; then
+            echo -e "${CYAN}Installazione Node.js via apt...${RESET}"
+            sudo apt-get update -q && sudo apt-get install -y nodejs npm && return 0
+        elif command -v dnf &>/dev/null; then
+            echo -e "${CYAN}Installazione Node.js via dnf...${RESET}"
+            sudo dnf install -y nodejs npm && return 0
+        elif command -v pacman &>/dev/null; then
+            echo -e "${CYAN}Installazione Node.js via pacman...${RESET}"
+            sudo pacman -Sy --noconfirm nodejs npm && return 0
+        else
+            echo -e "${RED}Package manager non riconosciuto. Installa Node.js da: https://nodejs.org${RESET}"
+            return 1
+        fi
+    fi
+}
+
+# =============================================================================
 # Help
 # =============================================================================
 
@@ -520,6 +569,7 @@ _autostart_disable_linux() {
 # =============================================================================
 
 start_app_service() {
+    check_requirements || return 1
     if test_port_listening "$PORT"; then
         echo -e "${YELLOW}Il servizio è già in ascolto sulla porta $PORT.${RESET}"
         echo -e "${YELLOW}Usa 'stop' prima di avviarlo di nuovo, oppure 'restart'.${RESET}"
@@ -704,6 +754,8 @@ restart_app_service() {
 
 install_app() {
     echo -e "${CYAN}=== Installazione Audio AI Assistant ===${RESET}"
+
+    check_requirements || return 1
 
     local node_modules_path="$TARGET_DIR/node_modules"
     local reinstall_modules=false
