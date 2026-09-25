@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<title>Audio AI Assistance Plugin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 340px;
+    background: #111118;
+    color: #e2e8f0;
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .section {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .section:last-child { border-bottom: none; }
+
+  /* ── Header ── */
+  .header { display: flex; align-items: center; gap: 10px; }
+  .header-icon {
+    width: 30px; height: 30px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    border-radius: 8px; font-size: 15px;
+  }
+  .header-text { flex: 1; min-width: 0; }
+  .header-title {
+    font-size: 13px; font-weight: 600; color: #f1f5f9;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .header-sub { font-size: 10px; color: #64748b; }
+  .version-pill {
+    flex: none; font-size: 10px; padding: 2px 7px; border-radius: 10px;
+    background: rgba(99,102,241,.18); color: #a5b4fc; font-weight: 600;
+  }
+
+  /* ── Rows ── */
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 3px 0;
+  }
+  .label { color: #94a3b8; font-size: 12px; }
+  .value { font-size: 12px; color: #e2e8f0; }
+  .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 6px;
+    background: rgba(14,165,233,.12); color: #7dd3fc;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    max-width: 195px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .badge.none { background: rgba(148,163,184,.1); color: #64748b; }
+
+  /* ── Status dot ── */
+  .status { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #64748b; }
+  .dot.ok       { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,.7); }
+  .dot.error    { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.7); }
+  .dot.fetching { background: #f97316; animation: pulse 1.2s ease-in-out infinite; }
+  .dot.idle     { background: #64748b; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+
+  .state-text { font-size: 12px; font-weight: 600; }
+  .state-text.ok { color: #10b981; }
+  .state-text.error { color: #ef4444; }
+  .state-text.fetching { color: #f97316; }
+  .state-text.idle { color: #64748b; }
+
+  .error-box {
+    margin-top: 7px; padding: 6px 8px; border-radius: 6px;
+    background: rgba(239,68,68,.1); color: #fca5a5; font-size: 11px;
+    word-break: break-word;
+  }
+
+  /* ── Counts ── */
+  .count-main { font-size: 30px; font-weight: 700; color: #f1f5f9; line-height: 1.1; }
+  .count-sub { font-size: 11px; color: #64748b; margin-bottom: 7px; }
+
+  /* ── Buttons ── */
+  .actions { display: flex; gap: 8px; }
+  .btn {
+    flex: 1; padding: 8px 10px; border: none; border-radius: 7px;
+    font-size: 12px; font-weight: 600; cursor: pointer; color: #fff;
+    font-family: inherit;
+  }
+  .btn-primary { background: linear-gradient(135deg, #0ea5e9, #6366f1); }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.12); }
+  .btn-secondary { background: rgba(255,255,255,.07); color: #cbd5e1; }
+  .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .link-btn {
+    background: none; border: none; color: #94a3b8; font-size: 11px;
+    cursor: pointer; padding: 0; font-family: inherit;
+  }
+  .link-btn:hover { color: #e2e8f0; }
+
+  .toggle-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .mini-actions { display: flex; gap: 6px; }
+  .btn-mini {
+    background: rgba(255,255,255,.07); border: none; color: #cbd5e1;
+    font-size: 10px; padding: 3px 7px; border-radius: 5px; cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-mini:hover { background: rgba(255,255,255,.14); }
+  .btn-mini.danger { color: #fca5a5; }
+
+  /* ── Advanced ── */
+  .adv-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; }
+  input[type=number] {
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    color: #e2e8f0; border-radius: 5px; padding: 4px 7px; font-size: 12px;
+    width: 58px; font-family: inherit;
+  }
+  .radio-group { display: flex; gap: 10px; }
+  .radio-group label { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #cbd5e1; cursor: pointer; }
+  .saved { color: #10b981; font-size: 11px; opacity: 0; transition: opacity .2s; }
+  .saved.show { opacity: 1; }
+
+  .evt-list {
+    max-height: 130px; overflow-y: auto; margin-top: 8px;
+    border-radius: 6px; background: rgba(255,255,255,.03);
+  }
+  .evt {
+    padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.04);
+    font-size: 11px; display: flex; gap: 7px;
+  }
+  .evt:last-child { border-bottom: none; }
+  .evt-time { color: #7dd3fc; flex: none; font-variant-numeric: tabular-nums; }
+  .evt-subj { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .evt-empty { padding: 8px; color: #475569; font-size: 11px; }
+
+  textarea {
+    width: 100%; height: 90px; margin-top: 8px; resize: vertical;
+    background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 6px; color: #94a3b8; font-size: 10px; padding: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  /* ── Log panel ── */
+  .log-panel {
+    max-height: 170px; overflow-y: auto; margin-top: 8px;
+    background: rgba(0,0,0,.35); border-radius: 6px; padding: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px;
+  }
+  .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,.03); display: flex; gap: 6px; }
+  .log-entry:last-child { border-bottom: none; }
+  .log-ts { color: #475569; flex: none; }
+  .log-ev { color: #a5b4fc; flex: none; }
+  .log-detail { color: #94a3b8; word-break: break-word; }
+  .log-empty { color: #475569; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="section header">
+    <div class="header-icon">🎙</div>
+    <div class="header-text">
+      <div class="header-title">Audio AI Assistance</div>
+      <div class="header-sub">Outlook calendar sync</div>
+    </div>
+    <span class="version-pill" id="version">—</span>
+  </div>
+
+  <!-- Connessione -->
+  <div class="section">
+    <div class="row">
+      <span class="label">Connesso a</span>
+      <span class="badge none" id="connectedUrl">non connesso</span>
+    </div>
+  </div>
+
+  <!-- Stato sync -->
+  <div class="section">
+    <div class="row">
+      <span class="label">Stato</span>
+      <div class="status">
+        <div class="dot idle" id="statusDot"></div>
+        <span class="state-text idle" id="statusText">In attesa</span>
+      </div>
+    </div>
+    <div class="row">
+      <span class="label">Ultima sync</span>
+      <span class="value mono" id="lastSync">—</span>
+    </div>
+    <div class="row">
+      <span class="label">Prossima sync</span>
+      <span class="value mono" id="nextSync">—</span>
+    </div>
+    <div class="error-box hidden" id="errorBox"></div>
+  </div>
+
+  <!-- Conteggi -->
+  <div class="section">
+    <div class="count-main" id="countMain">—</div>
+    <div class="count-sub" id="countSub">appuntamenti caricati</div>
+    <div class="row">
+      <span class="label">Scorsa settimana</span>
+      <span class="value" id="countPast">—</span>
+    </div>
+    <div class="row">
+      <span class="label">Prossima settimana</span>
+      <span class="value" id="countFuture">—</span>
+    </div>
+  </div>
+
+  <!-- Azioni -->
+  <div class="section actions">
+    <button class="btn btn-primary" id="syncBtn">⟳ Sincronizza</button>
+    <button class="btn btn-secondary" id="downloadBtn" disabled>↓ Scarica JSON</button>
+  </div>
+
+  <!-- Avanzate -->
+  <div class="section">
+    <div class="toggle-bar">
+      <button class="link-btn" id="advToggle">⚙ Avanzate</button>
+    </div>
+    <div class="hidden" id="advPanel">
+      <div class="adv-row">
+        <span class="label">Target Outlook</span>
+        <div class="radio-group">
+          <label><input type="radio" name="outlookUrl" id="optCloud" /> Cloud</label>
+          <label><input type="radio" name="outlookUrl" id="optLive" /> Live</label>
+        </div>
+      </div>
+      <div class="adv-row">
+        <span class="label">Auto-sync (min)</span>
+        <div class="status">
+          <span class="saved" id="intervalSaved">✓</span>
+          <input type="number" min="1" max="60" id="intervalInput" />
+        </div>
+      </div>
+      <div class="adv-row">
+        <span class="label">Debug RAW su Outlook</span>
+        <input type="checkbox" id="debugModeToggle" />
+      </div>
+      <div class="adv-row">
+        <button class="btn btn-secondary" id="reloadBtn">↻ Ricarica tab Outlook</button>
+      </div>
+      <div class="adv-row">
+        <span class="label">Eventi</span>
+        <button class="btn-mini" id="jsonBtn">{ } JSON</button>
+      </div>
+      <div class="evt-list" id="evtList"></div>
+      <textarea class="hidden" id="jsonArea" readonly></textarea>
+    </div>
+  </div>
+
+  <!-- Log debug -->
+  <div class="section">
+    <div class="toggle-bar">
+      <button class="link-btn" id="logToggle">🪲 Log debug</button>
+      <div class="mini-actions hidden" id="logActions">
+        <button class="btn-mini" id="logCopy">Copia</button>
+        <button class="btn-mini" id="logDownload">Scarica</button>
+        <button class="btn-mini danger" id="logClear">Pulisci</button>
+      </div>
+    </div>
+    <div class="log-panel hidden" id="logPanel"></div>
+  </div>
+
+<script src="popup.js"></script>
+</body>
+</html>

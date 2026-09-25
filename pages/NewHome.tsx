@@ -22,7 +22,7 @@ const BubbleNotes       = lazy(() => import('../components/BubbleNotes').then(m 
 const TranscriptionView = lazy(() => import('../components/TranscriptionView').then(m => ({ default: m.TranscriptionView })));
 const LlmProcessor      = lazy(() => import('../components/LlmProcessor').then(m => ({ default: m.LlmProcessor as React.ComponentType<React.ComponentProps<typeof m.LlmProcessor>> })));
 const MeetingChatPanel  = lazy(() => import('../components/MeetingChatPanel').then(m => ({ default: m.MeetingChatPanel })));
-const NewCalendarView = lazy(() => import('../components/newcalendar/NewCalendarView').then(m => ({ default: m.NewCalendarView })));
+const V4CalendarView = lazy(() => import('../components/v4calendar/V4CalendarView').then(m => ({ default: m.V4CalendarView })));
 
 import { useTranscriptionLogic } from '../hooks/useTranscriptionLogic';
 import { useSessionLogic } from '../hooks/useSessionLogic';
@@ -123,9 +123,7 @@ export const NewHome: React.FC = () => {
 
   // ── Calendar sync ───────────────────────────────────────────────────────
   const {
-    calAppointments, calError, calRefreshing,
-    calExtensionConnected, calOutlookState, calSource, calendarEventsDb, setCalendarEventsDb, lastSyncAt,
-    fetchCalendarData,
+    calAppointments, calendarEventsDb, setCalendarEventsDb,
   } = useCalendarSync({ isNewCalendarOpen });
 
 
@@ -464,20 +462,6 @@ export const NewHome: React.FC = () => {
       setTimeout(() => { isInitialLoadingRef.current = false; }, 500);
     }
   }, [resetAllDataStates, transLogic]);
-
-  const handleCorrelateEvents = useCallback(async (sessionIds: string[]) => {
-    if (!activeSessionIdRef.current) return;
-    const existing = correlatedSessions.map(s => s.id);
-    const merged = [...new Set([...existing, ...sessionIds])];
-    await db.updateSessionIncremental(activeSessionIdRef.current, { correlatedSessionIds: merged });
-    const loaded = await Promise.all(merged.map(id => db.getSessionById(id)));
-    setCorrelatedSessions(
-      loaded
-        .filter((s): s is SavedSession => Boolean(s))
-        .map(s => ({ id: s.id, data: s.data }))
-    );
-    setAppUserMessage(`${merged.length} session${merged.length !== 1 ? 's' : ''} correlated.`);
-  }, [correlatedSessions]);
 
   const handleToggleHistoricalContext = useCallback(async (enabled: boolean) => {
     setUseHistoricalContext(enabled);
@@ -1308,9 +1292,8 @@ export const NewHome: React.FC = () => {
       {isNewCalendarOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}>
           <div className="flex flex-col rounded-xl overflow-hidden shadow-2xl" style={{ width: '75vw', height: '75vh', background: 'rgb(17,24,39)', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(17,24,39,0.95)' }}>
-            <span className="text-sm font-semibold text-purple-300">Calendar</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(17,24,39,0.95)' }}>
+              <span className="text-sm font-semibold text-purple-300">Calendar</span>
               <button
                 onClick={() => setIsNewCalendarOpen(false)}
                 className="text-gray-400 hover:text-white transition-colors p-1 rounded"
@@ -1321,47 +1304,36 @@ export const NewHome: React.FC = () => {
                 </svg>
               </button>
             </div>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Caricamento…</div>}>
-              <NewCalendarView
-                events={calendarEventsDb}
-                sessions={savedSessions}
-                onLinkSession={handleLinkSessionToEvent}
-                onUnlinkSession={handleUnlinkSessionFromEvent}
-                currentSessionId={activeSessionIdRef.current ?? undefined}
-                onCorrelateEvents={handleCorrelateEvents}
-                onOpenSession={(sessionId) => {
-                  setSessionToPreview(sessionId);
-                  setShowLoadSessionModal(true);
-                }}
-                onLoadInfo={(eventId, title, noteHtml, attendees) => {
-                  setIsNewCalendarOpen(false);
-                  handleOutlookImport(title, noteHtml, attendees);
-                  pendingLinkAppointmentRef.current = { id: eventId, subject: title };
-                }}
-                onLoadAndSchedule={(eventId, title, noteHtml, attendees, startIso) => {
-                  setIsNewCalendarOpen(false);
-                  handleOutlookImport(title, noteHtml, attendees);
-                  pendingLinkAppointmentRef.current = { id: eventId, subject: title };
-                  const startMs = new Date(startIso).getTime();
-                  if (Number.isFinite(startMs)) scheduleAutoStart(startMs, title);
-                }}
-                onOpenTeamsAndRecord={(eventId, title, noteHtml, teamsUrl, attendees) => {
-                  setIsNewCalendarOpen(false);
-                  pendingLinkAppointmentRef.current = { id: eventId, subject: title };
-                  handleOutlookOpenTeams(title, noteHtml, teamsUrl, attendees);
-                }}
-                onSync={() => fetchCalendarData(true, true)}
-                isSyncing={calRefreshing}
-                syncError={calError}
-                calSource={calSource}
-                calExtensionConnected={calExtensionConnected}
-                calOutlookState={calOutlookState}
-                lastSyncAt={lastSyncAt}
-              />
-            </Suspense>
-          </div>
+            <div className="flex-1 overflow-hidden">
+              <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Caricamento…</div>}>
+                <V4CalendarView
+                  sessions={savedSessions}
+                  onOpenSession={(sessionId) => {
+                    setSessionToPreview(sessionId);
+                    setShowLoadSessionModal(true);
+                  }}
+                  onLinkSession={handleLinkSessionToEvent}
+                  onUnlinkSession={handleUnlinkSessionFromEvent}
+                  onLoadInfo={(eventId, title, noteHtml, attendees) => {
+                    setIsNewCalendarOpen(false);
+                    handleOutlookImport(title, noteHtml, attendees);
+                    pendingLinkAppointmentRef.current = { id: eventId, subject: title };
+                  }}
+                  onLoadAndSchedule={(eventId, title, noteHtml, attendees, startIso) => {
+                    setIsNewCalendarOpen(false);
+                    handleOutlookImport(title, noteHtml, attendees);
+                    pendingLinkAppointmentRef.current = { id: eventId, subject: title };
+                    const startMs = new Date(startIso).getTime();
+                    if (Number.isFinite(startMs)) scheduleAutoStart(startMs, title);
+                  }}
+                  onOpenTeamsAndRecord={(eventId, title, noteHtml, teamsUrl, attendees) => {
+                    setIsNewCalendarOpen(false);
+                    pendingLinkAppointmentRef.current = { id: eventId, subject: title };
+                    handleOutlookOpenTeams(title, noteHtml, teamsUrl, attendees);
+                  }}
+                />
+              </Suspense>
+            </div>
           </div>
         </div>
       )}

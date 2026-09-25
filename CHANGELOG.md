@@ -8,6 +8,37 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.180] — 2026-09-25
+
+### Plugin Outlook (`extension-v4/`)
+
+- Nuovo plugin Chrome standalone "Audio AI Assistance Plugin", fork di `extension-v3`: carica in memoria gli appuntamenti Outlook della scorsa e prossima settimana, auto-sync ogni 60s, sincronizzazione manuale, download JSON
+- Sync eseguita dal service worker con il token Outlook in cache: una tab congelata dal browser non esegue né content script né timer, e il plugin restava fermo finché l'utente non tornava su Outlook. Il percorso via content script resta come fallback quando il token manca o è scaduto
+- Finestra di sync -7g/+7g (in v3 era -24h con cutoff raw a 48h, che svuotava la scorsa settimana)
+- Nessuna navigazione della tab dell'utente: il reload di Outlook resta solo come comando manuale
+- Namespace separato da v3 (chiavi `v4_*`, messaggi `AAI_V4_*`, tag pagina `__AAI_V4_*`): le due estensioni iniettano nella stessa tab e senza questo si sovrascrivono `window.fetch` a vicenda
+- Bridge verso l'app su chiavi `aai-v4-bridge*` (eventi, timestamp dati, stato, battito, prossima sync) con `StorageEvent` sintetico; la cache viene ripubblicata a ogni ciclo e al caricamento di una tab dell'app
+- `content-app.js`: relay sulle tab dell'app, che altrimenti non ha modo di parlare col service worker
+- Popup ricostruito: URL connesso, stato, ultima sync, countdown in secondi, conteggio scorsa/prossima settimana, download JSON, pannello log con Copia/Scarica/Pulisci, sezione Avanzate (target Outlook, intervallo, lista eventi, debug RAW); versione letta dal manifest
+- Diagnostica: log a 100 voci con scritture serializzate (erano read-modify-write concorrenti e le voci ravvicinate si sovrascrivevano), `SYNC_NO_RESPONSE` quando un trigger non produce eventi, esito dei push all'app (`APP_PUSH_OK` / `APP_PUSH_FAIL` / `APP_NOT_FOUND`)
+- Rimossi `content-teams.js` e `content-owa-calendar.js`, non referenziati dal manifest
+
+### Calendar v4 (app)
+
+- `components/v4calendar/V4CalendarView.tsx`: nuovo calendario alimentato dal plugin, con barra di stato — plugin rilevato, esito ultima sync, orario dei dati Outlook, countdown alla prossima sync, numero appuntamenti. Vista "Giorno" come default
+- `components/v4calendar/V4CalendarView.tsx`: tasto "Run sync" tracciato su `loggingService` (evento `CALENDAR_V4`, visibile in Settings › Logs & Monitoring), con timeout di 10s se il plugin non risponde
+- `components/v4calendar/V4CalendarView.tsx`: pannello di dettaglio con "Teams + Rec", "Load Info", "Load & Schedule", collegamento sessione e apertura della sessione collegata
+- `hooks/useV4CalendarSync.ts`: lettura del bridge v4, solo in memoria; plugin considerato offline dopo 90s senza battito, con polling a 5s perché un plugin che si ferma non emette eventi
+- `hooks/useV4CalendarSync.ts`: lo storico delle registrazioni (eventi `source: 'app'` e qualsiasi evento con sessione collegata) viene unito a quelli del plugin su tutto l'archivio, non solo sui ±7 giorni; dedup per id con fallback su `subject` + istante di inizio, perché lo stesso incontro può avere id diversi tra plugin e archivio
+- `pages/NewHome.tsx`, `contexts/UIStateContext.tsx`, `components/newpage/NeoTopbar.tsx`: il nuovo calendario sostituisce il precedente e ne eredita il tasto "Calendar" — rimossi `NewCalendarView.tsx`, il secondo stato di apertura e `handleCorrelateEvents` (la correlazione multipla viveva solo nella selezione del vecchio calendario)
+
+### Settings
+
+- `components/settings/Calendar2IntegrationTab.tsx`: il download dell'estensione serve `audio-ai-assistance-plugin-v4.zip` (v4.4.0) al posto di `calendar-bridge-v3.zip`, con guida di installazione aggiornata; versione e nome file in due costanti a inizio file
+- `public/`: sostituito lo zip dell'estensione — rigenerarlo da `extension-v4/` a ogni rilascio del plugin
+
+---
+
 ## [1.179] — 2026-09-23
 
 - `Installa_Windows.bat`: installer doppio clic per utenti non tecnici — guida chiave API, auto-install Node.js via winget, avvio app
