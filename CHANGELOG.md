@@ -32,6 +32,11 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 - `hooks/useV4CalendarSync.ts`: lo storico delle registrazioni (eventi `source: 'app'` e qualsiasi evento con sessione collegata) viene unito a quelli del plugin su tutto l'archivio, non solo sui ±7 giorni; dedup per id con fallback su `subject` + istante di inizio, perché lo stesso incontro può avere id diversi tra plugin e archivio
 - `pages/NewHome.tsx`, `contexts/UIStateContext.tsx`, `components/newpage/NeoTopbar.tsx`: il nuovo calendario sostituisce il precedente e ne eredita il tasto "Calendar" — rimossi `NewCalendarView.tsx`, il secondo stato di apertura e `handleCorrelateEvents` (la correlazione multipla viveva solo nella selezione del vecchio calendario)
 
+### Rimozioni
+
+- `extension-v3/`: eliminata, sostituita da `extension-v4/` (recuperabile dalla history git)
+- `README.md`: sezione estensione aggiornata al nuovo plugin
+
 ### Settings
 
 - `components/settings/Calendar2IntegrationTab.tsx`: il download dell'estensione serve `audio-ai-assistance-plugin-v4.zip` (v4.4.0) al posto di `calendar-bridge-v3.zip`, con guida di installazione aggiornata; versione e nome file in due costanti a inizio file

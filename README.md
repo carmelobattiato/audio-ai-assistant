@@ -413,15 +413,15 @@ sequenceDiagram
 |--------|----------|---------|---------------|
 | **Windows COM** | Windows only | Real-time | ★★★ Attendees, Teams URL, body |
 | **ICS Feed** | Cross-platform | 1–3 h | ★★ Title, time, location |
-| **Extension v3** | Chrome / Edge | ~30 s | ★★★ Full calendar data |
+| **Audio AI Assistance Plugin** | Chrome / Edge | ~60 s | ★★★ Full calendar data |
 
 <details>
-<summary>🔧 Extension Setup (v3)</summary>
+<summary>🔧 Extension Setup</summary>
 
-1. Settings → Integrations → Browser Extension → download `calendar-bridge-v3.zip`
+1. Settings → Integrations → Browser Extension → download `audio-ai-assistance-plugin-v4.zip`
 2. Extract → `chrome://extensions` → Developer mode → **Load unpacked**
 3. Open `outlook.live.com/calendar` or `outlook.cloud.microsoft`
-4. Wait ~30 s → badge **"Outlook ● Connessa"** appears
+4. Wait ~60 s → the Calendar shows **Plugin ● Rilevato**
 
 </details>
 
