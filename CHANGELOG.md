@@ -8,6 +8,12 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.181] — 2026-09-28
+
+- Fix chat Archivio con proxy OpenAI-compatible: `generateWithTools` traduce il function calling Gemini in formato OpenAI (`tools`/`tool_calls`/messaggi `tool`) verso `/v1/chat/completions` invece di contattare Google diretto (`API_KEY_INVALID`)
+
+---
+
 ## [1.180] — 2026-09-25
 
 ### Plugin Outlook (`extension-v4/`)

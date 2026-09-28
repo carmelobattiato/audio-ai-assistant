@@ -42,6 +42,81 @@ const resolveGeminiBaseUrl = (apiBaseUrl?: string, useOpenAiCompatibleProxy?: bo
   return { baseUrl: isOpenAiProxy ? '' : configured, ignored: isOpenAiProxy };
 };
 
+/**
+ * Abbassa i `type` di uno schema-parametri Gemini (enum `Type.OBJECT`/`STRING`/… →
+ * stringhe maiuscole) al formato JSON Schema OpenAI (minuscolo), ricorsivamente
+ * su `properties` e `items`. Serve per passare le FunctionDeclaration Gemini a un
+ * proxy OpenAI-compatibile (LiteLLM).
+ */
+const normalizeSchemaForOpenAi = (schema: unknown): unknown => {
+  if (Array.isArray(schema)) return schema.map(normalizeSchemaForOpenAi);
+  if (!schema || typeof schema !== 'object') return schema;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
+    if (key === 'type' && (typeof value === 'string' || typeof value === 'number')) {
+      out[key] = String(value).toLowerCase();
+    } else if (key === 'properties' && value && typeof value === 'object') {
+      out[key] = Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, normalizeSchemaForOpenAi(v)]),
+      );
+    } else if (key === 'items') {
+      out[key] = normalizeSchemaForOpenAi(value);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+};
+
+type OpenAiMessage =
+  | { role: 'system' | 'user' | 'assistant'; content: string | null; tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> }
+  | { role: 'tool'; tool_call_id: string; content: string };
+
+/**
+ * Converte una conversazione in formato Gemini (`Content[]`) in messaggi OpenAI.
+ * Gemini non assegna id ai tool call: qui vengono generati in modo deterministico
+ * e riassociati per nome (coda FIFO) tra `functionCall` (assistant) e i relativi
+ * `functionResponse` (messaggi `tool`).
+ */
+const geminiContentsToOpenAiMessages = (contents: Content[], systemInstruction?: string): OpenAiMessage[] => {
+  const messages: OpenAiMessage[] = [];
+  if (systemInstruction) messages.push({ role: 'system', content: systemInstruction });
+
+  let callCounter = 0;
+  // id dei tool_call emessi nell'ultimo messaggio assistant, in attesa della relativa response
+  const pendingIds: Array<{ name: string; id: string }> = [];
+
+  for (const content of contents) {
+    const parts = content.parts ?? [];
+    const functionCalls = parts.filter((p): p is Part & { functionCall: { name?: string; args?: Record<string, unknown> } } => 'functionCall' in p && !!(p as { functionCall?: unknown }).functionCall);
+    const functionResponses = parts.filter((p): p is Part & { functionResponse: { name?: string; response?: unknown } } => 'functionResponse' in p && !!(p as { functionResponse?: unknown }).functionResponse);
+    const text = parts.map(partText).filter(Boolean).join('\n\n');
+
+    if (functionCalls.length > 0) {
+      const toolCalls = functionCalls.map(p => {
+        const id = `call_${callCounter++}`;
+        pendingIds.push({ name: p.functionCall.name ?? '', id });
+        return { id, type: 'function' as const, function: { name: p.functionCall.name ?? '', arguments: JSON.stringify(p.functionCall.args ?? {}) } };
+      });
+      messages.push({ role: 'assistant', content: null, tool_calls: toolCalls });
+    } else if (functionResponses.length > 0) {
+      for (const p of functionResponses) {
+        const name = p.functionResponse.name ?? '';
+        const matchIdx = pendingIds.findIndex(pc => pc.name === name);
+        const id = matchIdx >= 0 ? pendingIds.splice(matchIdx, 1)[0]!.id : `call_${callCounter++}`;
+        const resp = p.functionResponse.response as { result?: unknown } | undefined;
+        const payload = resp && 'result' in resp ? resp.result : resp;
+        messages.push({ role: 'tool', tool_call_id: id, content: JSON.stringify(payload ?? null) });
+      }
+    } else if (content.role === 'model') {
+      messages.push({ role: 'assistant', content: text });
+    } else {
+      messages.push({ role: 'user', content: text });
+    }
+  }
+  return messages;
+};
+
 class TimeoutError extends Error {
   constructor(message = 'Request timed out') {
     super(message);
@@ -267,10 +342,60 @@ export const llmService = {
     if (!apiKey) return { text: 'Error: API Key non configurata. Salvala nelle Impostazioni.' };
 
     try {
-      const { baseUrl, ignored } = resolveGeminiBaseUrl(llmSettings.apiBaseUrl, llmSettings.useOpenAiCompatibleProxy);
-      if (ignored) {
-        loggingService.warn('TOOLS_BASEURL_IGNORED', `apiBaseUrl "${llmSettings.apiBaseUrl}" non è compatibile con il function calling Gemini — verrà usato l'endpoint Google diretto`);
+      const configuredBaseUrl = llmSettings.apiBaseUrl?.trim() || '';
+      const { baseUrl, ignored } = resolveGeminiBaseUrl(configuredBaseUrl, llmSettings.useOpenAiCompatibleProxy);
+
+      if (ignored && configuredBaseUrl) {
+        // Proxy OpenAI-compatibile (LiteLLM, ecc.): traduce il tool-calling Gemini
+        // in formato OpenAI (tools / tool_calls / messaggi tool). Vedi generateText/transcribeAudio.
+        const base = configuredBaseUrl.replace(/\/$/, '');
+        const fullUrl = `${base}/v1/chat/completions`;
+        const headers: HeadersInit = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
+
+        const openAiTools = tools.map(t => ({
+          type: 'function',
+          function: { name: t.name, description: t.description, parameters: normalizeSchemaForOpenAi(t.parameters) },
+        }));
+        const messages = geminiContentsToOpenAiMessages(contents, systemInstruction);
+
+        const response = await promiseWithTimeout(
+          fetch(fullUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ model: llmSettings.model, messages, tools: openAiTools, tool_choice: 'auto' }),
+            signal,
+          }),
+          (llmSettings.timeout ?? 30) * 1000,
+          signal,
+        );
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          const msg = errorBody?.error?.message || response.statusText;
+          throw new Error(`[${response.status}] ${msg}`);
+        }
+        const data = await response.json();
+        const usageMetadata = data.usage
+          ? { inputTokens: data.usage.prompt_tokens ?? 0, outputTokens: data.usage.completion_tokens ?? 0 }
+          : undefined;
+        const message = data.choices?.[0]?.message;
+        const toolCalls = message?.tool_calls;
+        if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+          const parsed = toolCalls.map((tc: { function?: { name?: string; arguments?: string } }) => {
+            let args: Record<string, unknown> = {};
+            try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { args = {}; }
+            return { name: tc.function?.name ?? '', args };
+          });
+          consecutiveErrors = 0;
+          return {
+            functionCalls: parsed,
+            modelContent: { role: 'model', parts: parsed.map(p => ({ functionCall: { name: p.name, args: p.args } })) } as Content,
+            usageMetadata,
+          };
+        }
+        consecutiveErrors = 0;
+        return { text: message?.content || '', usageMetadata };
       }
+
       const ai = new GoogleGenAI({
         apiKey,
         ...(baseUrl && { httpOptions: { baseUrl } }),
