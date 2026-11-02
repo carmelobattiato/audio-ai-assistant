@@ -403,7 +403,7 @@ window.__aai_v4_loaded = true;
     var isTeams = loc === 'Microsoft Teams Meeting' || (ev.Location && ev.Location.Id === 'Microsoft Teams Meeting');
     return {
       id:               (ev.ItemId && ev.ItemId.Id) || ev.UID || ((ev.Subject||'') + '|' + (ev.Start||'')),
-      subject:          ev.Subject || '(senza titolo)',
+      subject:          ev.Subject || '(untitled)',
       start:            ev.Start || '',
       end:              ev.End   || '',
       location:         loc,
@@ -475,7 +475,7 @@ window.__aai_v4_loaded = true;
       || (ev.onlineMeeting && ev.onlineMeeting.joinUrl) || null;
     return {
       id:               ev.Id || ev.id || ((ev.Subject||ev.subject||'') + '|' + startDt),
-      subject:          ev.Subject || ev.subject || '(senza titolo)',
+      subject:          ev.Subject || ev.subject || '(untitled)',
       start:            startDt,
       end:              endDt,
       location:         loc,

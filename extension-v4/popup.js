@@ -169,13 +169,19 @@ function stamp() {
 
 // ── Azioni ────────────────────────────────────────────────────────────────────
 
-el('syncBtn').addEventListener('click', function() {
+// Stesso comando per il bottone e per il badge URL: il service worker apre o
+// ricarica Outlook in background se la tab manca o è scartata.
+function runSync() {
+  if (el('syncBtn').disabled) return;
   el('syncBtn').disabled = true;
-  chrome.runtime.sendMessage({ type: 'AAI_V4_SYNC_NOW' }, function() {
+  chrome.runtime.sendMessage({ type: 'AAI_V4_SYNC_NOW', reason: 'popup' }, function() {
     void chrome.runtime.lastError;
     refresh();
   });
-});
+}
+
+el('syncBtn').addEventListener('click', runSync);
+el('connectedUrl').addEventListener('click', runSync);
 
 el('downloadBtn').addEventListener('click', function() {
   if (!_events.length) return;

@@ -133,7 +133,7 @@ export const NeoTopbar: React.FC<NeoTopbarProps> = ({
     {/* Nav buttons — center */}
     <nav className="flex items-center gap-1.5 flex-shrink-0">
       <NeoNavButton
-        icon={<CalendarIcon />} label="Calendar" tooltip="Calendar — appuntamenti dal plugin Audio AI Assistance e sessioni registrate"
+        icon={<CalendarIcon />} label="Calendar" tooltip="Calendar — meetings from the Audio AI Assistance plugin and recorded sessions"
         onClick={onOpenNewCalendar} disabled={isBusy} highlight
       />
       <style>{`@keyframes caveman-cal-sync-pulse { 0%,100% { color: #ffffff; } 50% { color: #fb923c; } }`}</style>

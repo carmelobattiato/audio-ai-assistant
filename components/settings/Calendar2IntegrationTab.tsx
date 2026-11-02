@@ -7,12 +7,14 @@ import {
 } from '../../services/icsService';
 import { db } from '../../utils/db';
 
-const HEARTBEAT_KEY = 'calendar:extension-heartbeat';
+// Heartbeat del plugin v4 (service worker) — stessa chiave letta da useV4CalendarSync (K.extTs).
+// La vecchia chiave v3 'calendar:extension-heartbeat' non è più scritta dal plugin attuale.
+const HEARTBEAT_KEY = 'aai-v4-bridge-ext-ts';
 // Artefatto servito da public/ — rigenerarlo quando cambia extension-v4.
-const PLUGIN_VERSION = '4.4.0';
+const PLUGIN_VERSION = '4.5.0';
 const PLUGIN_ZIP = 'audio-ai-assistance-plugin-v4.zip';
 
-const HEARTBEAT_STALE_MS = 90_000; // 90s — extension heartbeats every 30s
+const HEARTBEAT_STALE_MS = 90_000; // 90s — il plugin batte una volta per ciclo di sync (60s)
 
 const isWindows = typeof navigator !== 'undefined' && /win/i.test(navigator.platform);
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Audio AI Assistance Plugin",
-  "version": "4.4.0",
+  "version": "4.5.0",
   "description": "Carica in memoria gli appuntamenti Outlook della scorsa e prossima settimana",
   "permissions": [
     "storage",
@@ -54,7 +54,7 @@
       "js": [
         "content-app.js"
       ],
-      "run_at": "document_idle",
+      "run_at": "document_start",
       "world": "ISOLATED"
     }
   ],

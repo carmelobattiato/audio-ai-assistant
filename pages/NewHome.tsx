@@ -7,6 +7,7 @@ import { AppModals } from '../components/AppModals';
 import { NeoTopbar } from '../components/newpage/NeoTopbar';
 import { useIsOnline } from '../hooks/useIsOnline';
 import { useCalendarSync } from '../hooks/useCalendarSync';
+import { useV4AppOpenSync } from '../hooks/useV4CalendarSync';
 import { useMeetingFlow } from '../hooks/useMeetingFlow';
 import { useUpdateCheck, type UpdateInfo } from '../hooks/useUpdateCheck';
 import { NeoPipelineBar } from '../components/newpage/NeoPipelineBar';
@@ -125,6 +126,8 @@ export const NewHome: React.FC = () => {
   const {
     calAppointments, calendarEventsDb, setCalendarEventsDb,
   } = useCalendarSync({ isNewCalendarOpen });
+  // Plugin v4: sync all'apertura dell'app, così il calendario trova i dati già pronti.
+  useV4AppOpenSync();
 
 
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -1297,7 +1300,7 @@ export const NewHome: React.FC = () => {
               <button
                 onClick={() => setIsNewCalendarOpen(false)}
                 className="text-gray-400 hover:text-white transition-colors p-1 rounded"
-                title="Chiudi"
+                title="Close"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1305,7 +1308,7 @@ export const NewHome: React.FC = () => {
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
-              <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Caricamento…</div>}>
+              <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Loading…</div>}>
                 <V4CalendarView
                   sessions={savedSessions}
                   onOpenSession={(sessionId) => {
@@ -1330,6 +1333,11 @@ export const NewHome: React.FC = () => {
                     setIsNewCalendarOpen(false);
                     pendingLinkAppointmentRef.current = { id: eventId, subject: title };
                     handleOutlookOpenTeams(title, noteHtml, teamsUrl, attendees);
+                  }}
+                  onOpenSettings={(tab) => {
+                    setIsNewCalendarOpen(false);
+                    setSettingsInitialTab(tab ?? 'integrations');
+                    setIsSettingsOpen(true);
                   }}
                 />
               </Suspense>

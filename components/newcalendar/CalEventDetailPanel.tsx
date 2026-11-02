@@ -22,11 +22,11 @@ export interface CalendarEventRecord {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(iso: string): string {
-  return new Date(iso).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('it-IT', {
+  return new Date(iso).toLocaleDateString('en-US', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 }
@@ -198,7 +198,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                 <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.847v6.306a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
                 </svg>
-                Apri in Teams
+                Open in Teams
               </button>
             )}
           </div>
@@ -207,7 +207,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
           {event.attendees && event.attendees.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-gray-400">
-                Partecipanti ({event.attendees.length})
+                Attendees ({event.attendees.length})
               </p>
               <div className="space-y-1.5 max-h-36 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
                 {event.attendees.map((a, i) => (
@@ -246,7 +246,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
           {/* ── Recording section ──────────────────────────────────────────────── */}
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-gray-400">
-              Registrazione
+              Recording
             </p>
 
             {linkedSession ? (
@@ -262,7 +262,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                       {linkedSession.name}
                     </p>
                     <p className="text-[10px] text-gray-500 mt-0.5">
-                      {new Date(linkedSession.timestamp).toLocaleDateString('it-IT', {
+                      {new Date(linkedSession.timestamp).toLocaleDateString('en-US', {
                         day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                       })}
                       {' · '}
@@ -289,15 +289,15 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
-                    Apri Sessione
+                    Open Session
                   </button>
                   <button
                     onClick={() => onUnlinkSession(event.id)}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-red-900/30"
                     style={{ color: '#F87171', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)' }}
-                    title="Scollega sessione"
+                    title="Unlink session"
                   >
-                    Scollega
+                    Unlink
                   </button>
                 </div>
               </div>
@@ -308,7 +308,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                 style={{ background: 'rgba(75,85,99,0.15)', border: '1px solid rgba(75,85,99,0.3)' }}
               >
                 <p className="text-xs text-gray-400">
-                  Nessuna registrazione collegata a questo evento.
+                  No recording linked to this event.
                 </p>
 
                 {nearbySessions.length > 0 ? (
@@ -322,7 +322,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                         </svg>
-                        Collega Sessione ({nearbySessions.length})
+                        Link Session ({nearbySessions.length})
                       </span>
                       <svg
                         className={`w-3.5 h-3.5 transition-transform ${showSessionDropdown ? 'rotate-180' : ''}`}
@@ -350,11 +350,11 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-medium text-gray-200 truncate">{s.name}</p>
                               <p className="text-[10px] text-gray-500 mt-0.5">
-                                {new Date(s.timestamp).toLocaleDateString('it-IT', {
+                                {new Date(s.timestamp).toLocaleDateString('en-US', {
                                   day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                                 })}
                                 {isSameDay(new Date(s.timestamp), new Date(event.start)) && (
-                                  <span className="ml-1.5 text-emerald-500">• stesso giorno</span>
+                                  <span className="ml-1.5 text-emerald-500">• same day</span>
                                 )}
                               </p>
                             </div>
@@ -365,7 +365,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                   </div>
                 ) : (
                   <p className="text-[11px] text-gray-500">
-                    Nessuna sessione nelle vicinanze (±2 giorni).
+                    No sessions nearby (±2 days).
                   </p>
                 )}
               </div>
@@ -374,7 +374,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
 
           {/* Source badge */}
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-500">Sorgente:</span>
+            <span className="text-[10px] text-gray-500">Source:</span>
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
               style={
@@ -393,7 +393,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                   background: event.source === 'extension' ? '#10B981' : event.source === 'ics' ? '#F59E0B' : event.source === 'app' ? '#38BDF8' : '#8B5CF6',
                 }}
               />
-              {event.source === 'extension' ? 'Outlook Live' : event.source === 'ics' ? 'ICS Feed' : event.source === 'app' ? 'Registrazione' : 'Outlook COM'}
+              {event.source === 'extension' ? 'Outlook Live' : event.source === 'ics' ? 'ICS Feed' : event.source === 'app' ? 'Recording' : 'Outlook COM'}
             </span>
           </div>
 
@@ -438,7 +438,7 @@ export const CalEventDetailPanel: React.FC<CalEventDetailPanelProps> = ({
                   onClick={() => { onLoadAndSchedule(event.id, event.subject, noteHtml, attendees, event.start, event.subject); onClose(); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
                   style={{ background: 'linear-gradient(135deg,#10B981,#7C3AED)', color: 'white' }}
-                  title="Carica info e imposta countdown per avvio automatico alla riunione"
+                  title="Load info and set countdown for auto-start at meeting time"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

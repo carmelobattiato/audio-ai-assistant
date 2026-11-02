@@ -26,8 +26,26 @@ const SYNC_TIMEOUT_MS = 10_000;
 
 const LOG_EVENT = 'CALENDAR_V4';
 
+/** Automatic triggers (app open, calendar open) skip if a request went out this recently. */
+const AUTO_SYNC_GAP_MS = 30_000;
+
+/** Shared by every hook instance, so app-open and calendar-open don't double up. */
+let lastRequestAt = 0;
+
+function postSyncRequest(reason: string): void {
+  lastRequestAt = Date.now();
+  window.postMessage({ type: MSG_REQUEST, reason }, '*');
+}
+
 export type V4OutlookState = 'ok' | 'error' | 'fetching' | 'idle' | 'unknown';
 export type V4SyncRequestState = 'idle' | 'requesting' | 'ok' | 'error';
+
+export interface SyncRequestOptions {
+  /** Automatic: skipped inside the gap, and a failure is logged without touching the status bar. */
+  auto?: boolean;
+  /** Shown in the plugin's log, e.g. 'calendar-open'. */
+  reason?: string;
+}
 
 export interface V4CalendarSyncState {
   events: CalendarEventRecord[];
@@ -50,7 +68,7 @@ export interface V4CalendarSyncState {
   /** Outcome of the most recent manual "Run sync". */
   syncRequestState: V4SyncRequestState;
   syncRequestError: string | null;
-  requestSync: () => void;
+  requestSync: (opts?: SyncRequestOptions) => void;
 }
 
 /**
@@ -84,7 +102,7 @@ function mapEvents(raw: string | null): CalendarEventRecord[] {
       .filter((e) => e && e.id && e.start && e.end)
       .map((e): CalendarEventRecord => ({
         id: String(e.id),
-        subject: e.subject || '(senza titolo)',
+        subject: e.subject || '(untitled)',
         start: e.start,
         end: e.end,
         location: e.location || undefined,
@@ -129,6 +147,7 @@ export function useV4CalendarSync(): V4CalendarSyncState {
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startedAtRef = useRef<number>(0);
+  const pendingAutoRef = useRef<boolean>(false);
 
   const read = useCallback(() => {
     const extTs = readNumber(K.extTs);
@@ -244,12 +263,23 @@ export function useV4CalendarSync(): V4CalendarSyncState {
       setPluginInstalled(true);
 
       const durationMs = Date.now() - startedAtRef.current;
+      // Una sync automatica non porta lo stato in errore: il plugin può non essere installato.
+      if (pendingAutoRef.current) {
+        pendingAutoRef.current = false;
+        if (e.data.ok) {
+          loggingService.info(LOG_EVENT, 'Sync automatica: il plugin ha accettato la richiesta', { durationMs });
+        } else {
+          loggingService.warn(LOG_EVENT, `Sync automatica non avviata: ${e.data.error || 'errore sconosciuto'}`, { durationMs });
+        }
+        read();
+        return;
+      }
       if (e.data.ok) {
         setSyncRequestState('ok');
         setSyncRequestError(null);
         loggingService.info(LOG_EVENT, 'Run sync: il plugin ha accettato la richiesta', { durationMs });
       } else {
-        const error = e.data.error || 'Errore sconosciuto dal plugin';
+        const error = e.data.error || 'Unknown error from the plugin';
         setSyncRequestState('error');
         setSyncRequestError(error);
         loggingService.error(LOG_EVENT, `Run sync fallita: ${error}`, { durationMs });
@@ -263,24 +293,47 @@ export function useV4CalendarSync(): V4CalendarSyncState {
 
   useEffect(() => clearPending, [clearPending]);
 
-  const requestSync = useCallback(() => {
-    if (timeoutRef.current) return; // already waiting on the plugin
+  const requestSync = useCallback((opts: SyncRequestOptions = {}) => {
+    const { auto = false, reason = 'manuale' } = opts;
+    if (timeoutRef.current) {
+      if (auto) return; // already waiting on the plugin
+      clearPending(); // un "Run sync" vince su una richiesta automatica ancora in attesa
+    }
+    if (auto && Date.now() - lastRequestAt < AUTO_SYNC_GAP_MS) {
+      loggingService.debug(LOG_EVENT, `Sync automatica saltata (${reason}): richiesta recente`);
+      return;
+    }
 
     startedAtRef.current = Date.now();
-    setSyncRequestState('requesting');
-    setSyncRequestError(null);
-    loggingService.info(LOG_EVENT, 'Run sync: richiesta inviata al plugin');
+    pendingAutoRef.current = auto;
+    if (!auto) {
+      setSyncRequestState('requesting');
+      setSyncRequestError(null);
+      loggingService.info(LOG_EVENT, 'Run sync: richiesta inviata al plugin');
+    } else {
+      loggingService.debug(LOG_EVENT, `Sync automatica (${reason}): richiesta inviata al plugin`);
+    }
 
-    window.postMessage({ type: MSG_REQUEST }, '*');
+    postSyncRequest(reason);
 
     timeoutRef.current = setTimeout(() => {
       timeoutRef.current = null;
-      const error = 'Nessuna risposta dal plugin entro 10s — verifica che sia installato e attivo';
+      if (auto) {
+        pendingAutoRef.current = false;
+        loggingService.warn(LOG_EVENT, `Sync automatica (${reason}): nessuna risposta dal plugin entro 10s`);
+        return;
+      }
+      const error = 'No response from the plugin within 10s — check that it is installed and enabled; after an update, reload this page (F5)';
       setSyncRequestState('error');
       setSyncRequestError(error);
       loggingService.error(LOG_EVENT, `Run sync fallita: ${error}`, { timeoutMs: SYNC_TIMEOUT_MS });
     }, SYNC_TIMEOUT_MS);
-  }, []);
+  }, [clearPending]);
+
+  // Il Calendar si apre: aggiorna i dati del plugin, salvo richieste recenti.
+  useEffect(() => {
+    requestSync({ auto: true, reason: 'calendar-open' });
+  }, [requestSync]);
 
   return {
     ...data,
@@ -292,4 +345,17 @@ export function useV4CalendarSync(): V4CalendarSyncState {
     syncRequestError,
     requestSync,
   };
+}
+
+/**
+ * Asks the plugin to sync as soon as the app starts, so the bridge already holds
+ * fresh data when the calendar opens. Fire-and-forget: nothing waits for the
+ * answer here, the result shows up in the bridge state.
+ */
+export function useV4AppOpenSync(): void {
+  useEffect(() => {
+    if (Date.now() - lastRequestAt < AUTO_SYNC_GAP_MS) return;
+    postSyncRequest('app-open');
+    loggingService.debug(LOG_EVENT, 'Sync automatica (app-open): richiesta inviata al plugin');
+  }, []);
 }

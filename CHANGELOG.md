@@ -8,6 +8,21 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.182] — 2026-11-02
+
+
+- `components/v4calendar/V4CalendarView.tsx`: tasto "Integration with Outlook" nella barra di stato che apre Settings › Integrations, con nota che il vecchio plugin Chrome è stato sostituito e non è più compatibile
+- Fix badge "Non rilevata" in Settings › Integrations con plugin v4 attivo: la detection leggeva la vecchia chiave heartbeat v3 (`calendar:extension-heartbeat`) invece del bridge v4 (`aai-v4-bridge-ext-ts`)
+- `extension-v4/background.js`: "Sincronizza" apre Outlook in background se la tab manca, la ricarica se scartata dal browser; retry dopo `No tab with id`
+- `extension-v4/popup.js`: click sul badge URL avvia la sync
+- `hooks/useV4CalendarSync.ts`, `pages/NewHome.tsx`: sync automatica del plugin all'apertura dell'app e del Calendar, massimo una ogni 30s
+- `extension-v4/content-app.js`: dopo un aggiornamento del plugin errore esplicito "ricarica la pagina (F5)" invece del timeout di 10s
+- Calendario: testi in inglese in `V4CalendarView.tsx`, `components/newcalendar/*`, `NeoTopbar.tsx`, modal in `NewHome.tsx`; date in `en-US`, ore 24h in `en-GB`
+- `extension-v4/background.js`, `content-outlook.js`, `useV4CalendarSync.ts`: titolo di default evento `(untitled)`
+- `extension-v4/manifest.json`: plugin 4.5.0, `content-app.js` a `document_start` (la richiesta dell'app non andava persa prima di `document_idle`)
+
+---
+
 ## [1.181] — 2026-09-28
 
 - Fix chat Archivio con proxy OpenAI-compatible: `generateWithTools` traduce il function calling Gemini in formato OpenAI (`tools`/`tool_calls`/messaggi `tool`) verso `/v1/chat/completions` invece di contattare Google diretto (`API_KEY_INVALID`)

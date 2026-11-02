@@ -83,7 +83,7 @@ export const NewCalMonthView: React.FC<NewCalMonthViewProps> = ({
   const month = currentDate.getMonth();
   const grid  = buildMonthGrid(year, month);
 
-  const DOW_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+  const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const MAX_VISIBLE = 3;
 
   return (

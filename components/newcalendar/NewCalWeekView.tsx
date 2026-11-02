@@ -21,7 +21,7 @@ function toPx(minutes: number): number {
 }
 
 function fmt(iso: string): string {
-  return new Date(iso).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
 function sameDay(a: Date, b: Date): boolean {
@@ -169,7 +169,7 @@ export const NewCalWeekView: React.FC<NewCalWeekViewProps> = ({
     return d;
   });
 
-  const DOW_SHORT = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+  const DOW_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const nowMin = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
   const nowPx  = toPx(nowMin);

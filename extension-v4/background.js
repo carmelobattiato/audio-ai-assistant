@@ -235,7 +235,7 @@ function mapRestEvent(ev) {
   var start = restDt(ev.Start);
   return {
     id: ev.Id || ((ev.Subject || '') + '|' + start),
-    subject: ev.Subject || '(senza titolo)',
+    subject: ev.Subject || '(untitled)',
     start: start,
     end: restDt(ev.End),
     location: (ev.Location && ev.Location.DisplayName) || '',
@@ -290,41 +290,166 @@ function syncFromBackground(cb) {
 // prima che l'estensione venisse caricata) e invia il trigger. La risposta
 // arriva più tardi come messaggio AAI_V4_EVENTS indipendente, che risveglia il
 // service worker — non va attesa qui.
+//
+// opts.openIfMissing: solo per i trigger espliciti (popup, badge, app). Se la
+// tab Outlook manca o è stata scartata dal browser la apre o la ricarica in
+// background, senza portarla in primo piano. L'alarm non apre mai tab.
 
-function triggerSync(reason, cb) {
+var SYNC_DEDUP_MS = 5 * 1000;
+var TAB_LOAD_TIMEOUT_MS = 20 * 1000;
+var _lastExplicitSyncAt = 0;
+
+function triggerSync(reason, opts, cb) {
+  if (typeof opts === 'function') { cb = opts; opts = null; }
+  opts = opts || {};
+  if (opts.openIfMissing) {
+    // Popup, badge e app possono partire insieme: una sola sync per volta.
+    if (Date.now() - _lastExplicitSyncAt < SYNC_DEDUP_MS) {
+      appendLog('SYNC_SKIP', reason + ' — sync appena avviata');
+      if (cb) cb(true);
+      return;
+    }
+    _lastExplicitSyncAt = Date.now();
+  }
   appendLog('SYNC', reason);
   // Prima si prova senza toccare la tab; il percorso via content script resta
   // come fallback per quando il token non c'è ancora o è scaduto.
   syncFromBackground(function(ok, why) {
     if (ok) { if (cb) cb(true); return; }
     appendLog('BG_SYNC_SKIP', why + ' — passo al content script');
-    triggerSyncViaTab(cb);
+    triggerSyncViaTab(opts, cb);
   });
 }
 
-function triggerSyncViaTab(cb) {
+// Preferisce una tab non scartata: Chrome non esegue script in quelle scartate.
+function findOutlookTab(tabs) {
+  var found = null;
+  for (var i = 0; i < tabs.length; i++) {
+    var t = tabs[i];
+    if (!t.id || !isOutlookTab(t.url)) continue;
+    if (!t.discarded) return t;
+    if (!found) found = t;
+  }
+  return found;
+}
+
+// Risolve con la tab quando ha finito di caricare, o null allo scadere.
+// checkNow: la tab può essere già completa prima che il listener parta.
+function waitTabComplete(tabId, checkNow, cb) {
+  var settled = false;
+  var timer = null;
+  function onUpdated(id, info) {
+    if (id === tabId && info.status === 'complete') settle(true);
+  }
+  function settle(ok) {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    chrome.tabs.onUpdated.removeListener(onUpdated);
+    if (!ok) { cb(null); return; }
+    chrome.tabs.get(tabId, function(tab) {
+      void chrome.runtime.lastError;
+      cb(tab || null);
+    });
+  }
+  timer = setTimeout(function() { settle(false); }, TAB_LOAD_TIMEOUT_MS);
+  chrome.tabs.onUpdated.addListener(onUpdated);
+  if (checkNow) {
+    chrome.tabs.get(tabId, function(tab) {
+      void chrome.runtime.lastError;
+      if (tab && tab.status === 'complete') settle(true);
+    });
+  }
+}
+
+function openOutlookTabInBackground(cb) {
+  getOutlookUrl(function(url) {
+    chrome.tabs.create({ url: url, active: false }, function(created) {
+      if (chrome.runtime.lastError || !created) {
+        var why = (chrome.runtime.lastError && chrome.runtime.lastError.message) || 'creazione tab fallita';
+        appendLog('OUTLOOK_OPEN_FAIL', why);
+        cb(null, 'Impossibile aprire Outlook: ' + why);
+        return;
+      }
+      appendLog('OUTLOOK_OPENED', url + ' (in background)');
+      waitTabComplete(created.id, true, function(tab) {
+        cb(tab, tab ? null : 'Outlook non ha finito di caricarsi');
+      });
+    });
+  });
+}
+
+function reloadTabInBackground(tabId, cb) {
+  appendLog('TAB_RELOAD', 'tab ' + tabId + ' scartata o non risponde -> ricarico in background');
+  chrome.tabs.reload(tabId, function() {
+    if (chrome.runtime.lastError) { openOutlookTabInBackground(cb); return; }
+    waitTabComplete(tabId, false, function(tab) {
+      cb(tab, tab ? null : 'Outlook non ha finito di caricarsi');
+    });
+  });
+}
+
+// Tab pronta per il trigger: la apre se manca, la ricarica se scartata.
+function ensureOutlookTab(cb) {
   chrome.tabs.query({}, function(tabs) {
-    var tab = null;
-    for (var i = 0; i < tabs.length; i++) {
-      if (isOutlookTab(tabs[i].url)) { tab = tabs[i]; break; }
-    }
+    var tab = findOutlookTab(tabs);
+    if (!tab) { openOutlookTabInBackground(cb); return; }
+    if (tab.discarded) { reloadTabInBackground(tab.id, cb); return; }
+    cb(tab);
+  });
+}
+
+// La tab trovata non risponde più: se esiste ancora la ricarica, altrimenti ne apre una.
+function recoverTab(tabId, cb) {
+  chrome.tabs.get(tabId, function(tab) {
+    if (chrome.runtime.lastError || !tab) { openOutlookTabInBackground(cb); return; }
+    reloadTabInBackground(tabId, cb);
+  });
+}
+
+// Errori di executeScript che indicano una tab morta o scartata, non un problema di rete.
+function isStaleTabError(msg) {
+  return /No tab with id|was closed|Frame with ID|Cannot access|discard/i.test(msg || '');
+}
+
+function failSync(msg, cb) {
+  appendLog('SYNC_FAIL', msg);
+  chrome.storage.local.set({
+    [K.getState]: 'error',
+    [K.getTs]: Date.now(),
+    [K.getError]: msg,
+  });
+  if (cb) cb(false);
+}
+
+function triggerSyncViaTab(opts, cb, retried) {
+  var pick = opts.openIfMissing ? ensureOutlookTab : function(done) {
+    chrome.tabs.query({}, function(tabs) { done(findOutlookTab(tabs)); });
+  };
+  pick(function(tab, err) {
     if (!tab) {
-      appendLog('OUTLOOK_NOT_FOUND', 'nessuna tab Outlook aperta');
+      var msg = err || 'Nessuna tab Outlook aperta';
+      appendLog('OUTLOOK_NOT_FOUND', msg);
       chrome.storage.local.set({
         [K.getState]: 'error',
         [K.getTs]: Date.now(),
-        [K.getError]: 'Nessuna tab Outlook aperta',
+        [K.getError]: msg,
       });
       pushCachedToApp('error');
       if (cb) cb(false);
       return;
     }
+    runSyncInTab(tab, opts, cb, retried);
+  });
+}
 
-    appendLog('OUTLOOK_FOUND', tab.url);
+function runSyncInTab(tab, opts, cb, retried) {
+  appendLog('OUTLOOK_FOUND', tab.url || ('tab ' + tab.id));
 
-    // Un trigger può non produrre nulla: se la tab Outlook è congelata dal
-    // browser il content script non gira e nessuno se ne accorgerebbe.
-    // Il ciclo successivo verifica che il precedente abbia prodotto eventi.
+  // Un trigger può non produrre nulla: se la tab Outlook è congelata dal
+  // browser il content script non gira e nessuno se ne accorgerebbe.
+  // Il ciclo successivo verifica che il precedente abbia prodotto eventi.
+  if (!retried) {
     storeGet([K.lastTriggerAt, K.seenAt], function(prev) {
       var last = prev[K.lastTriggerAt] || 0;
       var seen = prev[K.seenAt] || 0;
@@ -338,35 +463,38 @@ function triggerSyncViaTab(cb) {
       }
       chrome.storage.local.set({ [K.lastTriggerAt]: Date.now() });
     });
+  }
 
-    chrome.storage.local.set({ [K.getState]: 'fetching', [K.getTs]: Date.now(), [K.getError]: '' });
-    pushCachedToApp('fetching');
+  chrome.storage.local.set({ [K.getState]: 'fetching', [K.getTs]: Date.now(), [K.getError]: '' });
+  pushCachedToApp('fetching');
 
-    var inject = function(file, world) {
+  var inject = function(file, world) {
+    return chrome.scripting.executeScript({
+      target: { tabId: tab.id }, files: [file], world: world,
+    }).catch(function() {});
+  };
+
+  Promise.all([inject('content-bridge.js', 'ISOLATED'), inject('content-outlook.js', 'MAIN')])
+    .then(function() {
       return chrome.scripting.executeScript({
-        target: { tabId: tab.id }, files: [file], world: world,
-      }).catch(function() {});
-    };
-
-    Promise.all([inject('content-bridge.js', 'ISOLATED'), inject('content-outlook.js', 'MAIN')])
-      .then(function() {
-        return chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: function() { window.postMessage({ type: '__AAI_V4_DO_SYNC__' }, '*'); },
-          world: 'MAIN',
-        });
-      })
-      .then(function() { if (cb) cb(true); })
-      .catch(function(e) {
-        appendLog('SYNC_FAIL', (e && e.message) || 'trigger fallito');
-        chrome.storage.local.set({
-          [K.getState]: 'error',
-          [K.getTs]: Date.now(),
-          [K.getError]: (e && e.message) || 'Trigger fallito',
-        });
-        if (cb) cb(false);
+        target: { tabId: tab.id },
+        func: function() { window.postMessage({ type: '__AAI_V4_DO_SYNC__' }, '*'); },
+        world: 'MAIN',
       });
-  });
+    })
+    .then(function() { if (cb) cb(true); })
+    .catch(function(e) {
+      var msg = (e && e.message) || 'Trigger fallito';
+      if (opts.openIfMissing && !retried && isStaleTabError(msg)) {
+        appendLog('TAB_STALE', msg + ' — riprovo con tab ricaricata');
+        recoverTab(tab.id, function(next, err) {
+          if (!next) { failSync(err || msg, cb); return; }
+          runSyncInTab(next, opts, cb, true);
+        });
+        return;
+      }
+      failSync(msg, cb);
+    });
 }
 
 // ── Merge e persistenza eventi ────────────────────────────────────────────────
@@ -534,7 +662,7 @@ chrome.runtime.onMessage.addListener(function(msg, _sender, sendResponse) {
     // la catena inject+trigger lo esponeva alla sospensione del service worker:
     // la risposta andava persa e il chiamante restava in timeout. L'esito reale
     // arriva comunque dallo stato pubblicato sul bridge.
-    triggerSync(msg.reason || 'manuale');
+    triggerSync(msg.reason || 'manuale', { openIfMissing: true });
     sendResponse({ ok: true });
     return;
   }
