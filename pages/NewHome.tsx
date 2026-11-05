@@ -335,11 +335,26 @@ export const NewHome: React.FC = () => {
     } catch { setCoherenceStatus(CoherenceAssessmentStatus.ERROR); }
   }, [activeSourceText, appSettings.llm, addLlmUsageStat]);
 
-  const handleLlmProcessingComplete = useCallback((text: string, type: string, usage?: { inputTokens: number; outputTokens: number }) => {
+  const handleLlmProcessingComplete = useCallback((text: string, type: string, usage?: { inputTokens: number; outputTokens: number }, isHtmlReport?: boolean) => {
     setLlmProcessedText(text); setLlmProcessingType(type);
     setLlmResultsHistory(prev => [...prev, { id: Date.now().toString(), type, contentHtml: text, timestamp: Date.now() }]);
+    // Il risultato entra nella chat come messaggio assistente (export e contesto inclusi)
+    setMeetingChatHistory(prev => [...prev, {
+      id: crypto.randomUUID(), role: 'assistant', kind: 'analysis', analysisTitle: type,
+      html: text, isReport: !!isHtmlReport, content: isHtmlReport ? `[Report HTML: ${type}]` : htmlToPlainText(text), timestamp: Date.now(),
+    }]);
     if (usage) addLlmUsageStat({ inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, functionName: type, model: appSettings.llm.model, provider: appSettings.llm.provider });
-  }, [appSettings.llm, addLlmUsageStat]);
+  }, [appSettings.llm, addLlmUsageStat, setMeetingChatHistory]);
+
+  // Modifica dell'analisi: aggiorna sia il risultato corrente sia l'ultimo messaggio di analisi in chat
+  const handleAnalysisHtmlEdit = useCallback((html: string) => {
+    setLlmProcessedText(html);
+    setMeetingChatHistory(prev => {
+      const idx = prev.map(m => m.kind).lastIndexOf('analysis');
+      if (idx === -1) return prev;
+      return prev.map((m, i) => i === idx ? { ...m, html, content: htmlToPlainText(html) } : m);
+    });
+  }, [setMeetingChatHistory]);
 
   const handleLlmProcessingError = useCallback((err: string) => {
     if (pipelineStep === PipelineStep.ANALYZING) {
@@ -1173,7 +1188,7 @@ export const NewHome: React.FC = () => {
                   bubbleNotes={bubbleNotes}
                   onProcessingComplete={handleLlmProcessingComplete}
                   currentLlmResult={llmProcessedText}
-                  onLlmResultUpdate={(h: string) => setLlmProcessedText(h)}
+                  onLlmResultUpdate={(h: string) => handleAnalysisHtmlEdit(h)}
                   settings={appSettings.llm}
                   transcriptionSettings={appSettings.transcription}
                   transcriptionLanguage={appSettings.transcription.language}
@@ -1223,7 +1238,7 @@ export const NewHome: React.FC = () => {
                   useHistoricalContext={useHistoricalContext}
                   externalChatMode={unifiedChatMode}
                   onExternalChatModeChange={setUnifiedChatMode}
-                  onAnalysisEdit={(html) => setLlmProcessedText(html)}
+                  onAnalysisEdit={handleAnalysisHtmlEdit}
                 />
                 </Suspense>
               </div>

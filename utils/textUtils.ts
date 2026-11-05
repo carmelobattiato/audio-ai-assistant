@@ -322,3 +322,16 @@ export const parseHtmlForGeminiParts = (htmlString: string): Part[] => {
   tempDiv.childNodes.forEach(processNode);
   return parts;
 };
+
+/** True se il contenuto è HTML completo o un frammento con <style> (il markdown renderizzato non ha <style>). */
+export function isHtmlDocument(content: string): boolean {
+  return /<!DOCTYPE html|<html[\s>]|<style[\s>]/i.test(content || '');
+}
+
+/**
+ * Report HTML generato dal processore (es. "Create HTML Timeline Report").
+ * `isReport` è impostato alla creazione; il fallback copre messaggi salvati prima del flag.
+ */
+export function isHtmlReportMessage(m: { html?: string; analysisTitle?: string; isReport?: boolean }): boolean {
+  return !!m.isReport || isHtmlDocument(m.html ?? '') || /html/i.test(m.analysisTitle ?? '');
+}

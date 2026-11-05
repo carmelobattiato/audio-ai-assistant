@@ -8,6 +8,18 @@ Ogni versione elenca solo le modifiche rilevanti. Stile minimale: una riga per p
 
 ---
 
+## [1.183] — 2026-11-05
+
+- Risultato di "Analizza trascrizione" inserito nella chat come messaggio assistente, incluso in export `.md` e contesto delle domande successive
+- Report HTML (es. Timeline): nella chat link `Scarica report HTML` e occhio per mostrare/nascondere l'anteprima, nessun rendering inline
+- Fix selezione testo in chat: le bolle assistente non sono più box scrollabili annidati (classe `chat-prose` in `index.html`)
+- `components/MeetingChatPanel.tsx`: card analisi estratta in `AnalysisCard`, usata sia per i messaggi in chat sia per il risultato corrente
+- `types.ts`: `MeetingChatMessage` con `kind`, `analysisTitle`, `html`, `isReport`
+- `components/LlmProcessor.tsx`: `onProcessingComplete` riceve `isHtmlReport`
+- `utils/textUtils.ts`: `isHtmlDocument`, `isHtmlReportMessage`
+
+---
+
 ## [1.182] — 2026-11-05
 
 - `components/v4calendar/V4CalendarView.tsx`: tasto "Integration with Outlook" nella barra di stato che apre Settings › Integrations, con nota che il vecchio plugin Chrome è stato sostituito e non è più compatibile

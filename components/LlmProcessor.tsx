@@ -17,7 +17,7 @@ import { sanitizeHtml } from '../utils/sanitize';
 interface LlmProcessorProps {
   sourceText: string; 
   bubbleNotes: BubbleNote[];
-  onProcessingComplete: (processedText: string, type: string, usage?: { inputTokens: number; outputTokens: number }) => void;
+  onProcessingComplete: (processedText: string, type: string, usage?: { inputTokens: number; outputTokens: number }, isHtmlReport?: boolean) => void;
   currentLlmResult: string; 
   onLlmResultUpdate: (newHtmlContent: string, originalType: string) => void; 
   settings: AppSettings['llm'];
@@ -350,7 +350,7 @@ Se una sezione è vuota scrivi "Nessuno."${defaultCustomContextAddition}`);
         });
       }
 
-      onProcessingComplete(finalHtml, currentActionTitle, usageMetadata ? { inputTokens: usageMetadata.inputTokens, outputTokens: usageMetadata.outputTokens } : undefined);
+      onProcessingComplete(finalHtml, currentActionTitle, usageMetadata ? { inputTokens: usageMetadata.inputTokens, outputTokens: usageMetadata.outputTokens } : undefined, isHtmlType);
       if (settings.enhanceWithWebSearch && groundingMetadata?.groundingChunks) setGroundingChunks(groundingMetadata.groundingChunks);
     } catch (err) {
       if (err instanceof Error && (err.name === 'AbortError' || err.message === 'Aborted')) {

@@ -1131,6 +1131,20 @@
       .neo-ctx ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.35); border-radius: 4px; }
       .neo-ctx ::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.55); }
 
+      /* ── Chat prose: testo nel flusso della chat, niente box scrollabile annidato
+            (il box con min-height/overflow-y rompeva la selezione del testo) ── */
+      .llm-result-display-prose.chat-prose,
+      .neo-ctx .llm-result-display-prose.chat-prose,
+      body.theme-light .neo-ctx .llm-result-display-prose.chat-prose {
+        min-height: 0 !important;
+        overflow: visible !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+
       /* ── Modal dialogs: solid violet surface (discriminated by shadow-xl / shadow-2xl) ── */
       /* Cards inside panels use .bg-gray-800 WITHOUT these shadow classes → stay transparent */
       .neo-ctx .bg-gray-800.shadow-xl,

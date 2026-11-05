@@ -389,6 +389,12 @@ export interface MeetingChatMessage {
     content: string;
     timestamp: number;
     attachedImages?: { mimeType: string; previewUrl: string }[];
+    // Risultato di "Analizza trascrizione" inserito nella chat come messaggio assistente.
+    // `content` = testo semplice (export, contesto LLM); `html` = versione formattata.
+    kind?: 'analysis';
+    analysisTitle?: string;
+    html?: string;
+    isReport?: boolean;
 }
 
 export interface SavedSessionData {
