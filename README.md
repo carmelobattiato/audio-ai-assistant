@@ -548,7 +548,7 @@ audio-ai-assistant/
 | Script | Platform | Comandi |
 |--------|----------|---------|
 | `Installa_Windows.bat` | Windows | Doppio clic — guida installazione completa per non tecnici |
-| `Start.bat` | Windows | Doppio clic — avvio rapido (dopo prima installazione) |
+| Collegamento Desktop `Audio_AI_Assistance` | Windows | Doppio clic — apre il terminale con il menu di `open` (come il `.command` su macOS) |
 | `setup_and_run.ps1` | Windows | `install` · `open` · `stop` · `status` · `restart` · `uninstall` |
 | `setup_and_run.sh` | macOS / Linux | `install` · `open` · `stop` · `status` · `restart` · `autostart-enable` |
 | `scripts/github.sh` | macOS / Linux | `push` · `--pull-force` (sovrascrive locale da remoto) |

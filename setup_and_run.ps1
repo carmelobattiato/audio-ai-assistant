@@ -19,7 +19,11 @@ param (
     [string]$Action = "help",
 
     [Parameter(Mandatory=$false)]
-    [string]$Port = "8090"
+    [string]$Port = "8090",
+
+    # Con "open": non attende la pressione di un tasto (usato dall'autostart)
+    [Parameter(Mandatory=$false)]
+    [switch]$NoWait
 )
 
 $PidFile    = Join-Path $PSScriptRoot ".app_service.json"
@@ -331,14 +335,15 @@ function Get-IconPath {
 function Install-Shortcuts {
     $DesktopPath = [Environment]::GetFolderPath("Desktop")
     $LnkDest     = Join-Path $DesktopPath "Audio_AI_Assistance.lnk"
-    $StartBat    = Join-Path $PSScriptRoot "Start.bat"
+    $ScriptPath  = Join-Path $PSScriptRoot "setup_and_run.ps1"
     $IconPath    = Get-IconPath
 
     try {
         $shell = New-Object -ComObject WScript.Shell
         $lnk   = $shell.CreateShortcut($LnkDest)
-        # Punta a Start.bat: avvia l'app E apre il browser al termine
-        $lnk.TargetPath       = $StartBat
+        # Come il .command macOS: apre un terminale con il menu di "open"
+        $lnk.TargetPath       = "powershell.exe"
+        $lnk.Arguments        = "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" open"
         $lnk.WorkingDirectory = $PSScriptRoot
         $lnk.WindowStyle      = 1
         $lnk.Description      = "Avvia Audio AI Assistant"
@@ -374,12 +379,12 @@ function Remove-Shortcut {
 # =============================================================================
 
 function Enable-Autostart {
-    $StartBat = Join-Path $PSScriptRoot "Start.bat"
+    $ScriptPath = Join-Path $PSScriptRoot "setup_and_run.ps1"
     try {
         # Rimuove eventuali task precedenti con lo stesso nome
         schtasks /Delete /TN $TaskName /F 2>$null | Out-Null
         schtasks /Create /TN $TaskName `
-                 /TR "`"$StartBat`"" `
+                 /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" open -NoWait" `
                  /SC ONLOGON `
                  /RL LIMITED `
                  /F | Out-Null
@@ -710,7 +715,14 @@ switch ($Action) {
     "uninstall"        { Uninstall-App }
     "autostart-enable" { Enable-Autostart }
     "autostart-disable"{ Disable-Autostart }
-    "open"             { Open-App }
+    "open"             {
+        Open-App
+        if (-not $NoWait) {
+            Write-Host ""
+            Write-Host "Premi un tasto per chiudere questa finestra..." -ForegroundColor DarkGray
+            [void][System.Console]::ReadKey($true)
+        }
+    }
     "help"             { Show-Help }
     Default            { Show-Help }
 }
